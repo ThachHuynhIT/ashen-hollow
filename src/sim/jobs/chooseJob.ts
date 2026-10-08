@@ -1,5 +1,5 @@
 import { query } from 'bitecs';
-import { NEEDS } from '../../data/colonists';
+import { JOB_PRIORITY_WEIGHT, NEEDS } from '../../data/colonists';
 import { DOODAD_IDS } from '../../data/doodads';
 import { CARRY_CAPACITY, type ResourceId } from '../../data/resources';
 import { isFullySupplied, missingMaterials } from '../colony/blueprint';
@@ -67,7 +67,7 @@ export const chooseJob = (world: GameWorld, eid: number): Job => {
 
   const pick: { job: Job | null; score: number } = { job: null, score: -Infinity };
   const consider = (priority: number, target: number, job: Job) => {
-    const score = priority * 1000 - distanceTo(me, target);
+    const score = priority * JOB_PRIORITY_WEIGHT - distanceTo(me, target);
     if (score > pick.score) {
       pick.job = job;
       pick.score = score;

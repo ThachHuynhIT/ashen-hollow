@@ -65,3 +65,6 @@ export const IDLE_PAUSE_TICKS = 20;
 export const TERRITORY_RADIUS = 192;
 /** Spacing between wall stakes along a dragged wall. */
 export const WALL_STAKE_SPACING = 8;
+
+/** Job score = priority × this − distance; must exceed the map diagonal so distance only breaks ties within a priority band. */
+export const JOB_PRIORITY_WEIGHT = 10_000;

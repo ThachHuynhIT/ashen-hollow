@@ -8,8 +8,10 @@ import {
 import { livingColonists, setCarry } from '../colony/colonists';
 import { designate } from '../colony/designation';
 import { Needs } from '../components';
-import { entityAt } from '../GameWorld';
+import { createGameWorld, entityAt } from '../GameWorld';
+import { Position } from '../components';
 import { scenarioWorld } from '../testing/scenario';
+import { openTerrain } from '../testing/terrainFixture';
 import { chooseJob } from './chooseJob';
 import { newJob } from './types';
 
@@ -120,5 +122,24 @@ describe('chooseJob', () => {
     const idle = scenarioWorld({ stock: { food: 5 } });
     Needs.hunger[first(idle)] = 25;
     expect(chooseJob(idle, first(idle)).kind).toBe('eat');
+  });
+
+  it('priority bands hold on a big map: a far delivery beats a near harvest', () => {
+    const w = createGameWorld({
+      seed: 1,
+      colonists: 1,
+      stock: { wood: 30 },
+      map: {
+        terrain: openTerrain(160, 160),
+        doodads: [{ kind: 'deadTree', x: 110, y: 100 }],
+        start: { x: 1280, y: 1280 },
+      },
+    });
+    const eid = first(w);
+    Position.x[eid] = 100;
+    Position.y[eid] = 100;
+    designate(w, { minX: 0, minY: 0, maxX: 2560, maxY: 2560 }, 'chop');
+    const bp = placeBlueprint(w, 'tent', 1320, 1300).eid!;
+    expect(chooseJob(w, eid)).toMatchObject({ kind: 'deliver', target: bp });
   });
 });
