@@ -29,4 +29,9 @@ export const Blueprint = {
   pending: RESOURCE_IDS.map(() => new Uint16Array(MAX_ENTITIES)),
 };
 
-export const components = { Position, Doodad, Building, Blueprint } as const;
+/** A doodad the player marked for harvesting: index into DESIGNATION_KINDS. */
+export const Designation = {
+  kind: new Uint8Array(MAX_ENTITIES),
+};
+
+export const components = { Position, Doodad, Building, Blueprint, Designation } as const;
