@@ -1,20 +1,21 @@
+import { hasComponent } from 'bitecs';
 import Phaser from 'phaser';
 import { createGameBus, type EventBus, type GameEvents } from '../core/events';
-import { BUILDINGS, PLAYER_BUILDINGS, type BuildingId } from '../data/buildings';
+import { BUILDINGS, BUILDING_IDS, PLAYER_BUILDINGS, type BuildingId } from '../data/buildings';
 import { PALETTE, toCss } from '../data/palette';
+import { ColonistRenderer } from '../render/ColonistRenderer';
 import { DebugOverlay } from '../render/DebugOverlay';
+import { DesignationMarkers } from '../render/DesignationMarkers';
 import { EntityRenderer } from '../render/EntityRenderer';
 import { PlacementPreview } from '../render/PlacementPreview';
 import { TerrainRenderer } from '../render/TerrainRenderer';
 import { CameraController } from '../platform/CameraController';
+import { placeBlueprint } from '../sim/colony/blueprint';
+import { colonistAt, colonistName } from '../sim/colony/colonists';
+import { Building, Colonist, Position } from '../sim/components';
+import { drainEvents } from '../sim/events';
 import { inflateShape, shapeBottom, shapeContains, type Shape } from '../sim/geom';
-import {
-  checkPlacement,
-  createGameWorld,
-  entityAt,
-  placeBuilding,
-  type GameWorld,
-} from '../sim/GameWorld';
+import { checkPlacement, createGameWorld, entityAt, type GameWorld } from '../sim/GameWorld';
 import type { Vec2 } from '../sim/geom';
 import { stepWorld } from '../sim/step';
 import type { GameSpeed } from '../sim/SimClock';
@@ -39,6 +40,8 @@ export class WorldScene extends Phaser.Scene {
   private world!: GameWorld;
   private bus!: EventBus<GameEvents>;
   private entities!: EntityRenderer;
+  private colonists!: ColonistRenderer;
+  private markers!: DesignationMarkers;
   private preview!: PlacementPreview;
   private debug!: DebugOverlay;
   private cameraController!: CameraController;
@@ -86,6 +89,8 @@ export class WorldScene extends Phaser.Scene {
 
     new TerrainRenderer(this, this.world.terrain);
     this.entities = new EntityRenderer(this, this.world);
+    this.colonists = new ColonistRenderer(this, this.world);
+    this.markers = new DesignationMarkers(this, this.world, this.entities);
     this.preview = new PlacementPreview(this);
     this.debug = new DebugOverlay(this, this.world);
     this.selection = this.add.graphics();
@@ -134,6 +139,49 @@ export class WorldScene extends Phaser.Scene {
     const ticks = this.world.clock.advance(delta);
     for (let i = 0; i < ticks; i++) stepWorld(this.world);
     if (ticks > 0) this.bus.emit('clock:tick', { tick: this.world.clock.tick });
+
+    this.handleWorldEvents();
+    this.colonists.update();
+    this.entities.updateBlueprints();
+    this.drawSelection();
+  }
+
+  /** Apply what the simulation reported since last frame. */
+  private handleWorldEvents(): void {
+    for (const e of drainEvents(this.world)) {
+      switch (e.type) {
+        case 'entityRemoved':
+          this.entities.remove(e.eid);
+          this.markers.remove(e.eid);
+          if (this.selected === e.eid) this.select(null);
+          this.worldVersion++;
+          this.debug.refresh();
+          break;
+        case 'blueprintPlaced':
+          this.entities.addBuilding(e.eid);
+          this.worldVersion++;
+          break;
+        case 'buildingCompleted': {
+          this.entities.completeBuilding(e.eid);
+          this.worldVersion++;
+          this.debug.refresh();
+          const name = BUILDINGS[BUILDING_IDS[Building.kind[e.eid]!]!].nameVi;
+          this.bus.emit('log', { text: `Đã xây xong ${name}.` });
+          break;
+        }
+        case 'designationChanged':
+          this.markers.sync(e.eids);
+          break;
+        case 'stockChanged':
+          this.bus.emit('stock:changed', { stock: this.world.stock.snapshot() });
+          break;
+        case 'colonistDied': {
+          const why = e.cause === 'hunger' ? 'đói' : 'kiệt sức';
+          this.bus.emit('log', { text: `${colonistName(e.eid)} đã chết vì ${why}.` });
+          break;
+        }
+      }
+    }
   }
 
   // --- cursor & selection ------------------------------------------------------------
@@ -164,7 +212,7 @@ export class WorldScene extends Phaser.Scene {
       }
       return;
     }
-    this.select(entityAt(this.world, x, y));
+    this.select(colonistAt(this.world, x, y) ?? entityAt(this.world, x, y));
   }
 
   /** Touch: pressing on the pending ghost drags it instead of panning the map. */
@@ -185,17 +233,31 @@ export class WorldScene extends Phaser.Scene {
 
   private select(eid: number | null): void {
     this.selected = eid;
-    this.selection.clear();
-    if (eid !== null) {
-      const { shape } = this.world.obstacles.get(eid)!;
-      const bottom = shapeBottom(shape);
-      const w = shape.kind === 'rect' ? shape.hw * 2 + 6 : shape.r * 2 + 6;
-      this.selection
-        .lineStyle(1, PALETTE.flame, 1)
-        .strokeEllipse(shape.cx, bottom - 1, w, Math.max(5, w * 0.35))
-        .setDepth(bottom - 0.25);
-    }
     this.bus.emit('entity:select', { eid });
+  }
+
+  /** Selection ring, redrawn every frame so it follows walking colonists. */
+  private drawSelection(): void {
+    const g = this.selection.clear();
+    const eid = this.selected;
+    if (eid === null) return;
+    let cx: number;
+    let bottom: number;
+    let w: number;
+    const record = this.world.obstacles.get(eid);
+    if (record) {
+      cx = record.shape.cx;
+      bottom = shapeBottom(record.shape);
+      w = record.shape.kind === 'rect' ? record.shape.hw * 2 + 6 : record.shape.r * 2 + 6;
+    } else if (hasComponent(this.world.ecs, eid, Colonist)) {
+      cx = Position.x[eid]!;
+      bottom = Position.y[eid]!;
+      w = 12;
+    } else {
+      return;
+    }
+    g.lineStyle(1, PALETTE.flame, 1).strokeEllipse(cx, bottom - 1, w, Math.max(5, w * 0.35));
+    if (g.depth !== bottom - 0.25) g.setDepth(bottom - 0.25);
   }
 
   // --- building placement ------------------------------------------------------------
@@ -253,17 +315,12 @@ export class WorldScene extends Phaser.Scene {
   private tryPlace(x: number, y: number): boolean {
     const kind = this.buildKind;
     if (!kind) return false;
-    const result = placeBuilding(this.world, kind, x, y, { snap: this.snapping });
+    const result = placeBlueprint(this.world, kind, x, y, { snap: this.snapping });
     if (!result.ok || result.eid === null) {
       this.cameras.main.shake(80, 0.002);
       return false;
     }
-    const sprite = this.entities.addBuilding(result.eid);
-    // A small "thud" so the player sees the building land.
-    sprite.setScale(1, 0.85);
-    this.tweens.add({ targets: sprite, scaleY: 1, duration: 120, ease: 'Back.easeOut' });
-    this.debug.refresh();
-    this.worldVersion++;
+    this.handleWorldEvents();
     this.lastStatusKey = '';
     // Mouse: the cursor still sits on the new building; don't immediately replace
     // "Đã đặt …" with "overlaps a building" until the player moves on.

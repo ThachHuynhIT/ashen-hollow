@@ -1,4 +1,5 @@
 import type { BuildingId } from '../data/buildings';
+import type { ResourceId } from '../data/resources';
 import type { PlacementProblem } from '../sim/placement';
 import type { GameSpeed } from '../sim/SimClock';
 
@@ -18,6 +19,9 @@ export interface GameEvents {
   /** Live placement feedback for the ghost; `pending` = touch ghost awaiting confirm. */
   'build:status': { ok: boolean; reason: PlacementProblem | null; pending: boolean };
   'build:placed': { kind: BuildingId; eid: number };
+  'stock:changed': { stock: Record<ResourceId, number> };
+  /** A line for the event log ("… đã chết vì đói."). */
+  log: { text: string };
   'ui:zoom-step': { direction: 1 | -1 };
   'ui:set-speed': { speed: GameSpeed };
   'ui:toggle-pause': Record<string, never>;

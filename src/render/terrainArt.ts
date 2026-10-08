@@ -1,6 +1,7 @@
 import { PALETTE } from '../data/palette';
 import { TERRAIN, TERRAIN_IDS, type TerrainId } from '../data/terrain';
 import { MASK_BL, MASK_BR, MASK_TL, MASK_TR } from './dualGrid';
+import { paintBitmap } from './bitmap';
 import { PixelCanvas, pixelHash } from './pixel';
 
 /**
@@ -328,5 +329,241 @@ export const paintWatchtower = (): PixelCanvas => {
   // Lantern.
   c.set(8, 10, PALETTE.flame);
   c.set(8, 9, PALETTE.candle);
+  return c;
+};
+
+// --- Phase 1: icons, colonists, small buildings -------------------------------------
+
+export const ICON_IDS = [
+  'wood',
+  'stone',
+  'food',
+  'chop',
+  'mine',
+  'forage',
+  'clear',
+  'wall',
+] as const;
+export type IconId = (typeof ICON_IDS)[number];
+
+const ICONS: Record<IconId, { rows: string[]; colors: Record<string, number> }> = {
+  wood: {
+    rows: [
+      '........',
+      '........',
+      '.LLLLLR.',
+      'LLLLLLRR',
+      'DDDDDDRR',
+      '.DDDDDR.',
+      '........',
+      '........',
+    ],
+    colors: { L: PALETTE.peat, D: PALETTE.rotBrown, R: PALETTE.driedMoss },
+  },
+  stone: {
+    rows: [
+      '........',
+      '...HH...',
+      '..HSSS..',
+      '.HSSSSS.',
+      '.SSSSSD.',
+      '..SSSDD.',
+      '...DDD..',
+      '........',
+    ],
+    colors: { H: PALETTE.stoneLight, S: PALETTE.stone, D: PALETTE.slateDark },
+  },
+  food: {
+    rows: [
+      '........',
+      '..GGGG..',
+      '.GCGGGG.',
+      'GGGGGGGG',
+      '...SS...',
+      '...SS...',
+      '..SSSS..',
+      '........',
+    ],
+    colors: { G: PALETTE.ghostGreen, C: PALETTE.candle, S: PALETTE.boneGrey },
+  },
+  chop: {
+    rows: [
+      '.....HH.',
+      '....HHHH',
+      '.....HD.',
+      '....D...',
+      '...D....',
+      '..D.....',
+      '.D......',
+      'D.......',
+    ],
+    colors: { H: PALETTE.stoneLight, D: PALETTE.peat },
+  },
+  mine: {
+    rows: [
+      '.HHHHH..',
+      'H..D..H.',
+      '...D....',
+      '...D....',
+      '...D....',
+      '...D....',
+      '...D....',
+      '........',
+    ],
+    colors: { H: PALETTE.stoneLight, D: PALETTE.peat },
+  },
+  forage: {
+    rows: [
+      '..G..G..',
+      '.GGG.GG.',
+      '........',
+      '.BBBBBB.',
+      '.BDBDBB.',
+      '.BBBBBB.',
+      '..BBBB..',
+      '........',
+    ],
+    colors: { G: PALETTE.ghostGreen, B: PALETTE.peat, D: PALETTE.rotBrown },
+  },
+  clear: {
+    rows: [
+      'X......X',
+      '.X....X.',
+      '..X..X..',
+      '...XX...',
+      '...XX...',
+      '..X..X..',
+      '.X....X.',
+      'X......X',
+    ],
+    colors: { X: PALETTE.ember },
+  },
+  wall: {
+    rows: [
+      '.T..T..T',
+      '.S..S..S',
+      '.S..S..S',
+      '.SSSSSSS',
+      '.S..S..S',
+      '.S..S..S',
+      '.S..S..S',
+      '........',
+    ],
+    colors: { T: PALETTE.bone, S: PALETTE.peat },
+  },
+};
+
+export const paintIcon = (id: IconId): PixelCanvas => paintBitmap(ICONS[id].rows, ICONS[id].colors);
+
+export const paintGrave = (): PixelCanvas =>
+  paintBitmap(
+    [
+      '....BBBB....',
+      '....BSSB....',
+      '..BBBSSBBB..',
+      '..BSSSSSSB..',
+      '..BBBSSBBB..',
+      '....BSSB....',
+      '....BSSB....',
+      '....BSSB....',
+      '....BSSB....',
+      '...BBSSBB...',
+      '..MMMMMMMM..',
+      '.MMMMMMMMMM.',
+      '.VVVVVVVVVV.',
+      '............',
+    ],
+    { B: PALETTE.slateDark, S: PALETTE.stone, M: PALETTE.mud, V: PALETTE.ink },
+  );
+
+export const paintTorch = (): PixelCanvas =>
+  paintBitmap(
+    [
+      '..CC..',
+      '.CFFC.',
+      '.FFEF.',
+      '..EE..',
+      '..DD..',
+      '..PP..',
+      '..PP..',
+      '..PP..',
+      '..PP..',
+      '..PP..',
+      '..PP..',
+      '..PP..',
+      '..PP..',
+      '..PP..',
+      '.PPPP.',
+      '.VVVV.',
+    ],
+    {
+      C: PALETTE.candle,
+      F: PALETTE.flame,
+      E: PALETTE.ember,
+      D: PALETTE.emberDark,
+      P: PALETTE.peat,
+      V: PALETTE.ink,
+    },
+  );
+
+export const paintWallStake = (): PixelCanvas =>
+  paintBitmap(
+    [
+      '...BB...',
+      '..BPPB..',
+      '..PPPD..',
+      '..PPPD..',
+      '..PPPD..',
+      '..PPPD..',
+      '..PPPD..',
+      '..PPPD..',
+      '..PPPD..',
+      '..PPPD..',
+      '.MMMMMM.',
+      '..VVVV..',
+    ],
+    { B: PALETTE.driedMoss, P: PALETTE.peat, D: PALETTE.rotBrown, M: PALETTE.mud, V: PALETTE.ink },
+  );
+
+export const SHIRT_COLORS = [
+  PALETTE.blood,
+  PALETTE.pine,
+  PALETTE.shadowPlum,
+  PALETTE.emberDark,
+] as const;
+export type ColonistPose = 'stand' | 'walk' | 'work' | 'sleep';
+export const COLONIST_POSES: readonly ColonistPose[] = ['stand', 'walk', 'work', 'sleep'];
+
+/** 16×24 colonist standing on the bottom row, lit from the top-left. */
+export const paintColonist = (shirt: number, pose: ColonistPose): PixelCanvas => {
+  const c = new PixelCanvas(16, 24);
+  c.fillEllipse(8, 22.5, 4, 1.2, PALETTE.void, 110);
+  if (pose === 'sleep') {
+    // Lying down, head to the left, on a bedroll.
+    c.fillRect(2, 20, 13, 2, PALETTE.mud);
+    c.fillRect(4, 18, 10, 3, shirt);
+    c.fillRect(1, 17, 3, 3, PALETTE.bone);
+    c.set(1, 17, PALETTE.rotBrown);
+    c.fillRect(13, 19, 2, 2, PALETTE.rotBrown);
+    return c;
+  }
+  const stride = pose === 'walk' ? 1 : 0;
+  c.fillRect(6 - stride, 18, 2, 4, PALETTE.rotBrown); // legs
+  c.fillRect(9 + stride, 18, 2, 4, PALETTE.rotBrown);
+  c.fillRect(5, 11, 7, 8, shirt); // body
+  c.fillRect(11, 11, 1, 8, PALETTE.ink); // shaded side
+  if (pose === 'work') {
+    c.fillRect(12, 9, 2, 2, PALETTE.bone); // raised arm + tool
+    c.fillRect(13, 4, 1, 6, PALETTE.peat);
+    c.fillRect(12, 3, 3, 2, PALETTE.stoneLight);
+    c.fillRect(4, 12, 1, 5, PALETTE.bone);
+  } else {
+    c.fillRect(4, 12, 1, 5, PALETTE.bone);
+    c.fillRect(12, 12, 1, 5, PALETTE.bone);
+  }
+  c.fillRect(6, 5, 5, 6, PALETTE.bone); // head
+  c.fillRect(6, 4, 5, 2, PALETTE.rotBrown); // hair
+  c.set(7, 8, PALETTE.ink);
+  c.set(9, 8, PALETTE.ink);
   return c;
 };

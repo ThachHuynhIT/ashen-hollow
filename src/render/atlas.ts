@@ -3,15 +3,25 @@ import type { BuildingId } from '../data/buildings';
 import type { DoodadId } from '../data/doodads';
 import { PixelCanvas } from './pixel';
 import {
+  COLONIST_POSES,
+  ICON_IDS,
+  SHIRT_COLORS,
   paintBoneHeap,
   paintBoulder,
+  paintColonist,
   paintDeadTree,
   paintGlowShroom,
+  paintGrave,
   paintHearthfire,
+  paintIcon,
   paintStorage,
   paintTent,
   paintTerrainTileset,
+  paintTorch,
+  paintWallStake,
   paintWatchtower,
+  type ColonistPose,
+  type IconId,
 } from './terrainArt';
 
 export const TERRAIN_TILESET_KEY = 'terrain-tiles';
@@ -27,6 +37,11 @@ export const DOODAD_VARIANTS: Record<DoodadId, number> = {
 
 export const doodadFrame = (id: DoodadId, variant: number): string => `${id}_${variant}`;
 export const buildingFrame = (id: BuildingId): string => `building_${id}`;
+
+export const colonistFrame = (shirt: number, pose: ColonistPose): string =>
+  `colonist_${shirt}_${pose}`;
+export const iconFrame = (id: IconId): string => `icon_${id}`;
+export const GRAVE_FRAME = 'grave';
 
 const toCanvas = (art: PixelCanvas): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
@@ -76,8 +91,16 @@ export const buildPlaceholderAtlas = (textures: Phaser.Textures.TextureManager):
     { name: buildingFrame('tent'), art: paintTent() },
     { name: buildingFrame('storage'), art: paintStorage() },
     { name: buildingFrame('watchtower'), art: paintWatchtower() },
-    { name: buildingFrame('torch'), art: paintHearthfire() },
-    { name: buildingFrame('wallStake'), art: paintHearthfire() },
+    { name: buildingFrame('torch'), art: paintTorch() },
+    { name: buildingFrame('wallStake'), art: paintWallStake() },
+    { name: GRAVE_FRAME, art: paintGrave() },
+    ...ICON_IDS.map((id) => ({ name: iconFrame(id), art: paintIcon(id) })),
+    ...SHIRT_COLORS.flatMap((color, shirt) =>
+      COLONIST_POSES.map((pose) => ({
+        name: colonistFrame(shirt, pose),
+        art: paintColonist(color, pose),
+      })),
+    ),
   ];
   const width = 256;
   const { placed, height } = packShelves(sprites, width);
