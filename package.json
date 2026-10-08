@@ -2,7 +2,7 @@
   "name": "ashen-hollow",
   "private": true,
   "version": "0.0.1",
-  "description": "Dark fantasy colony builder — 2D pixel art, hex grid, web-first.",
+  "description": "Dark fantasy colony builder — 2D pixel art, free placement, web-first.",
   "type": "module",
   "scripts": {
     "dev": "vite",

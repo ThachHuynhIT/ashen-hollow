@@ -1,5 +1,3 @@
-import { HEX_TILE_HEIGHT, HEX_TILE_WIDTH } from '../hex';
-
 /** A tiny RGBA framebuffer for generating placeholder pixel art in code. */
 export class PixelCanvas {
   readonly data: Uint8ClampedArray<ArrayBuffer>;
@@ -27,6 +25,22 @@ export class PixelCanvas {
     return this.data[(y * this.width + x) * 4 + 3]!;
   }
 
+  fillRect(x: number, y: number, w: number, h: number, color: number, alpha = 255): void {
+    for (let yy = y; yy < y + h; yy++)
+      for (let xx = x; xx < x + w; xx++) this.set(xx, yy, color, alpha);
+  }
+
+  /** Filled pixel ellipse centred at (cx, cy) — used for ground shadows. */
+  fillEllipse(cx: number, cy: number, rx: number, ry: number, color: number, alpha = 255): void {
+    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+      for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+        const dx = (x + 0.5 - cx) / rx;
+        const dy = (y + 0.5 - cy) / ry;
+        if (dx * dx + dy * dy <= 1) this.set(x, y, color, alpha);
+      }
+    }
+  }
+
   /** Copy another canvas into this one at (dx, dy), skipping transparent pixels. */
   blit(src: PixelCanvas, dx: number, dy: number): void {
     for (let y = 0; y < src.height; y++) {
@@ -46,46 +60,10 @@ export class PixelCanvas {
   }
 }
 
-/**
- * Which pixels of the 32×32 tile belong to the hex.
- *
- * The rows are chosen so that tiles laid out with stepX = 32 / stepY = 24 partition the
- * plane exactly — every screen pixel belongs to exactly one hex, no gaps, no overlap:
- *   rows 0–7   top cap, half-width 2·y          (row 0 is empty)
- *   rows 8–23  full width (the vertical sides)
- *   rows 24–31 bottom cap, half-width 64 − 2·y
- * The diagonals are clean 2:1 pixel stairs.
- */
-export const isInsideHexTile = (x: number, y: number): boolean => {
-  if (x < 0 || y < 0 || x >= HEX_TILE_WIDTH || y >= HEX_TILE_HEIGHT) return false;
-  const cx = HEX_TILE_WIDTH / 2;
-  let halfWidth: number;
-  if (y < 8) halfWidth = 2 * y;
-  else if (y < 24) halfWidth = cx;
-  else halfWidth = 64 - 2 * y;
-  return x >= cx - halfWidth && x < cx + halfWidth;
-};
-
-/** True if the pixel is inside the hex and touches the outside (4-neighbourhood). */
-export const isHexTileEdge = (x: number, y: number): boolean =>
-  isInsideHexTile(x, y) &&
-  (!isInsideHexTile(x - 1, y) ||
-    !isInsideHexTile(x + 1, y) ||
-    !isInsideHexTile(x, y - 1) ||
-    !isInsideHexTile(x, y + 1));
-
-export const createHexTile = (): PixelCanvas => new PixelCanvas(HEX_TILE_WIDTH, HEX_TILE_HEIGHT);
-
-/** Fill the hex shape, picking a colour per pixel. */
-export const fillHex = (canvas: PixelCanvas, colorAt: (x: number, y: number) => number): void => {
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      if (isInsideHexTile(x, y)) canvas.set(x, y, colorAt(x, y));
-    }
-  }
-};
-
-/** Set a pixel only if it lies inside the hex (keeps decorations from leaking). */
-export const setInHex = (canvas: PixelCanvas, x: number, y: number, color: number): void => {
-  if (isInsideHexTile(Math.floor(x), Math.floor(y))) canvas.set(x, y, color);
+/** Deterministic per-pixel hash in [0, 1) — stable "random" detail for generated art. */
+export const pixelHash = (x: number, y: number, seed: number): number => {
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(seed, 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
 };

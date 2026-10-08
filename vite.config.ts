@@ -12,7 +12,13 @@ export default defineConfig({
     // Phaser alone is ~1.2 MB minified; that's expected for a game bundle.
     chunkSizeWarningLimit: 2000,
   },
-  server: { host: true, port: 5173 },
+  server: {
+    host: true,
+    port: 5173,
+    // On Windows the change event can fire before the editor finishes writing, and
+    // Vite then caches the old file contents. Wait for writes to settle.
+    watch: { awaitWriteFinish: { stabilityThreshold: 120, pollInterval: 30 } },
+  },
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',

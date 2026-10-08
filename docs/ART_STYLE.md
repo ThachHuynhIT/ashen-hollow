@@ -4,31 +4,29 @@ Quy chuẩn bắt buộc cho mọi asset hình. Placeholder art sinh bằng code
 
 ## Kích thước
 
-| Thứ                     | Kích thước               | Ghi chú                                           |
-| ----------------------- | ------------------------ | ------------------------------------------------- |
-| Hex tile                | **32×32 px**, pointy-top | Bước lưới: ngang 32, dọc 24 (hai hàng chồng 8 px) |
-| Nhân vật                | 16×24                    | Đứng ở tâm hex, chân ở y = tâm + 6                |
-| Công trình 1 hex        | 32×40                    | Phần nhô cao vượt lên trên tile                   |
-| Boss / công trình 3 hex | 48×48 – 64×64            |                                                   |
-| Icon item               | 16×16                    |                                                   |
-| Icon công nghệ          | 48×48                    |                                                   |
-| Policy Card             | 64×96                    |                                                   |
-| Portrait UI             | 32×32                    | Ghép layer như sprite                             |
+| Thứ                   | Kích thước            | Ghi chú                                                            |
+| --------------------- | --------------------- | ------------------------------------------------------------------ |
+| Tile địa hình         | **16×16 px**          | Vẽ theo dual-grid: 16 mặt nạ góc + 2 biến thể nền cho mỗi loại đất |
+| Cây chết              | 16×24                 | Gốc (chân) ở hàng dưới cùng                                        |
+| Tảng đá / đống xương  | 16×12 / 12×8          |                                                                    |
+| Nhân vật              | 16×24                 | Chân ở hàng dưới cùng                                              |
+| Lều / Kho / Tháp canh | 24×20 / 32×24 / 16×40 | Sprite đứng trên mép dưới của footprint                            |
+| Cọc tường             | 8×12                  | Rải dọc đường kéo → tường mọi góc mà không xoay sprite             |
+| Boss                  | 48×48 – 64×64         |                                                                    |
+| Icon item             | 16×16                 |                                                                    |
+| Icon công nghệ        | 48×48                 |                                                                    |
+| Policy Card           | 64×96                 |                                                                    |
+| Portrait UI           | 32×32                 | Ghép layer như sprite                                              |
 
-## Hình dạng hex (quan trọng)
+## Thế giới tự do: không có ô nào được thấy
 
-Hex là hình **lục giác dẹt với cạnh xiên 2:1** — bậc thang pixel sạch, không răng cưa:
-
-```
-hàng 0      : trống
-hàng 1–7    : nửa bề rộng = 2·y         (mỗi hàng rộng thêm 2 px mỗi bên)
-hàng 8–23   : đủ 32 px (hai cạnh đứng)
-hàng 24–31  : nửa bề rộng = 64 − 2·y
-```
-
-Các hex đặt theo lưới (32, 24) **phủ kín mặt phẳng, không hở, không chồng** — đã có unit test (`src/render/pixel.test.ts`). Khi vẽ trong Aseprite: dùng template mask này làm layer khoá, mọi pixel tile phải nằm trong mask.
-
-> Ghi chú: kế hoạch ban đầu ghi 32×28; đã đổi sang 32×32 với cap 8 px vì chỉ kích thước này cho đường chéo 2:1 hoàn hảo và vẫn là ảnh affine của hex đều (toán axial giữ nguyên).
+- **Địa hình dual-grid.** Ô hiển thị lệch nửa ô so với ô dữ liệu, nên mép giữa hai loại đất nằm _bên trong_ tile chứ không trùng đường lưới. Mỗi loại đất chỉ cần **16 tile mặt nạ góc** (bit: trên-trái 1, trên-phải 2, dưới-trái 4, dưới-phải 8) thay vì 47 ô autotile. Logic: `src/render/dualGrid.ts` (có test).
+- **Thứ tự lớp đất** (thấp → cao): nước đen < đầm < cỏ chết < nền rừng < đồi < đất nguyền < vách đá. Lớp cao hơn đè lên và có **viền (rim)** 1 px ở mép.
+- Mép đất vẽ **hữu cơ, có dither** — không bao giờ là đường thẳng theo lưới.
+- **Mọi sprite neo ở chân** (origin 0.5, 1) và **xếp chiều sâu theo y của chân** (y-sort): thứ ở thấp hơn trên màn hình vẽ đè lên.
+- **Bóng đổ** elip 1–2 px dưới chân, màu `void` mờ.
+- **Không xoay sprite.** Hướng thể hiện bằng frame 4/8 hướng; tường chéo = chuỗi cọc nhỏ.
+- Vật thể tự do (cây, đá) nên **che bớt mép đất** để giấu chỗ lặp tile.
 
 ## Bảng màu "Ashen 32"
 
@@ -52,7 +50,7 @@ Ngôn ngữ thị giác: **ấm = an toàn, lạnh = nguy hiểm.** Lửa và á
 ## Hiển thị
 
 - Game chạy `pixelArt: true` (nearest-neighbour) và **zoom số nguyên** 1×–6×. Không bao giờ scale lẻ.
-- Màn hình cảm ứng mặc định ≥ 2× để hex (64 px) lớn hơn đầu ngón tay.
+- Màn hình cảm ứng mặc định ≥ 2× để công trình và vật thể lớn hơn đầu ngón tay.
 
 ## Pipeline (khi có art thật)
 

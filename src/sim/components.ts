@@ -1,12 +1,23 @@
 /**
- * ECS components (structure-of-arrays). Every unit, colonist and monster lives on
- * exactly one hex at a time — movement is hex-to-hex, never "between" tiles.
+ * ECS components (structure-of-arrays). Positions are continuous world pixels:
+ * for doodads and units it is where they touch the ground, for buildings the centre
+ * of their footprint.
  */
-const MAX_ENTITIES = 10_000;
+const MAX_ENTITIES = 20_000;
 
-export const HexPosition = {
-  q: new Int16Array(MAX_ENTITIES),
-  r: new Int16Array(MAX_ENTITIES),
+export const Position = {
+  x: new Float32Array(MAX_ENTITIES),
+  y: new Float32Array(MAX_ENTITIES),
 };
 
-export const components = { HexPosition } as const;
+/** Index into DOODAD_IDS. */
+export const Doodad = {
+  kind: new Uint8Array(MAX_ENTITIES),
+};
+
+/** Index into BUILDING_IDS. */
+export const Building = {
+  kind: new Uint8Array(MAX_ENTITIES),
+};
+
+export const components = { Position, Doodad, Building } as const;

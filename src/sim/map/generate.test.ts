@@ -1,60 +1,81 @@
 import { describe, expect, it } from 'vitest';
-import { hexDistance, hexSpiral } from '../../hex';
-import { TERRAIN_IDS } from '../../data/terrain';
-import { generateMap } from './generate';
-import { HexMap } from './HexMap';
+import { DOODADS } from '../../data/doodads';
+import { TERRAIN_IDS, terrainAt } from '../../data/terrain';
+import { generateMap, START_CLEARING_RADIUS } from './generate';
 
 describe('generateMap', () => {
-  const opts = { seed: 1234, width: 64, height: 64 };
+  const opts = { seed: 1234, width: 128, height: 128 };
+  const map = generateMap(opts);
 
   it('is deterministic for a given seed', () => {
-    const a = generateMap(opts);
-    const b = generateMap(opts);
-    expect(Array.from(a.map.terrain)).toEqual(Array.from(b.map.terrain));
-    expect(a.start).toEqual(b.start);
+    const again = generateMap(opts);
+    expect(Array.from(again.terrain.cells)).toEqual(Array.from(map.terrain.cells));
+    expect(again.doodads).toEqual(map.doodads);
   });
 
   it('differs between seeds', () => {
-    const a = generateMap(opts);
-    const b = generateMap({ ...opts, seed: 99 });
-    expect(Array.from(a.map.terrain)).not.toEqual(Array.from(b.map.terrain));
+    const other = generateMap({ ...opts, seed: 99 });
+    expect(Array.from(other.terrain.cells)).not.toEqual(Array.from(map.terrain.cells));
   });
 
-  it('only produces known terrain', () => {
-    const { map } = generateMap(opts);
-    for (const t of map.terrain) expect(t).toBeLessThan(TERRAIN_IDS.length);
+  it('starts in the middle of the map', () => {
+    expect(map.start).toEqual({ x: 1024, y: 1024 });
   });
 
-  it('keeps a passable clearing around the start', () => {
-    for (const seed of [1, 2, 3, 42, 777]) {
-      const { map, start } = generateMap({ ...opts, seed });
-      for (const h of hexSpiral(start, 3)) {
-        expect(hexDistance(h, start)).toBeLessThanOrEqual(3);
-        expect(map.isPassable(h)).toBe(true);
-        expect(map.terrainOf(h).id).toBe('deadGrass');
+  it('rings the valley with impassable crags', () => {
+    const { terrain } = map;
+    for (let i = 0; i < 128; i++) {
+      for (const [x, y] of [
+        [i, 0],
+        [i, 127],
+        [0, i],
+        [127, i],
+      ] as const) {
+        expect(terrainAt(terrain.get(x, y)).id).toBe('cliff');
       }
     }
   });
 
-  it('produces a varied landscape', () => {
-    const { map } = generateMap(opts);
-    const kinds = new Set(map.terrain);
-    expect(kinds.size).toBeGreaterThanOrEqual(5);
-  });
-});
-
-describe('HexMap', () => {
-  it('maps hexes to indices and back', () => {
-    const map = new HexMap(10, 7);
-    map.forEach((h, i) => {
-      expect(map.indexOf(h)).toBe(i);
-      expect(map.inBounds(h)).toBe(true);
-    });
-    expect(map.indexOf({ q: -50, r: 0 })).toBe(-1);
-    expect(map.inBounds({ q: 0, r: 7 })).toBe(false);
+  it('keeps an open, buildable, doodad-free clearing around the start', () => {
+    for (let y = 0; y < 128; y++) {
+      for (let x = 0; x < 128; x++) {
+        const cx = (x + 0.5) * 16;
+        const cy = (y + 0.5) * 16;
+        if (Math.hypot(cx - 1024, cy - 1024) <= START_CLEARING_RADIUS) {
+          expect(terrainAt(map.terrain.get(x, y)).id).toBe('deadGrass');
+        }
+      }
+    }
+    for (const d of map.doodads) {
+      expect(Math.hypot(d.x - 1024, d.y - 1024)).toBeGreaterThan(START_CLEARING_RADIUS);
+    }
   });
 
-  it('rejects mismatched layer sizes', () => {
-    expect(() => new HexMap(4, 4, new Uint8Array(3))).toThrow();
+  it('only grows doodads on their habitat terrain', () => {
+    for (const d of map.doodads) {
+      const ground = map.terrain.atWorld(d.x, d.y).id;
+      expect(DOODADS[d.kind].habitats).toContain(ground);
+    }
+  });
+
+  it('never overlaps a doodad with a movement-blocking one (no shrooms inside trees)', () => {
+    const blockers = map.doodads.filter((d) => DOODADS[d.kind].blocksMovement);
+    for (let i = 0; i < blockers.length; i++) {
+      const a = blockers[i]!;
+      for (let j = 0; j < map.doodads.length; j++) {
+        const b = map.doodads[j]!;
+        if (a === b) continue;
+        const min = DOODADS[a.kind].radius + DOODADS[b.kind].radius;
+        if (Math.abs(a.x - b.x) > min || Math.abs(a.y - b.y) > min) continue;
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(min);
+      }
+    }
+  });
+
+  it('produces a varied landscape with real forests', () => {
+    expect(new Set(map.terrain.cells).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(map.terrain.cells).size).toBeLessThanOrEqual(TERRAIN_IDS.length);
+    expect(map.doodads.filter((d) => d.kind === 'deadTree').length).toBeGreaterThan(300);
+    expect(map.doodads.filter((d) => d.kind === 'boulder').length).toBeGreaterThan(10);
   });
 });

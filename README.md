@@ -1,6 +1,6 @@
 # Ashen Hollow
 
-Dark fantasy colony builder · 2D pixel art · hex grid · real-time with active pause · web-first.
+Dark fantasy colony builder in 2D pixel art. Build anywhere — no grid. Real-time with active pause, web-first.
 
 > Thung lũng bị nguyền. Ban ngày xây dựng, ban đêm sống sót.
 
@@ -20,25 +20,28 @@ npm run dev        # http://localhost:5173 (cũng mở được từ điện tho
 | `npm run lint`      | ESLint (gồm luật cấm `sim/` import Phaser) |
 | `npm run typecheck` | `tsc --noEmit`                             |
 
-## Điều khiển (Phase 0)
+## Điều khiển
 
-|                   | Chuột / bàn phím                        | Cảm ứng                    |
-| ----------------- | --------------------------------------- | -------------------------- |
-| Kéo bản đồ        | Kéo chuột (mọi nút), WASD / mũi tên     | Kéo 1 ngón                 |
-| Zoom              | Lăn chuột, `+` / `-`, nút góc phải dưới | Chụm 2 ngón, nút `+` / `−` |
-| Chọn hex          | Click                                   | Chạm                       |
-| Tạm dừng / tốc độ | `Space`, `1` `2` `3`, nút góc phải trên | Nút góc phải trên          |
-| Về menu           | `Esc`                                   | —                          |
+|                        | Chuột / bàn phím                                      | Cảm ứng                                   |
+| ---------------------- | ----------------------------------------------------- | ----------------------------------------- |
+| Kéo bản đồ             | Kéo chuột, WASD / mũi tên                             | Kéo 1 ngón                                |
+| Zoom                   | Lăn chuột, `+` / `-`, nút góc phải dưới               | Chụm 2 ngón, nút `+` / `−`                |
+| Xem / chọn vật thể     | Rê chuột để xem, click để chọn                        | Chạm                                      |
+| Xây                    | `B` bật/tắt, `Z` Lều, `X` Kho, `C` Tháp; click để đặt | Chọn công trình, chạm bản đồ, bấm **Đặt** |
+| Bám lưới 8 px          | Giữ `Shift` (hoặc nút **Bám lưới**)                   | Nút **Bám lưới**                          |
+| Thôi xây               | Chuột phải hoặc `Esc`                                 | Nút **Huỷ** hoặc chạm lại nút công trình  |
+| Tạm dừng / tốc độ      | `Space`, `1` `2` `3`, nút góc phải trên               | Nút góc phải trên                         |
+| Xem lưới điều hướng ẩn | `F3`                                                  | —                                         |
+| Về menu                | `Esc` (khi không xây / không chọn gì)                 | —                                         |
 
 ## Kiến trúc
 
 ```
 src/
-  hex/        Toán hex thuần (axial, offset odd-r, layout pixel) — có test
-  sim/        Mô phỏng: ECS (bitECS), map gen, RNG seed, đồng hồ tick cố định — không phụ thuộc Phaser
-  data/       Số liệu & bảng màu (terrain, palette) — data-driven
+  sim/        Mô phỏng: ECS (bitECS), sinh map, lưới ẩn (terrain 16 px, nav 8 px), A*, spatial hash, đặt công trình — không phụ thuộc Phaser
+  data/       Số liệu: địa hình, vật thể, công trình, bảng màu — data-driven
   core/       Event bus có kiểu giữa world ↔ UI
-  render/     Vẽ bằng Phaser: atlas placeholder, HexMapRenderer
+  render/     Vẽ bằng Phaser: dual-grid terrain, sprite y-sort, ghost đặt công trình, debug F3
   platform/   Input/camera (chuột, phím, cảm ứng, pinch)
   scenes/     Boot → Preload → MainMenu → World (+ Hud overlay)
   ui/         Theme, nút bấm
@@ -50,10 +53,11 @@ Nguyên tắc: **sim tách khỏi render**, tick cố định 10/s, deterministi
 ## Tài liệu
 
 - [docs/GDD.md](docs/GDD.md) — thiết kế game rút gọn
-- [docs/ART_STYLE.md](docs/ART_STYLE.md) — quy chuẩn pixel art, hình hex, bảng màu
+- [docs/ART_STYLE.md](docs/ART_STYLE.md) — quy chuẩn pixel art, dual-grid, y-sort, bảng màu
 - [docs/ROADMAP.md](docs/ROADMAP.md) — kế hoạch đầy đủ theo phase
 
 ## Trạng thái
 
-- [x] **Phase 0** — nền móng: Vite + TS + Phaser 4 + bitECS + Vitest + ESLint/Prettier + CI; map hex procedural; camera pan/zoom/pinch; hover/chọn hex; HUD tốc độ; responsive mobile.
-- [ ] Phase 1 — core loop (colonist, job, pathfinding A* hex trong worker, xây dựng)
+- [x] **Phase 0** — nền móng: Vite + TS + Phaser 4 + bitECS + Vitest + ESLint/Prettier + CI; camera pan/zoom/pinch; HUD; responsive mobile.
+- [x] **Phase 0b** — bỏ lưới hex: thế giới tự do, địa hình liền mạch (dual-grid), cây/đá rải tự nhiên, đặt công trình tự do + snap/magnet, nav grid ẩn + A* + làm mượt đường.
+- [ ] Phase 1 — core loop (colonist, job, di chuyển tự do: A* + steering trong worker, xây dựng)

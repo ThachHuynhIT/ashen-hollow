@@ -1,4 +1,4 @@
-> Bản kế hoạch tổng thể (đồng bộ từ phiên lập kế hoạch 2026-10-08). Trạng thái: **Phase 0 xong** — xem README.
+> Bản kế hoạch tổng thể (đồng bộ từ phiên lập kế hoạch 2026-10-08, cập nhật v3: bỏ lưới hex). Trạng thái: **Phase 0 + 0b xong** — xem README.
 
 # Kế hoạch: Dark Fantasy Colony Builder (2D Pixel, Web, đa nền tảng)
 
@@ -13,10 +13,16 @@ Bạn muốn làm một game **Dark Fantasy Colony Builder** dạng 2D pixel art
 
 Tên tạm: **"Ashen Hollow"** (đổi tuỳ ý).
 
-**Cập nhật v2 (theo yêu cầu bổ sung):**
+**Cập nhật v2:** Cây công nghệ kiểu **Civilization VI** (Lore + Doctrine, Kỷ nguyên, Eureka/Inspiration, Policy Card) — **giữ nguyên**.
 
-- **Cây công nghệ kiểu Civilization VI**: 2 cây song song (Tech + Doctrine/Civics), chia theo Kỷ nguyên, có **Eureka/Inspiration** (hoàn thành thử thách trong game để giảm chi phí), mở khoá **Policy Card** cắm vào slot.
-- **Quân lính điều khiển theo ô, real-time**: toàn bộ game chạy real-time (có pause), bản đồ là **lưới hex**, mọi đơn vị di chuyển _bám ô_ (từ tâm hex này sang tâm hex kế), có chi phí địa hình, ZOC, giới hạn chồng quân, bonus đồi/rừng/sườn — giống chiến thuật Civ 6 nhưng không có lượt.
+**Cập nhật v3 (2026-10-08) — BỎ LƯỚI HEX, ĐẶT TỰ DO:**
+
+- **Công trình đặt tự do** ở mọi vị trí pixel; giữ **Shift** (hoặc nút trên mobile) để snap lưới 8 px; tự "hút" mép vào công trình bên cạnh (magnet). **Tường vẽ bằng cách kéo đường** theo mọi góc. Không xoay sprite.
+- **Lính & colonist di chuyển tự do kiểu RTS**: đi tới bất kỳ điểm nào, đường mượt, né nhau (steering), đội hình. Bỏ 1-lính/ô và ZOC theo ô → thay bằng **va chạm + vùng giao chiến theo bán kính**.
+- **Địa hình**: tilemap vuông **16 px** với chuyển tiếp mượt (**dual-grid autotile**) nên không thấy ô; cây/đá/xương/nấm là **vật thể đặt tự do** (Poisson disk), y-sort theo chiều sâu.
+- Bên dưới vẫn có **lưới điều hướng ẩn 8 px** cho pathfinding/va chạm — người chơi không thấy.
+- Mọi cơ chế Civ phụ thuộc hex được chuyển sang dạng **bán kính/khoảng cách** (xem 3.1, 3.7).
+- Phần code Phase 0 đã làm theo hex sẽ được chuyển đổi — xem **mục 10**.
 
 ---
 
@@ -41,21 +47,22 @@ Tên tạm: **"Ashen Hollow"** (đổi tuỳ ý).
 
 ## 2. Tech Stack & Kiến trúc
 
-| Hạng mục    | Lựa chọn                                                                                                                            |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Ngôn ngữ    | TypeScript strict                                                                                                                   |
-| Engine      | Phaser (bản stable mới nhất; dùng Phaser 4 nếu đã ổn định, không thì 3.90)                                                          |
-| Build       | Vite                                                                                                                                |
-| ECS / logic | **bitECS** (tách simulation khỏi render, xử lý hàng trăm entity)                                                                    |
-| Hex math    | **honeycomb-grid** (hoặc tự viết theo Red Blob Games): toạ độ **axial/cube**, láng giềng, khoảng cách, line-of-sight, vùng bán kính |
-| Pathfinding | A* trên **hex graph** (chi phí theo địa hình) + flow field hex cho bầy quái; chạy trong **Web Worker**                              |
-| UI          | Phaser cho HUD trong game + **Preact/HTML overlay** cho menu phức tạp (bảng colonist, research tree)                                |
-| State/Save  | Serializable world state → **IndexedDB** (idb-keyval) + export/import file JSON nén (lz-string)                                     |
-| Map         | **Tiled** (map handcrafted) + procedural generation (simplex-noise)                                                                 |
-| Audio       | Phaser Sound (WebAudio) + **Howler.js** nếu cần layering nhạc                                                                       |
-| Test        | Vitest cho logic simulation (thuần TS, không phụ thuộc Phaser)                                                                      |
-| Đóng gói    | Web (itch.io / Vercel / Cloudflare Pages), **PWA** (offline), **Tauri** (Win/Mac/Linux → Steam), **Capacitor** (Android/iOS)        |
-| CI          | GitHub Actions: lint + test + build web, release Tauri                                                                              |
+| Hạng mục            | Lựa chọn                                                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngôn ngữ            | TypeScript strict                                                                                                                                                            |
+| Engine              | Phaser (bản stable mới nhất; dùng Phaser 4 nếu đã ổn định, không thì 3.90)                                                                                                   |
+| Build               | Vite                                                                                                                                                                         |
+| ECS / logic         | **bitECS** (tách simulation khỏi render, xử lý hàng trăm entity)                                                                                                             |
+| Toạ độ              | **Pixel thế giới liên tục (float)**; terrain grid 16 px; nav grid ẩn 8 px                                                                                                    |
+| Pathfinding         | A* 8 hướng trên nav grid + **làm mượt đường (string pulling)** + **steering** (separation/arrival) cho chuyển động tự do; flow field cho bầy quái; chạy trong **Web Worker** |
+| Truy vấn không gian | **Spatial hash** (tìm đơn vị/vật thể lân cận, kiểm tra chồng lấn khi đặt công trình)                                                                                         |
+| UI                  | Phaser cho HUD trong game + **Preact/HTML overlay** cho menu phức tạp (bảng colonist, research tree)                                                                         |
+| State/Save          | Serializable world state → **IndexedDB** (idb-keyval) + export/import file JSON nén (lz-string)                                                                              |
+| Map                 | **Tiled** (map handcrafted) + procedural generation (simplex-noise)                                                                                                          |
+| Audio               | Phaser Sound (WebAudio) + **Howler.js** nếu cần layering nhạc                                                                                                                |
+| Test                | Vitest cho logic simulation (thuần TS, không phụ thuộc Phaser)                                                                                                               |
+| Đóng gói            | Web (itch.io / Vercel / Cloudflare Pages), **PWA** (offline), **Tauri** (Win/Mac/Linux → Steam), **Capacitor** (Android/iOS)                                                 |
+| CI                  | GitHub Actions: lint + test + build web, release Tauri                                                                                                                       |
 
 **Nguyên tắc kiến trúc:**
 
@@ -98,10 +105,12 @@ ashen-hollow/
 
 ### 3.1 Bản đồ & Thế giới
 
-- **Lưới hex pointy-top**, mỗi ô vẽ trong khung **32×28 px** (hoặc 24×22 nếu muốn nhỏ hơn); Phaser hỗ trợ tilemap hex xuất từ Tiled (`orientation: hexagonal`). Map 64×64 hex (mở rộng 96×96 sau) — hex lớn hơn ô vuông 16px nên số ô ít hơn.
-- Mỗi hex có: **địa hình** (đồng bằng, đồi, núi chặn, rừng, đầm, nước, đất nguyền), **đặc điểm** (sông giữa 2 hex, đường), **tài nguyên**, **công trình**, **chủ sở hữu** (thuộc colony hay chưa).
-- **Lãnh thổ kiểu Civ**: colony mở rộng biên giới theo ô quanh công trình trung tâm (Hearthfire); chỉ xây được trong lãnh thổ; mua thêm ô bằng vật liệu/Faith hoặc tự mở rộng theo điểm văn hoá.
-- **Adjacency bonus kiểu Civ 6**: công trình hưởng thưởng theo hex kề (Xưởng mộc cạnh rừng +sản lượng, Nhà nguyện cạnh nghĩa trang +Faith, Bàn thờ Máu cạnh Rift +Soul Ash).
+- **Thế giới liên tục**: toạ độ pixel float, map **2048×2048 px**. Ba lớp dữ liệu:
+  1. **Terrain grid 16 px** (128×128 ô): loại mặt đất (cỏ chết, đầm, đồi, vách đá chặn, nước đen, đất nguyền, nền rừng). Mỗi loại có `speed` (hệ số tốc độ đi), `defenseBonus`, `blocksSight`, `passable`. Hiển thị bằng dual-grid autotile → chuyển tiếp mượt, không thấy ô.
+  2. **Vật thể tự do (doodad/resource node)**: cây chết, tảng đá, đống xương, nấm phát quang… vị trí float, collider hình tròn, có thể khai thác. Rải bằng **Poisson disk** theo biome (rừng dày, đồi nhiều đá).
+  3. **Nav grid ẩn 8 px**: ô đi được/không, chi phí; cập nhật khi đặt/phá công trình, chặt cây.
+- **Lãnh thổ kiểu Civ → vùng ảnh hưởng theo bán kính**: Hearthfire và một số công trình phát ra bán kính ảnh hưởng (hợp các hình tròn), vẽ thành đường biên mềm; chỉ xây trong vùng; vùng nở rộng theo Culture/Faith.
+- **Adjacency bonus → bonus lân cận theo khoảng cách**: tính trong bán kính R (vd. Xưởng mộc +10% mỗi cây trong 96 px, tối đa +50%; Nhà nguyện gần nghĩa trang +Faith; Bàn thờ Máu gần Rift +Soul Ash). UI hiện vòng bán kính + số bonus khi đang đặt.
 - **Biome**: Rừng Chết, Đầm Lầy Thối, Đồi Xương, Tàn Tích Cổ, Vết Nứt Hư Không (nguồn quái).
 - Tile layers: địa hình, tài nguyên (cây, đá, quặng, nấm phát quang), công trình, sàn, sương/fog-of-war.
 - Procedural: noise cho địa hình + đặt tài nguyên theo biome; đặt "Rift" (cổng quái) ở rìa map; vài POI (đền đổ nát, xác lính, rương).
@@ -156,48 +165,53 @@ ashen-hollow/
   - **Phòng thủ**: Hàng rào gai, Tháp cung, Bẫy, Ballista, Tường đá, Cổng thánh.
   - **Tinh thần**: Nhà nguyện, Nghĩa trang (chôn xác giảm corruption), Quán rượu.
   - **Hắc ám**: Bàn thờ Máu, Lồng Linh Hồn, Tháp Xương (tower dùng soul ash), Cổng Triệu Hồi.
-- Trên hex: **mỗi công trình chiếm 1 hex** (công trình lớn chiếm cụm 3 hoặc 7 hex). Tường là công trình chiếm hex; cổng cho phe mình đi qua. "Phòng" = cụm hex được bao kín bởi tường (flood-fill trên hex) → ảnh hưởng nhiệt độ, ánh sáng, chất lượng phòng ngủ.
-- Công trình có **cấp độ** (nâng cấp mở bằng tech) và **slot chuyên gia** (gán colonist vào làm việc tại hex đó, kiểu citizen của Civ).
+- **Đặt tự do**: công trình có **footprint** (hình chữ nhật hoặc tròn, kích thước pixel trong data). Bóng mờ (ghost) đi theo con trỏ: xanh = hợp lệ, đỏ = chồng lấn công trình/cây/địa hình chặn hoặc ngoài lãnh thổ.
+  - **Shift / nút "Snap"**: snap lưới 8 px. **Magnet**: mép cách công trình khác < 6 px thì tự hút sát → dãy nhà thẳng hàng dễ dàng.
+  - Mobile: chạm để đặt ghost → kéo chỉnh → nút ✓/✕ xác nhận (không đặt nhầm).
+- **Tường & hàng rào vẽ bằng kéo**: kéo từ A tới B (nhiều đoạn, mọi góc) → sinh chuỗi **cọc/khối nhỏ 8 px** đặt dọc đường, nên tường chéo vẫn là pixel art sạch mà không cần xoay sprite. Cổng chèn vào đoạn tường. Nav grid rasterize đoạn tường với độ dày.
+- **Phòng** = vùng kín bởi tường/công trình, phát hiện bằng flood-fill trên nav grid → nhiệt độ, ánh sáng, chất lượng phòng ngủ.
+- Công trình có **cấp độ** (nâng cấp mở bằng tech) và **slot chuyên gia** (gán colonist làm việc tại đó, kiểu citizen của Civ).
+- Phá cây/đá để lấy chỗ: đặt blueprint đè lên cây → tự sinh job chặt trước khi xây.
 
-### 3.7 Quân đội & Chiến đấu theo ô (real-time, hex)
+### 3.7 Quân đội & Chiến đấu (real-time, di chuyển tự do kiểu RTS)
 
-**Nguyên tắc di chuyển "bám ô":**
+**Di chuyển tự do:**
 
-- Mọi đơn vị (lính, colonist, quái) luôn **thuộc về đúng 1 hex**; di chuyển = trượt mượt từ tâm hex sang tâm hex kề (tween), không đứng giữa 2 ô.
-- **Đặt chỗ ô (hex reservation)**: trước khi bước, đơn vị "giữ chỗ" hex đích → không bao giờ 2 đơn vị quân sự đứng cùng ô ngoài giới hạn chồng quân; tránh kẹt bằng re-path khi bị chặn > N giây.
-- **Chi phí di chuyển** theo địa hình (Civ 6): đồng bằng 1, rừng/đồi 2, đầm 3, sông +1 khi vượt, đường 0.5, núi không đi được. Real-time: chi phí → **thời gian đi qua ô** (tốc độ đơn vị ÷ chi phí).
-- **Giới hạn chồng quân**: 1 đơn vị quân sự/hex (1UPT như Civ 6) + tối đa 1 đơn vị dân sự; hoặc biến thể "đội tối đa 3 lính/hex" nếu muốn đông hơn — quyết định khi prototype.
-- **Zone of Control (ZOC)**: hex kề quân địch là vùng kiểm soát → đi vào sẽ bị **chậm mạnh** và phải dừng lại (không lách qua được); đơn vị kỵ/ma có thể bỏ qua ZOC.
+- Đơn vị có vị trí float + **collider tròn** (người r=4 px, quái lớn r=10–16 px). Đi tới bất kỳ điểm nào.
+- Pipeline: A* 8 hướng trên nav grid 8 px → **làm mượt đường** (string pulling bằng raycast trên grid) → bám theo waypoint với **steering**: arrival (giảm tốc khi tới), separation (đẩy nhẹ khỏi đồng đội), tránh vật cản tĩnh. Kẹt > 1,5 s → tính lại đường.
+- **Tốc độ theo địa hình** dưới chân: cỏ ×1.0, nền rừng/đồi ×0.7, đầm ×0.45, đường lát ×1.3; nước đen/vách đá không đi được.
+- **Di chuyển nhóm theo đội hình**: chọn nhiều lính và ra lệnh → xếp hàng ngang/khối/rải theo hướng kéo (kéo chuột phải để vẽ hướng và độ rộng đội hình như Total War/AoE).
+- **Thay 1UPT** bằng va chạm cứng giữa lính (không đi xuyên nhau) → chặn hẻm, bịt cổng là chiến thuật thật.
+- **Thay ZOC theo ô** bằng **vùng giao chiến (engagement radius)**: vào trong bán kính cận chiến của địch (≈ 24 px) → tốc độ ×0.3 và bị "khoá giao chiến", rút ra mất 1 giây; Wraith/kỵ bỏ qua.
 
 **Điều khiển (RTS-lite):**
 
-- Chọn đơn vị: click, kéo khung, phím nhóm `Ctrl+1..9`; mobile: chạm + nút chọn nhóm.
-- Lệnh: Di chuyển, Tấn công-di chuyển, Giữ vị trí (Fortify +def theo thời gian đứng yên), Tuần tra giữa các hex, Rút lui, Dựng phòng tuyến (tự dàn đội hình lên dải hex).
-- **Xem trước đường đi** trên hex (đường + số giây tới đích + ô ZOC tô đỏ) — chuẩn Civ 6.
+- Chọn: click, kéo khung, double-click chọn cùng loại, phím nhóm `Ctrl+1..9`; mobile: chạm, nút "chọn tất cả lính", kéo khung bằng 2 ngón hoặc nút chế độ chọn.
+- Lệnh: Di chuyển, Tấn công-di chuyển, Giữ vị trí (Fortify +def theo thời gian đứng yên), Tuần tra giữa các điểm, Rút lui, Dựng phòng tuyến theo đường kéo.
+- **Xem trước đường đi** (đường mượt + số giây tới đích + vùng giao chiến địch tô đỏ).
 - Hàng đợi lệnh (Shift+click). Active pause để ra lệnh trên mobile.
 
 **Chiến đấu:**
 
-- **Combat Strength (CS)** kiểu Civ 6: sát thương = f(chênh lệch CS) có ngẫu nhiên nhỏ; HP 100 mỗi đơn vị.
-- Tấn công theo **nhịp đòn** (attack cooldown) thay vì lượt.
-- **Bonus địa hình**: đồi/rừng +3 def, sông −5 khi tấn công qua sông, công sự +def.
-- **Flanking & Support**: +2 CS cho mỗi đơn vị phe mình kề mục tiêu (flank) / kề bản thân (support) → khuyến khích bao vây theo hex.
-- **Tầm xa**: cung/ballista có **range theo số hex** + cần **line of sight** (đồi/rừng chặn tầm nhìn, đứng trên đồi bắn qua được).
+- **Combat Strength (CS)** kiểu Civ 6: sát thương = f(chênh lệch CS) có ngẫu nhiên nhỏ; HP 100 mỗi đơn vị. Tấn công theo **nhịp đòn** (cooldown).
+- **Bonus địa hình**: đứng trên đồi/nền rừng +3 def; tấn công từ đầm −3; công sự/tường thấp +def.
+- **Flanking & Support theo khoảng cách/góc**: +2 CS mỗi đồng minh đang đánh cùng mục tiêu trong bán kính 32 px (flank), +3 nếu đánh từ cung sau 120° của mục tiêu; +1 support mỗi đồng minh trong 24 px quanh bản thân (tối đa +3).
+- **Tầm xa theo pixel** (Hunter 96 px, Longbow 144 px, Ballista 192 px) + **line of sight**: raycast trên lưới chặn tầm nhìn (cây, vách đá, công trình cao); đứng trên đồi bỏ qua vật cản thấp.
 - **Ánh sáng là chiến thuật**: quái mất CS trong vùng sáng; Shade bất tử trong bóng tối.
-- Thương tích theo bộ phận vẫn áp cho colonist (gãy chân = chậm qua ô).
+- Thương tích theo bộ phận vẫn áp cho colonist (gãy chân = chậm).
 
 **Lớp đơn vị (mở khoá bằng tech):**
 
-| Lớp                  | Ví dụ                                                                        | Đặc điểm                            |
-| -------------------- | ---------------------------------------------------------------------------- | ----------------------------------- |
-| Dân quân             | Militia (colonist cầm vũ khí)                                                | Rẻ, rút từ lao động                 |
-| Cận chiến            | Man-at-arms → Inquisitor Knight                                              | Giữ tuyến                           |
-| Chống kỵ/quái lớn    | Pikeman → Silver Halberd                                                     | Bonus vs Brute/boss                 |
-| Tầm xa               | Hunter → Longbow → Crossbow                                                  | Range 2 hex                         |
-| Công thành/Phòng thủ | Ballista, Flame Cart                                                         | Range 3, phải dựng (setup)          |
-| Hỗ trợ               | Chaplain (hồi sanity vùng), Lantern Bearer (nguồn sáng di động), Field Medic | Không chiến đấu                     |
-| Hắc ám (Occult)      | Ghoul thuần phục, Bone Golem, Blood Witch                                    | Mạnh, +Corruption                   |
-| Anh hùng             | 1–3 Hero có kỹ năng chủ động                                                 | Kiểu Great General: aura +CS hex kề |
+| Lớp                  | Ví dụ                                                                        | Đặc điểm                                          |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------- |
+| Dân quân             | Militia (colonist cầm vũ khí)                                                | Rẻ, rút từ lao động                               |
+| Cận chiến            | Man-at-arms → Inquisitor Knight                                              | Giữ tuyến                                         |
+| Chống kỵ/quái lớn    | Pikeman → Silver Halberd                                                     | Bonus vs Brute/boss                               |
+| Tầm xa               | Hunter → Longbow → Crossbow                                                  | Tầm 96–144 px                                     |
+| Công thành/Phòng thủ | Ballista, Flame Cart                                                         | Tầm 192 px, phải dựng (setup)                     |
+| Hỗ trợ               | Chaplain (hồi sanity vùng), Lantern Bearer (nguồn sáng di động), Field Medic | Không chiến đấu                                   |
+| Hắc ám (Occult)      | Ghoul thuần phục, Bone Golem, Blood Witch                                    | Mạnh, +Corruption                                 |
+| Anh hùng             | 1–3 Hero có kỹ năng chủ động                                                 | Kiểu Great General: aura +CS trong bán kính 64 px |
 
 - **Promotion tree** kiểu Civ 6: lính lên cấp bằng XP, chọn 1 trong 2 nhánh thăng cấp (vd. "Tuyến thép: +def khi Fortify" vs "Truy kích: +move sau khi giết").
 - Lính là **colonist được huấn luyện** tại Doanh trại (giữ tên, trait, sanity, quan hệ) → lính chết là mất người thật — giữ chất kể chuyện RimWorld.
@@ -206,8 +220,8 @@ ashen-hollow/
 **Quái & đợt tấn công:**
 
 - **Wave system**: mỗi đêm sinh quái từ Rift theo ngân sách độ khó (ngày + giàu có + corruption).
-- Quái cũng bám ô, dùng **flow field hex** tới mục tiêu (nguồn sáng/colonist/công trình), phá tường nếu bị chặn, tôn trọng ZOC của lính ta.
-- Ví dụ: Ghoul (đông, yếu), Hollow Wraith (bay qua tường, bỏ qua ZOC, hút sanity), Bone Brute (phá tường), Shade, Plague Rat swarm (nhiều con/hex), Possessed Colonist, **Boss** chiếm 3 hex: The Weeping Matron, Antler King, Veil Leviathan.
+- Quái di chuyển tự do theo **flow field** trên nav grid tới mục tiêu (nguồn sáng/colonist/công trình) + separation để tràn như bầy; phá tường nếu bị chặn; bị vùng giao chiến của lính ta làm chậm.
+- Ví dụ: Ghoul (đông, yếu), Hollow Wraith (bay qua tường, bỏ qua vùng giao chiến, hút sanity), Bone Brute (phá tường), Shade, Plague Rat swarm (hàng chục con nhỏ), Possessed Colonist, **Boss** collider lớn (r≈24 px): The Weeping Matron, Antler King, Veil Leviathan.
 - **Tổ quái (Lair)** trên bản đồ như trại man rợ Civ: phá tổ để giảm đợt tấn công và nhận Eureka.
 
 ### 3.8 Cây công nghệ kiểu Civilization VI
@@ -290,8 +304,10 @@ ashen-hollow/
 
 ### Quy chuẩn
 
-- **Hex tile pointy-top 32×28 px** (vẽ trong canvas 32×32 để có chỗ cho độ cao: đồi, cây nhô lên trên). Nhân vật **16×24**, đứng ở tâm hex. Công trình 1 hex vẽ trong 32×40 (nhô cao), công trình 3/7 hex vẽ thành sprite lớn.
-- Mẹo pixel hex: dùng template viền hex cố định, cạnh xiên theo nhịp 2:1 pixel để không bị răng cưa xấu; vẽ **transition giữa biome** bằng overlay cạnh (6 cạnh × các loại địa hình) thay vì autotile 47 ô kiểu vuông.
+- **Terrain tile 16×16**, vẽ theo **dual-grid**: mỗi loại địa hình chỉ cần **16 tile mặt nạ góc** (+2–3 biến thể nền) thay vì 47 ô autotile; các lớp địa hình chồng theo độ ưu tiên (nước < đầm < cỏ < nền rừng < đồi < đất nguyền < vách đá).
+- **Vật thể tự do** (cây, đá, xương, nấm) vẽ thành sprite riêng, **gốc (origin) ở chân** để y-sort đúng; bóng đổ 1–2 px hình elip bên dưới.
+- Nhân vật **16×24**, công trình theo footprint (lều 24×20, nhà 32×28, tháp 16×40…), mọi sprite **không xoay** — hướng thể hiện bằng frame 4/8 hướng.
+- Tường/hàng rào: bộ **cọc/khối 8×12 px** (vài biến thể) rải dọc đường kéo → tường mọi góc vẫn sạch pixel.
 - **Palette giới hạn 32–48 màu** (gợi ý xuất phát: _Resurrect 64_ rút gọn hoặc _Endesga 32_ + tông xám-tím-xanh rêu, điểm nhấn: cam lửa, đỏ máu, xanh lục ma). Ánh sáng ấm (lửa) vs bóng tối lạnh (tím/xanh) là ngôn ngữ thị giác chính.
 - Công cụ: **Aseprite** (vẽ + animation + xuất JSON atlas), **Tiled** (map), **TexturePacker** hoặc `free-tex-packer` (atlas).
 - Pipeline: `.aseprite` → script xuất spritesheet + JSON → `public/assets/atlases/`.
@@ -300,8 +316,8 @@ ashen-hollow/
 
 **Tileset**
 
-- Địa hình hex theo biome (cỏ chết, đất, bùn, đồi, núi, nước đen, tuyết tro, đất nguyền) – mỗi loại 3–4 biến thể + overlay cạnh chuyển tiếp, overlay sông/đường theo cạnh hex.
-- **Overlay chiến thuật**: viền lãnh thổ, hex được chọn, đường đi xem trước, ô ZOC (đỏ), tầm bắn, vùng sáng, hex có Eureka/tài nguyên.
+- Địa hình theo biome (cỏ chết, bùn/đầm, đồi, vách đá, nước đen, tuyết tro, đất nguyền, nền rừng) – mỗi loại 16 tile mặt nạ dual-grid + 2–3 biến thể nền; đường mòn/đường lát là một lớp địa hình riêng.
+- **Overlay chiến thuật**: viền lãnh thổ mềm, vòng chọn dưới chân đơn vị, ghost công trình xanh/đỏ, vòng bán kính bonus, đường đi xem trước, vùng giao chiến địch (đỏ), tầm bắn, vùng sáng.
 - Tài nguyên: 3–4 loại cây chết, đá, quặng, nấm phát quang, bụi gai, xương.
 - Sàn & tường (gỗ, đá, xương) có autotile.
 
@@ -309,7 +325,7 @@ ashen-hollow/
 
 - Colonist base body + **layer**: tóc, quần áo, vũ khí, giáp (paper-doll → đa dạng không cần vẽ nhiều).
 - Portrait 32×32 cho UI (cũng ghép layer).
-- Quái: 6–8 loại + 3 boss (boss chiếm 3 hex, sprite 48×48 hoặc 64×64).
+- Quái: 6–8 loại + 3 boss (boss sprite 48×48 hoặc 64×64, collider lớn).
 - **Lính**: 10–14 loại đơn vị (bảng 3.7), mỗi loại có huy hiệu lớp đơn vị (icon 8×8 trên đầu, giống Civ 6) + thanh HP; biến thể màu theo cấp promotion.
 - **Icon cây công nghệ**: ~75 icon 48×48 (Lore + Doctrine), ~25 Policy Card minh hoạ 64×96, 4 banner kỷ nguyên.
 
@@ -368,14 +384,14 @@ Mỗi phase có **Mục tiêu → Đầu việc → Tiêu chí hoàn thành (DoD
 - Khởi tạo repo: Vite + TS + Phaser + bitECS + Vitest + ESLint/Prettier + GitHub Actions + deploy preview (Vercel/Cloudflare Pages).
 - Scene skeleton: Boot → Preload → MainMenu → World.
 - Camera: pan (WASD/kéo), zoom (wheel/pinch) với scale số nguyên.
-- **Hex core**: module `hex/` (axial coords, neighbors, distance, pixel↔hex, ring/range, line) + unit test; render map hex placeholder + hover/chọn hex.
-- **DoD**: mở URL thấy map hex placeholder, hover/click chọn đúng ô, pan/zoom được trên PC và điện thoại.
+- ~~Hex core~~ (đã làm rồi bỏ ở v3) → **Phase 0b – chuyển sang thế giới tự do** (mục 10): terrain grid 16 px + dual-grid, doodad Poisson, nav grid 8 px, spatial hash, đặt công trình tự do có snap.
+- **DoD**: mở URL thấy map liền mạch không thấy ô, cây/đá rải tự nhiên; đặt thử công trình ở bất kỳ đâu (Shift = snap), ghost đỏ khi chồng lấn; pan/zoom trên PC và điện thoại.
 
 ### Phase 1 – Prototype Core Loop (~4–6 tuần)
 
 - Grid map + procedural generation cơ bản (1 biome).
 - ECS: Position, Sprite, Colonist, Job, Inventory.
-- Pathfinding A* trên hex (chi phí địa hình) trong Web Worker; di chuyển bám ô + hex reservation.
+- Pathfinding A* 8 hướng trên nav grid + làm mượt đường, chạy trong Web Worker; di chuyển tự do bằng steering (arrival + separation).
 - Lãnh thổ cơ bản quanh Hearthfire.
 - Job system: chặt cây, đào đá, vận chuyển về kho, xây công trình từ blueprint.
 - 3 colonist, 5 công trình (lửa trại, kho, tường, giường, đuốc), 3 tài nguyên.
@@ -387,7 +403,7 @@ Mỗi phase có **Mục tiêu → Đầu việc → Tiêu chí hoàn thành (DoD
 - Chu kỳ ngày/đêm + lighting lightmap + nguồn sáng tiêu nhiên liệu.
 - **Sanity** cơ bản (bóng tối, đói, ngủ, lửa trại).
 - Quái đêm đơn giản (Ghoul) spawn từ Rift, flow field, tấn công.
-- **Điều khiển lính real-time theo ô**: chọn/kéo khung, move, attack-move, fortify, xem trước đường đi; 1UPT; ZOC; Combat Strength + bonus địa hình/flank; 3 lớp đơn vị (Militia, Man-at-arms, Hunter) + tháp cung + tường.
+- **Điều khiển lính kiểu RTS**: chọn/kéo khung, move, attack-move, fortify, đội hình khi kéo, xem trước đường đi; va chạm giữa lính; vùng giao chiến; Combat Strength + bonus địa hình/flank theo khoảng cách; 3 lớp đơn vị (Militia, Man-at-arms, Hunter) + tháp cung + tường kéo đường.
 - **Tech tree tối thiểu**: ~10 node Lore Kỷ 1 có prerequisite + Eureka (để kiểm chứng cơ chế sớm).
 - Save/Load IndexedDB (versioned).
 - **DoD**: sống sót được 5 đêm là một thử thách thật; có thể thua. **→ Đây là vertical slice đầu tiên, cho bạn bè chơi thử.**
@@ -408,8 +424,8 @@ Mỗi phase có **Mục tiêu → Đầu việc → Tiêu chí hoàn thành (DoD
 - **Government + Policy Card** (~25 thẻ, 4 loại slot).
 - Adjacency bonus cho công trình; mở rộng lãnh thổ bằng culture.
 - Đủ 10–14 lớp đơn vị, promotion tree, Hero/aura, ranged LOS, đơn vị setup (Ballista).
-- Quái đa dạng (5–6 loại) + Lair trên bản đồ + Blood Moon + 1 boss 3-hex.
-- **DoD**: hai lối chơi Ánh sáng / Bóng tối khác nhau rõ rệt; người chơi có lý do để "săn Eureka"; trận đêm thắng nhờ dàn trận hex chứ không chỉ nhờ số đông.
+- Quái đa dạng (5–6 loại) + Lair trên bản đồ + Blood Moon + 1 boss.
+- **DoD**: hai lối chơi Ánh sáng / Bóng tối khác nhau rõ rệt; người chơi có lý do để "săn Eureka"; trận đêm thắng nhờ dàn trận, bịt hẻm và đặt đèn chứ không chỉ nhờ số đông.
 
 ### Phase 5 – Storyteller, Event, Khám phá, Mùa (~6–8 tuần)
 
@@ -452,18 +468,20 @@ Mỗi phase có **Mục tiêu → Đầu việc → Tiêu chí hoàn thành (DoD
 
 ## 8. Rủi ro chính & Cách giảm
 
-| Rủi ro                                           | Giảm thiểu                                                                    |
-| ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| Scope phình to (colony sim là thể loại khổng lồ) | Phase 2 phải chơi được; mỗi phase cắt nội dung trước khi cắt chất lượng       |
-| Hiệu năng pathfinding với nhiều entity           | Worker + flow field cho quái + cache path + tick AI theo lô                   |
-| Mobile UI quá chật                               | Thiết kế touch-first từ Phase 0, active pause                                 |
-| Save hỏng khi đổi version                        | Save có `version` + hàm migrate, test round-trip                              |
-| Asset không nhất quán                            | Khoá palette + kích thước + style guide 1 trang từ Phase 0                    |
-| Mất động lực (hobby)                             | Devlog định kỳ, deploy preview mỗi tuần để thấy tiến độ                       |
-| Real-time + bám ô bị kẹt/tắc đường               | Hex reservation + timeout re-path + cho phép "đổi chỗ" giữa 2 đơn vị cùng phe |
-| Micro lính real-time quá tải trên mobile         | Active pause, lệnh nhóm, "dựng phòng tuyến" tự động, tốc độ game chậm         |
-| Cây tech quá to làm loãng                        | Bắt đầu 10 node ở Phase 2, chỉ mở rộng khi Eureka chứng minh vui              |
-| Pixel art hex khó vẽ                             | Khoá template hex + overlay cạnh ngay Phase 0, thử 1 biome trước              |
+| Rủi ro                                           | Giảm thiểu                                                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Scope phình to (colony sim là thể loại khổng lồ) | Phase 2 phải chơi được; mỗi phase cắt nội dung trước khi cắt chất lượng                           |
+| Hiệu năng pathfinding với nhiều entity           | Worker + flow field cho quái + cache path + tick AI theo lô                                       |
+| Mobile UI quá chật                               | Thiết kế touch-first từ Phase 0, active pause                                                     |
+| Save hỏng khi đổi version                        | Save có `version` + hàm migrate, test round-trip                                                  |
+| Asset không nhất quán                            | Khoá palette + kích thước + style guide 1 trang từ Phase 0                                        |
+| Mất động lực (hobby)                             | Devlog định kỳ, deploy preview mỗi tuần để thấy tiến độ                                           |
+| Đơn vị tự do bị kẹt / dồn cục                    | Steering separation + timeout re-path + đồng đội nhường đường (push nhẹ); flow field cho bầy quái |
+| Đặt tự do làm base lộn xộn, khó căn hàng         | Snap 8 px (Shift), magnet mép, ghost hiển thị khoảng cách                                         |
+| Hiệu năng va chạm với nhiều entity               | Spatial hash, tick AI theo lô, nav grid cập nhật cục bộ khi đặt/phá công trình                    |
+| Micro lính real-time quá tải trên mobile         | Active pause, lệnh nhóm, "dựng phòng tuyến" tự động, tốc độ game chậm                             |
+| Cây tech quá to làm loãng                        | Bắt đầu 10 node ở Phase 2, chỉ mở rộng khi Eureka chứng minh vui                                  |
+| Chuyển tiếp địa hình trông "ô vuông"             | Dual-grid với mặt nạ góc dither/hữu cơ + doodad che mép                                           |
 
 ---
 
@@ -472,6 +490,65 @@ Mỗi phase có **Mục tiêu → Đầu việc → Tiêu chí hoàn thành (DoD
 1. Tạo repo `ashen-hollow` (ngoài portfolio), scaffold Vite + TS + Phaser + bitECS + Vitest.
 2. Viết `docs/GDD.md` (rút gọn từ plan này) + `docs/ART_STYLE.md` (palette, kích thước, quy tắc).
 3. Làm Phase 0 → deploy preview → kiểm tra trên điện thoại.
+
+## 10. Phase 0b — Chuyển code hiện tại sang thế giới tự do (việc cần làm ngay)
+
+Repo: `D:\WorkSpace\ashen-hollow` (Phase 0 hex đã xong, chưa commit). **Commit trạng thái hex hiện tại trước** ("Phase 0: hex prototype") để có điểm quay lại, rồi làm trên đó.
+
+### Giữ nguyên (tái sử dụng)
+
+- `src/sim/random.ts` (`Rng`, `hashSeed`), `src/sim/noise.ts` (`fractalNoise2D`), `src/sim/SimClock.ts`, `src/core/events.ts` (`EventBus`), `src/data/palette.ts`, `src/ui/theme.ts`, `src/platform/CameraController.ts` (pan/zoom/pinch/tap — chỉ đổi callback), Boot/Preload/MainMenu scene, CI, ESLint boundary.
+- `PixelCanvas` trong `src/render/pixel.ts` (bỏ phần mask hex).
+
+### Xoá
+
+- `src/hex/*` (hex.ts, offset.ts, layout.ts, index.ts, hex.test.ts), `src/sim/map/HexMap.ts`, `src/render/HexMapRenderer.ts`, phần mask hex trong `src/render/pixel.ts` + `pixel.test.ts`, component `HexPosition`.
+
+### Thêm / viết lại (thuần TS, không Phaser, có test)
+
+| File                                 | Nội dung                                                                                                                                                                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/sim/geom.ts`                    | `Vec2`, khoảng cách, AABB/circle overlap, segment helpers                                                                                                                                                                                         |
+| `src/data/terrain.ts` (viết lại)     | Bỏ `moveCost` → `speed` (hệ số), `passable`, `defenseBonus`, `blocksSight`, `priority` (thứ tự lớp dual-grid); thêm `forestFloor`, bỏ `deadForest`/`mountain` → `cliff`                                                                           |
+| `src/data/doodads.ts`                | deadTree, boulder, boneHeap, glowShroom: kích thước sprite, bán kính collider, chặn tầm nhìn, sản lượng khai thác                                                                                                                                 |
+| `src/data/buildings.ts`              | Vài công trình thử: Hearthfire (footprint tròn r8), Tent (sprite 24×20, footprint 24×14), Storage (sprite 32×24, footprint 32×18), Watchtower (sprite 16×40, footprint 16×12). Footprint = phần chạm đất, nhỏ hơn sprite vì mái/tầng nhô lên trên |
+| `src/sim/map/TerrainGrid.ts`         | Lưới 16 px (128×128) Uint8Array; `cellAt(x,y)`, `terrainAtWorld(x,y)`, `forEach`                                                                                                                                                                  |
+| `src/sim/map/generate.ts` (viết lại) | Noise → terrain theo ô; vành đai vách đá quanh map; khoảng trống quanh điểm xuất phát (tâm map); **Poisson disk** rải doodad theo biome; trả `{ terrain, doodads, start }`                                                                        |
+| `src/sim/map/poisson.ts`             | Poisson disk sampling có seed (Bridson)                                                                                                                                                                                                           |
+| `src/sim/spatial/SpatialHash.ts`     | insert/remove/update/query theo vòng tròn & AABB                                                                                                                                                                                                  |
+| `src/sim/nav/NavGrid.ts`             | Lưới 8 px: walkable + cost (từ `speed` địa hình); `blockCircle/blockRect` có đếm tham chiếu để gỡ khi phá/chặt                                                                                                                                    |
+| `src/sim/nav/astar.ts` + `smooth.ts` | A* 8 hướng (octile, không cắt góc) + string pulling bằng raycast grid (Phase 1 dùng, Phase 0b chỉ cần có + test)                                                                                                                                  |
+| `src/sim/placement.ts`               | `snapToGrid(p, 8)`, `magnetSnap(footprint, neighbors, 6)`, `validatePlacement(footprint, world)` → `{ ok, reason }` (chồng công trình/doodad, địa hình chặn, ngoài map)                                                                           |
+| `src/sim/components.ts` (viết lại)   | `Position {x,y}` Float32, `Collider {radius}`, `Footprint`, `Doodad {kind}`, `Building {kind}`                                                                                                                                                    |
+| `src/sim/GameWorld.ts`               | Tạo terrain + doodad entity + Hearthfire; `placeBuilding()` cập nhật ECS, spatial hash, nav grid                                                                                                                                                  |
+
+### Render / Phaser
+
+| File                                      | Nội dung                                                                                                                                                                          |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/render/dualGrid.ts` (thuần, có test) | Với mỗi ô render (lệch nửa ô), tính mặt nạ 4 góc (0–15) cho từng loại địa hình có mặt, theo `priority`                                                                            |
+| `src/render/terrainArt.ts` (viết lại)     | Sinh tile 16×16 placeholder: nền (2–3 biến thể dither) + 16 mặt nạ góc mép hữu cơ cho mỗi địa hình; sprite doodad (cây chết 16×24, đá, xương, nấm); sprite công trình placeholder |
+| `src/render/atlas.ts`                     | Gom tất cả vào 1 texture như hiện tại                                                                                                                                             |
+| `src/render/TerrainRenderer.ts`           | Phaser `Tilemap` trống (orthographic, 16 px), mỗi địa hình 1 layer theo `priority`, đặt tile index = mặt nạ dual-grid; layer nền                                                  |
+| `src/render/EntityRenderer.ts`            | Sprite doodad/công trình, **y-sort** (`setDepth(y)`), bóng đổ                                                                                                                     |
+| `src/render/PlacementPreview.ts`          | Ghost công trình theo con trỏ, tint xanh/đỏ, viền footprint                                                                                                                       |
+| `src/render/DebugOverlay.ts`              | F3: vẽ nav grid (ô chặn đỏ mờ) & collider                                                                                                                                         |
+
+### Scene & input
+
+- `WorldScene`: dùng renderer mới; hover = toạ độ thế giới; chế độ **Xây (B)**: chọn Tent/Storage/Watchtower bằng nút trên thanh xây dựng HUD hoặc phím Z/X/C (1–3 vẫn là tốc độ game, WASD là camera), click đặt, Shift = snap 8 px, Esc/chuột phải = huỷ. Mobile: nút "Xây" → chạm đặt ghost → kéo → ✓/✕.
+- `HudScene`: info dưới con trỏ (địa hình, hệ số tốc độ, vật thể nếu có, toạ độ px); thanh xây dựng đơn giản; lý do không hợp lệ khi đặt ("Chồng lên cây", "Địa hình không xây được").
+- `CameraController`: không đổi logic; bounds theo 2048×2048.
+
+### Docs
+
+- `docs/GDD.md`, `docs/ART_STYLE.md` (bỏ phần hex, thêm dual-grid 16 px, doodad origin ở chân, y-sort, cọc tường 8×12), `docs/ROADMAP.md` (đồng bộ lại từ file plan này), `CLAUDE.md` (bỏ quy tắc hex, thêm: toạ độ pixel float, nav grid 8 px, spatial hash, mọi sprite không xoay), `README.md` (điều khiển mới).
+
+### Kiểm thử Phase 0b
+
+- Vitest: dual-grid mask (ô đồng nhất → mask 15, biên → đúng bit), generate deterministic + doodad không nằm trên nước/vách + khoảng trống quanh start, Poisson khoảng cách tối thiểu, SpatialHash query, NavGrid block/unblock đếm tham chiếu, A* + smoothing (đi vòng vật cản, không xuyên góc), placement (snap, magnet, chồng lấn → invalid).
+- `npm run lint && npm test && npm run build`.
+- Browser pane: desktop + mobile 375×812 — map liền mạch không thấy ô, cây y-sort đúng (đứng sau/trước), đặt công trình tự do + Shift snap, ghost đỏ khi chồng cây, F3 thấy nav grid bị chặn đúng chỗ; console không lỗi.
 
 ## Verification (cho mỗi phase)
 

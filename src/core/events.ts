@@ -1,4 +1,5 @@
-import type { Hex } from '../hex';
+import type { BuildingId } from '../data/buildings';
+import type { PlacementProblem } from '../sim/placement';
 import type { GameSpeed } from '../sim/SimClock';
 
 /**
@@ -6,15 +7,24 @@ import type { GameSpeed } from '../sim/SimClock';
  * Kept engine-free so React/Preact overlays can subscribe too.
  */
 export interface GameEvents {
-  'hex:hover': { hex: Hex | null };
-  'hex:select': { hex: Hex | null };
+  /** World position under the mouse (null when it left the map / touch device). */
+  'cursor:move': { x: number; y: number } | null;
+  'entity:select': { eid: number | null };
   'camera:zoom': { zoom: number };
   'clock:speed': { speed: GameSpeed };
   'clock:tick': { tick: number };
+  /** Build mode changed: which building is being placed (null = left build mode). */
+  'build:mode': { kind: BuildingId | null; snap: boolean };
+  /** Live placement feedback for the ghost; `pending` = touch ghost awaiting confirm. */
+  'build:status': { ok: boolean; reason: PlacementProblem | null; pending: boolean };
+  'build:placed': { kind: BuildingId; eid: number };
   'ui:zoom-step': { direction: 1 | -1 };
   'ui:set-speed': { speed: GameSpeed };
   'ui:toggle-pause': Record<string, never>;
-  'ui:toggle-grid': Record<string, never>;
+  'ui:build': { kind: BuildingId | null };
+  'ui:toggle-snap': Record<string, never>;
+  'ui:build-confirm': Record<string, never>;
+  'ui:build-cancel': Record<string, never>;
 }
 
 type Handler<T> = (payload: T) => void;

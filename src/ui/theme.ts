@@ -2,11 +2,16 @@ import type Phaser from 'phaser';
 import { PALETTE, toCss } from '../data/palette';
 
 /**
- * UI styling shared by every Phaser-drawn screen. Placeholder system fonts for now —
- * a pixel font with full Vietnamese diacritics replaces these in the art pass.
+ * UI styling shared by every Phaser-drawn screen. A serif "manuscript" face for all HUD
+ * text; a pixel font with full Vietnamese diacritics replaces it in the art pass.
+ * Monospace is reserved for debug readouts.
  */
-export const FONT_UI = 'ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace';
-export const FONT_TITLE = 'Georgia, "Times New Roman", serif';
+// Every face here ships precomposed Vietnamese glyphs (Georgia does not — its
+// diacritics fall back to another font and render detached).
+export const FONT_UI =
+  '"Palatino Linotype", "Book Antiqua", "Noto Serif", "Times New Roman", Tinos, serif';
+export const FONT_TITLE = FONT_UI;
+export const FONT_DEBUG = 'ui-monospace, Consolas, monospace';
 
 /** Minimum touch target (Apple/Google guidance). */
 export const TOUCH_TARGET = 44;
@@ -25,6 +30,8 @@ export interface ButtonOptions {
   width?: number;
   height?: number;
   fontSize?: number;
+  /** Optional pixel-art icon (texture key + frame), drawn above the label at integer scale. */
+  icon?: { key: string; frame: string; scale?: number };
   onClick: () => void;
 }
 
@@ -32,21 +39,36 @@ export interface Button {
   container: Phaser.GameObjects.Container;
   setActive: (active: boolean) => void;
   setLabel: (label: string) => void;
+  setVisible: (visible: boolean) => void;
 }
 
-/** A flat gothic-ish button: dark panel, bone border, ember highlight when active/hovered. */
+/** Dark panel button; fire-coloured when active (fire = safety in this game's visual language). */
 export const createButton = (
   scene: Phaser.Scene,
   x: number,
   y: number,
   label: string,
-  { width = TOUCH_TARGET, height = TOUCH_TARGET, fontSize = 16, onClick }: ButtonOptions,
+  { width = TOUCH_TARGET, height = TOUCH_TARGET, fontSize = 15, icon, onClick }: ButtonOptions,
 ): Button => {
   const bg = scene.add
     .rectangle(0, 0, width, height, PALETTE.ink, 0.92)
     .setStrokeStyle(2, PALETTE.shadowPlum);
-  const text = scene.add.text(0, 0, label, textStyle(fontSize)).setOrigin(0.5);
-  const container = scene.add.container(x, y, [bg, text]).setSize(width, height);
+  const children: Phaser.GameObjects.GameObject[] = [bg];
+  let text: Phaser.GameObjects.Text;
+  if (icon) {
+    const img = scene.add
+      .image(0, height / 2 - fontSize - 6, icon.key, icon.frame)
+      .setOrigin(0.5, 1)
+      .setScale(icon.scale ?? 1);
+    text = scene.add
+      .text(0, height / 2 - 4, label, textStyle(fontSize, PALETTE.bone))
+      .setOrigin(0.5, 1);
+    children.push(img, text);
+  } else {
+    text = scene.add.text(0, 0, label, textStyle(fontSize)).setOrigin(0.5);
+    children.push(text);
+  }
+  const container = scene.add.container(x, y, children).setSize(width, height);
   let active = false;
   let hovered = false;
 
@@ -73,5 +95,10 @@ export const createButton = (
       refresh();
     },
     setLabel: (value) => text.setText(value),
+    setVisible: (value) => {
+      container.setVisible(value);
+      if (value) bg.setInteractive();
+      else bg.disableInteractive();
+    },
   };
 };

@@ -15,14 +15,12 @@ export default tseslint.config(
   },
   {
     // The simulation must stay engine-agnostic so it can be unit-tested and moved to a worker.
-    files: ['src/sim/**/*.ts', 'src/hex/**/*.ts', 'src/data/**/*.ts', 'src/core/**/*.ts'],
+    files: ['src/sim/**/*.ts', 'src/data/**/*.ts', 'src/core/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            { name: 'phaser', message: 'sim/, hex/, data/ and core/ must stay engine-agnostic.' },
-          ],
+          paths: [{ name: 'phaser', message: 'sim/, data/ and core/ must stay engine-agnostic.' }],
         },
       ],
     },

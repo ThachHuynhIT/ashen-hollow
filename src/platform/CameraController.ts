@@ -19,6 +19,13 @@ export interface CameraControllerOptions {
   /** A short press/tap that didn't become a drag or pinch (world coordinates). */
   onTap?: (worldX: number, worldY: number, pointer: Phaser.Input.Pointer) => void;
   onZoomChange?: (zoom: number) => void;
+  /**
+   * Asked when a press starts: return true to take this drag for yourself (e.g. moving
+   * a placement ghost) instead of panning the camera.
+   */
+  claimDrag?: (worldX: number, worldY: number, pointer: Phaser.Input.Pointer) => boolean;
+  /** A claimed drag moved; world position of the pointer. */
+  onClaimedDrag?: (worldX: number, worldY: number) => void;
 }
 
 interface DragState {
@@ -28,6 +35,8 @@ interface DragState {
   scrollX: number;
   scrollY: number;
   dragging: boolean;
+  /** Someone else owns this drag; the camera stays put. */
+  claimed: boolean;
 }
 
 interface PinchState {
@@ -109,12 +118,12 @@ export class CameraController {
   // --- zoom -----------------------------------------------------------------
 
   /**
-   * Pick a zoom that shows roughly 20 hexes across, whatever the screen size.
-   * Touch screens get at least 2× so a hex (64 px) is bigger than a fingertip.
+   * Pick a zoom that shows roughly 640 world px across, whatever the screen size.
+   * Touch screens get at least 2× so buildings and trees are bigger than a fingertip.
    */
   private defaultZoomIndex(): number {
     const minForTouch = this.scene.sys.game.device.input.touch ? 2 : 1;
-    const target = Math.max(minForTouch, Math.round(this.cam.width / (20 * 32)));
+    const target = Math.max(minForTouch, Math.round(this.cam.width / 640));
     const idx = ZOOM_LEVELS.findIndex((z) => z >= target);
     return idx < 0 ? ZOOM_LEVELS.length - 1 : idx;
   }
@@ -141,7 +150,7 @@ export class CameraController {
    * Screen → world using the camera's current scroll/zoom directly (the camera matrix is
    * only refreshed at render time, so getWorldPoint can be one frame stale mid-update).
    */
-  private screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
+  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
     const halfW = this.cam.width / 2;
     const halfH = this.cam.height / 2;
     return {
@@ -172,6 +181,7 @@ export class CameraController {
       this.drag = null;
       return;
     }
+    const world = this.screenToWorld(pointer.x, pointer.y);
     this.drag = {
       pointerId: pointer.id,
       startX: pointer.x,
@@ -179,6 +189,7 @@ export class CameraController {
       scrollX: this.cam.scrollX,
       scrollY: this.cam.scrollY,
       dragging: false,
+      claimed: this.options.claimDrag?.(world.x, world.y, pointer) ?? false,
     };
   }
 
@@ -189,6 +200,11 @@ export class CameraController {
     const dy = pointer.y - drag.startY;
     if (!drag.dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
     drag.dragging = true;
+    if (drag.claimed) {
+      const world = this.screenToWorld(pointer.x, pointer.y);
+      this.options.onClaimedDrag?.(world.x, world.y);
+      return;
+    }
     this.cam.scrollX = drag.scrollX - dx / this.cam.zoom;
     this.cam.scrollY = drag.scrollY - dy / this.cam.zoom;
   }
