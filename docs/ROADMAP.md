@@ -1,4 +1,4 @@
-> Bản kế hoạch tổng thể (đồng bộ từ phiên lập kế hoạch 2026-10-08, cập nhật v3: bỏ lưới hex). Trạng thái: **Phase 0 + 0b xong** — xem README.
+> Bản kế hoạch tổng thể (đồng bộ từ phiên lập kế hoạch 2026-10-08, cập nhật v3: bỏ lưới hex). Trạng thái: **Phase 0, 0b, 1 xong** — xem README.
 
 # Kế hoạch: Dark Fantasy Colony Builder (2D Pixel, Web, đa nền tảng)
 

@@ -50,3 +50,13 @@ Bạn dẫn một nhóm người sống sót tới một thung lũng bị nguy�
 - **Simulation tách khỏi render.** `src/sim`, `src/data`, `src/core` không được import Phaser (ESLint chặn). Sim chạy tick cố định 10 tick/s, deterministic theo seed.
 - **Data-driven.** Số liệu gameplay nằm trong `src/data/*`, không rải trong system.
 - **Không dùng `Math.random()` trong sim.** Dùng `Rng` (seeded) để tái hiện bug và replay.
+
+## Phase 1 đã có
+
+- **3 tài nguyên:** Gỗ, Đá, Thức ăn. Khởi đầu 30 / 10 / 30. HUD hiện bộ đếm kho; chỉ tính hàng nằm trong Lửa Thiêng/Kho (drop point). Colonist mang tối đa 20 mỗi chuyến.
+- **Lệnh:** Chặt, Đào, Hái, Bỏ dấu (kéo khung hoặc chạm từng vật). Đặt công trình/tường tạo **bản thiết kế (blueprint)**; colonist lấy vật liệu ở Lửa Thiêng/Kho, chở tới và xây.
+- **Ưu tiên việc** (`score = priority × 10 000 − khoảng cách`): đang mang hàng (6) > nhu cầu khẩn cấp < 15 (5) > xây (4) > chở vật liệu (3) > thu hoạch (2) > nhu cầu thấp < 30 (1) > rảnh. Khi cả hai khẩn cấp, **đói trước ngủ**.
+- **Nhu cầu:** Đói và Ngủ (0–100), con số ở [`src/data/colonists.ts`](../src/data/colonists.ts): đói hết trong 1 ngày, ngủ hết sau 1,2 ngày, ngủ trong lều hồi nhanh gấp đôi ngủ ngoài trời. Một nhu cầu về 0 thì máu giảm (chết sau 1/3 ngày).
+- **Lãnh thổ:** bán kính 192 px quanh Lửa Thiêng; chỉ xây trong vùng ("Ngoài lãnh thổ — đặt gần Lửa Thiêng hơn.").
+- **Tường = cọc:** kéo một đường sinh chuỗi cọc nhỏ, mỗi cọc là một blueprint, xây từng cái một; không xoay sprite.
+- **Hiệu năng:** benchmark 0,40 ms/tick với 50 colonist — chưa cần Web Worker.

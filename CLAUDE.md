@@ -21,7 +21,7 @@ Run `npm test && npm run lint && npm run typecheck` before calling work done.
 ## Architecture rules
 
 - **`src/sim`, `src/data`, `src/core` must not import Phaser** (ESLint `no-restricted-imports` enforces it). They are pure TS so they can be unit-tested and moved into a worker. Test fixtures live in `src/sim/testing/` (e.g. `terrainFromAscii`).
-- **Determinism:** the sim never uses `Math.random()` or wall-clock time. Use `Rng` (`src/sim/random.ts`) and advance via `SimClock` fixed ticks (10/s). `stepWorld` in `src/sim/GameWorld.ts` is where systems get registered.
+- **Determinism:** the sim never uses `Math.random()` or wall-clock time. Use `Rng` (`src/sim/random.ts`) and advance via `SimClock` fixed ticks (10/s). `stepWorld` in `src/sim/step.ts` is where systems get registered.
 - **Free world, hidden grids.** Positions are float world pixels (`Position`). Grids are acceleration structures only and are never shown to the player:
   - `TerrainGrid` (16 px) — ground type; rendered seamlessly by dual-grid (`src/render/dualGrid.ts`).
   - `NavGrid` (8 px) — walkability/cost for pathfinding; obstacles are reference-counted (`block`/`unblock`).
@@ -34,6 +34,10 @@ Run `npm test && npm run lint && npm run typecheck` before calling work done.
 - **Phaser scene instances are reused** across restarts: reset per-game fields at the top of `create()`.
 - **Pixel art:** colours only from `PALETTE` (`src/data/palette.ts`); integer camera zoom only (`ZOOM_LEVELS`); sprites anchored at their feet and depth-sorted by that y; never rotate sprites.
 - **HUD text:** use `FONT_UI` — it must cover Vietnamese precomposed glyphs (Georgia does not).
+- **Systems order** (`src/sim/step.ts`): needs → jobs → movement. Sim → render/HUD changes go through `world.events` (drained by WorldScene each frame); never scan the ECS per frame to detect changes.
+- **Jobs** are plain data (`src/sim/jobs/types.ts`) run by per-kind stage machines (`runners.ts`); `chooseJob` scores candidates. Always end jobs through `endJob` (releases reservations, pending deliveries, sleep).
+- **Component arrays are module-global** (bitECS): only one live GameWorld at a time; tests comparing worlds must copy values out first.
+- **bitECS 0.4 `query()` returns a `Uint32Array`**: wrap with `Array.from(...)` when you need array methods or a `number[]` type.
 
 ## Phaser 4 notes
 
