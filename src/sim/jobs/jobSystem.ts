@@ -1,10 +1,11 @@
 import { hasComponent, removeComponent } from 'bitecs';
 import { isBlueprint, releasePending, reservePending } from '../colony/blueprint';
 import { livingColonists } from '../colony/colonists';
-import { Sleeping } from '../components';
+import { NEEDS } from '../../data/colonists';
+import { Needs, Sleeping } from '../components';
 import type { GameWorld } from '../GameWorld';
 import { stopMoving } from '../movement/movement';
-import { chooseJob } from './chooseJob';
+import { chooseJob, findEat } from './chooseJob';
 import { RUNNERS } from './runners';
 import type { Job, JobStatus } from './types';
 
@@ -34,10 +35,22 @@ export const endJob = (world: GameWorld, eid: number, job: Job, status: JobStatu
   if (hasComponent(world.ecs, eid, Sleeping)) removeComponent(world.ecs, eid, Sleeping);
 };
 
+/** Should the current job be dropped for an urgent need? (See the rules above.) */
+export const shouldInterrupt = (world: GameWorld, eid: number, job: Job): boolean => {
+  if (job.kind === 'haulToDrop' || job.kind === 'eat') return false;
+  const starving = Needs.hunger[eid]! < NEEDS.urgent && findEat(world, eid) !== null;
+  if (job.kind === 'sleep') return starving;
+  return starving || Needs.rest[eid]! < NEEDS.urgent;
+};
+
 /** Each living colonist: pick a job if idle, then run one tick of it. */
 export const jobSystem = (world: GameWorld): void => {
   for (const eid of [...livingColonists(world)]) {
     let job = world.jobs.get(eid);
+    if (job && shouldInterrupt(world, eid, job)) {
+      endJob(world, eid, job, 'failed');
+      job = undefined;
+    }
     if (!job) {
       job = chooseJob(world, eid);
       startJob(world, eid, job);

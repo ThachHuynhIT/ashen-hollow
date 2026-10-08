@@ -1,5 +1,5 @@
-import { hasComponent } from 'bitecs';
-import { IDLE_PAUSE_TICKS, IDLE_WANDER_RADIUS } from '../../data/colonists';
+import { addComponent, hasComponent } from 'bitecs';
+import { EAT, IDLE_PAUSE_TICKS, IDLE_WANDER_RADIUS, NEEDS } from '../../data/colonists';
 import { BUILDINGS, BUILDING_IDS } from '../../data/buildings';
 import { DOODADS, DOODAD_IDS } from '../../data/doodads';
 import {
@@ -10,7 +10,7 @@ import {
 } from '../colony/blueprint';
 import { markUnreachable } from '../colony/buildings';
 import { carryOf, clearCarry, isCarrying, setCarry } from '../colony/colonists';
-import { Blueprint, Building, Designation, Doodad, Position } from '../components';
+import { Blueprint, Building, Designation, Doodad, Needs, Position, Sleeping } from '../components';
 import { emit } from '../events';
 import { removeWorldEntity, type GameWorld } from '../GameWorld';
 import type { Vec2 } from '../geom';
@@ -151,15 +151,43 @@ const runConstruct: Runner = (world, eid, job) => {
   return 'done';
 };
 
-/** Replaced in Task 10. */
-const notYetImplemented: Runner = () => 'failed';
+const clampNeed = (v: number): number => Math.max(0, Math.min(100, v));
+
+/** Walk to food (a drop point, or a wild glowcap), eat for a moment. */
+const runEat: Runner = (world, eid, job) => {
+  if (!world.obstacles.has(job.target)) return 'failed';
+  if (job.stage === 0) return walkStage(world, eid, job, job.target);
+  job.timer++;
+  if (job.timer < EAT.ticks) return 'running';
+  if (job.wild) {
+    removeWorldEntity(world, job.target);
+    Needs.hunger[eid] = clampNeed(Needs.hunger[eid]! + EAT.hungerPerWildShroom);
+    return 'done';
+  }
+  if (world.stock.take('food', 1) === 0) return 'failed';
+  Needs.hunger[eid] = clampNeed(Needs.hunger[eid]! + EAT.hungerPerFood);
+  emit(world, { type: 'stockChanged' });
+  return 'done';
+};
+
+/** Walk to a bed (or the fire), sleep until rested. */
+const runSleep: Runner = (world, eid, job) => {
+  if (!world.obstacles.has(job.target)) return 'failed';
+  if (job.stage === 0) return walkStage(world, eid, job, job.target);
+  if (!hasComponent(world.ecs, eid, Sleeping)) {
+    addComponent(world.ecs, eid, Sleeping);
+    const role = BUILDINGS[BUILDING_IDS[Building.kind[job.target]!]!].role;
+    Sleeping.inTent[eid] = role === 'sleep' ? 1 : 0;
+  }
+  return Needs.rest[eid]! >= NEEDS.wakeAt ? 'done' : 'running';
+};
 
 export const RUNNERS: Record<JobKind, Runner> = {
   harvest: runHarvest,
   haulToDrop: runHaul,
   deliver: runDeliver,
   construct: runConstruct,
-  eat: notYetImplemented,
-  sleep: notYetImplemented,
+  eat: runEat,
+  sleep: runSleep,
   idle: runIdle,
 };
