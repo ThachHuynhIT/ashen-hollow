@@ -13,10 +13,10 @@ import {
   createGameWorld,
   entityAt,
   placeBuilding,
-  stepWorld,
   type GameWorld,
 } from '../sim/GameWorld';
 import type { Vec2 } from '../sim/geom';
+import { stepWorld } from '../sim/step';
 import type { GameSpeed } from '../sim/SimClock';
 import { SCENES, type WorldSceneData } from './keys';
 

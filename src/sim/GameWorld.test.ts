@@ -8,11 +8,14 @@ import {
   createGameWorld,
   entityAt,
   placeBuilding,
+  removeWorldEntity,
   type GameWorld,
 } from './GameWorld';
+import { drainEvents } from './events';
 import { shapeBounds } from './geom';
 import type { DoodadSpawn } from './map/generate';
 import { openTerrain } from './testing/terrainFixture';
+import { stepWorld } from './step';
 
 /** A hand-built 256×256 px grass world with the Hearthfire in the middle. */
 const smallWorld = (doodads: DoodadSpawn[]) =>
@@ -194,5 +197,38 @@ describe('map reachability', () => {
     for (let seed = 1; seed <= 8; seed++) {
       expect(reachableFraction(createGameWorld({ seed })), `seed ${seed}`).toBeGreaterThan(0.95);
     }
+  });
+});
+
+describe('world model', () => {
+  it('starts with the configured stock and an empty event queue', () => {
+    const world = smallWorld([]);
+    expect(world.stock.snapshot()).toEqual({ wood: 30, stone: 10, food: 30 });
+    const custom = createGameWorld({
+      seed: 1,
+      stock: { wood: 0 },
+      map: { terrain: openTerrain(16, 16), doodads: [], start: { x: 128, y: 128 } },
+    });
+    expect(custom.stock.get('wood')).toBe(0);
+    expect(drainEvents(custom)).toEqual([]);
+  });
+
+  it('removeWorldEntity frees navigation and the spatial index, and reports it', () => {
+    const world = smallWorld([{ kind: 'boulder', x: 60, y: 60 }]);
+    const boulder = entityAt(world, 60, 60)!;
+    expect(navBlockedAt(world, 60, 60)).toBe(true);
+    removeWorldEntity(world, boulder);
+    expect(navBlockedAt(world, 60, 60)).toBe(false);
+    expect(entityAt(world, 60, 60)).toBeNull();
+    expect(world.obstacles.has(boulder)).toBe(false);
+    expect(drainEvents(world)).toEqual([{ type: 'entityRemoved', eid: boulder }]);
+    expect(drainEvents(world)).toEqual([]); // drained
+  });
+
+  it('stepWorld advances the sim tick', () => {
+    const world = smallWorld([]);
+    stepWorld(world);
+    stepWorld(world);
+    expect(world.tick).toBe(2);
   });
 });

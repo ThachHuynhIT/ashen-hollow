@@ -1,7 +1,12 @@
-import { addComponent, addEntity, createWorld, type World } from 'bitecs';
+import { addComponent, addEntity, createWorld, removeEntity, type World } from 'bitecs';
 import { BUILDINGS, buildingIndex, type BuildingId } from '../data/buildings';
 import { DOODADS, doodadIndex } from '../data/doodads';
+import { STARTING_STOCK, type ResourceId } from '../data/resources';
+import { Stockpile } from './colony/stockpile';
 import { Building, Doodad, Position, components } from './components';
+import { emit, type WorldEvent } from './events';
+import { Reservations } from './jobs/reservations';
+import type { Job } from './jobs/types';
 import {
   circleShape,
   inflateShape,
@@ -40,8 +45,10 @@ export interface WorldContext {
 export interface ObstacleRecord {
   shape: Shape;
   type: 'building' | 'doodad';
-  /** Blocks movement and building placement. */
-  blocks: boolean;
+  /** Stamped on the nav grid: units walk around it. */
+  blocksMovement: boolean;
+  /** Other buildings can't overlap it (true for blueprints too). */
+  blocksPlacement: boolean;
 }
 
 export interface GameWorld {
@@ -55,6 +62,16 @@ export interface GameWorld {
   readonly start: Vec2;
   readonly rng: Rng;
   readonly clock: SimClock;
+  /** Sim ticks since the world was created (advanced by stepWorld). */
+  tick: number;
+  /** Entity id of the Hearthfire. */
+  hearthfire: number;
+  readonly stock: Stockpile;
+  readonly events: WorldEvent[];
+  readonly jobs: Map<number, Job>;
+  readonly reservations: Reservations;
+  /** Target eid → tick until which it is considered unreachable. */
+  readonly unreachable: Map<number, number>;
 }
 
 export interface NewWorldOptions {
@@ -63,12 +80,13 @@ export interface NewWorldOptions {
   height?: number;
   /** Use this map instead of generating one (hand-made maps, saves, tests). */
   map?: GeneratedMap;
+  stock?: Partial<Record<ResourceId, number>>;
 }
 
 const register = (world: GameWorld, eid: number, record: ObstacleRecord): void => {
   world.obstacles.set(eid, record);
   world.spatial.insert(eid, shapeBounds(record.shape));
-  if (record.blocks) world.nav.block(record.shape);
+  if (record.blocksMovement) world.nav.block(record.shape);
 };
 
 const spawnBuilding = (world: GameWorld, kind: BuildingId, shape: Shape): number => {
@@ -78,7 +96,7 @@ const spawnBuilding = (world: GameWorld, kind: BuildingId, shape: Shape): number
   Position.x[eid] = shape.cx;
   Position.y[eid] = shape.cy;
   Building.kind[eid] = buildingIndex(kind);
-  register(world, eid, { shape, type: 'building', blocks: true });
+  register(world, eid, { shape, type: 'building', blocksMovement: true, blocksPlacement: true });
   return eid;
 };
 
@@ -88,6 +106,7 @@ export const createGameWorld = ({
   width = DEFAULT_MAP_WIDTH,
   height = DEFAULT_MAP_HEIGHT,
   map,
+  stock,
 }: NewWorldOptions): GameWorld => {
   const { terrain, doodads, start } = map ?? generateMap({ seed, width, height });
   const world: GameWorld = {
@@ -101,6 +120,13 @@ export const createGameWorld = ({
     // Separate stream from map generation so gameplay randomness doesn't shift the map.
     rng: new Rng(seed ^ 0x9e3779b9),
     clock: new SimClock(),
+    tick: 0,
+    hearthfire: -1,
+    stock: new Stockpile(stock ?? STARTING_STOCK),
+    events: [],
+    jobs: new Map(),
+    reservations: new Reservations(),
+    unreachable: new Map(),
   };
 
   for (const d of doodads) {
@@ -114,11 +140,16 @@ export const createGameWorld = ({
     register(world, eid, {
       shape: circleShape(d.x, d.y, def.radius),
       type: 'doodad',
-      blocks: def.blocksMovement,
+      blocksMovement: def.blocksMovement,
+      blocksPlacement: def.blocksMovement,
     });
   }
 
-  spawnBuilding(world, 'hearthfire', footprintShape(BUILDINGS.hearthfire, start.x, start.y));
+  world.hearthfire = spawnBuilding(
+    world,
+    'hearthfire',
+    footprintShape(BUILDINGS.hearthfire, start.x, start.y),
+  );
   return world;
 };
 
@@ -140,7 +171,7 @@ const nearbyObstacles = (world: GameWorld, shape: Shape, margin: number): Obstac
   const out: Obstacle[] = [];
   for (const eid of world.spatial.query(b)) {
     const o = world.obstacles.get(eid);
-    if (o?.blocks) out.push({ shape: o.shape, type: o.type });
+    if (o?.blocksPlacement) out.push({ shape: o.shape, type: o.type });
   }
   return out;
 };
@@ -197,6 +228,19 @@ export const placeBuilding = (
   return { ...check, eid: spawnBuilding(world, kind, check.shape) };
 };
 
+/** Remove a doodad or building from every index and tell the renderer. */
+export const removeWorldEntity = (world: GameWorld, eid: number): void => {
+  const record = world.obstacles.get(eid);
+  if (record) {
+    if (record.blocksMovement) world.nav.unblock(record.shape);
+    world.spatial.remove(eid);
+    world.obstacles.delete(eid);
+  }
+  world.reservations.forgetTarget(eid);
+  removeEntity(world.ecs, eid);
+  emit(world, { type: 'entityRemoved', eid });
+};
+
 /** The building or doodad under a world point (buildings win), or null. */
 export const entityAt = (world: GameWorld, x: number, y: number): number | null => {
   let best: number | null = null;
@@ -214,9 +258,4 @@ export const entityAt = (world: GameWorld, x: number, y: number): number | null 
     }
   }
   return best;
-};
-
-/** Run one fixed simulation tick. Systems get added here phase by phase. */
-export const stepWorld = (_world: GameWorld): void => {
-  // Phase 1: jobSystem, needsSystem, movementSystem...
 };
