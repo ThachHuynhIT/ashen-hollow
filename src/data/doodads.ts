@@ -1,4 +1,10 @@
+import type { ResourceId } from './resources';
 import type { TerrainId } from './terrain';
+
+/** Order tools that mark doodads for harvesting. */
+export const DESIGNATION_KINDS = ['chop', 'mine', 'forage'] as const;
+export type DesignationKind = (typeof DESIGNATION_KINDS)[number];
+export const designationIndex = (kind: DesignationKind): number => DESIGNATION_KINDS.indexOf(kind);
 
 /**
  * Free-placed world objects (trees, rocks, bones, mushrooms). Their position is the
@@ -14,8 +20,10 @@ export interface DoodadDef {
   /** Units can't walk through it and buildings can't overlap it. */
   readonly blocksMovement: boolean;
   readonly blocksSight: boolean;
-  /** What it yields when harvested (Phase 1). */
-  readonly yields: { readonly resource: string; readonly amount: number } | null;
+  /** What harvesting gives (null = not harvestable). */
+  readonly yields: { readonly resource: ResourceId; readonly amount: number } | null;
+  /** Which order tool marks it, and how long the work takes (ticks). */
+  readonly harvest: { readonly tool: DesignationKind; readonly workTicks: number } | null;
   /** Placement: minimum spacing between doodads of this kind, and where they grow. */
   readonly spacing: number;
   readonly habitats: readonly TerrainId[];
@@ -36,6 +44,7 @@ export const DOODADS: Readonly<Record<DoodadId, DoodadDef>> = {
     blocksMovement: true,
     blocksSight: true,
     yields: { resource: 'wood', amount: 20 },
+    harvest: { tool: 'chop', workTicks: 40 },
     spacing: 11,
     habitats: ['forestFloor', 'deadGrass'],
     density: 0.9,
@@ -48,6 +57,7 @@ export const DOODADS: Readonly<Record<DoodadId, DoodadDef>> = {
     blocksMovement: true,
     blocksSight: false,
     yields: { resource: 'stone', amount: 30 },
+    harvest: { tool: 'mine', workTicks: 60 },
     spacing: 26,
     habitats: ['hills', 'deadGrass'],
     density: 0.55,
@@ -59,7 +69,8 @@ export const DOODADS: Readonly<Record<DoodadId, DoodadDef>> = {
     radius: 4,
     blocksMovement: true,
     blocksSight: false,
-    yields: { resource: 'bone', amount: 10 },
+    yields: null,
+    harvest: null,
     spacing: 40,
     habitats: ['hills', 'cursedSoil'],
     density: 0.5,
@@ -72,6 +83,7 @@ export const DOODADS: Readonly<Record<DoodadId, DoodadDef>> = {
     blocksMovement: false,
     blocksSight: false,
     yields: { resource: 'food', amount: 5 },
+    harvest: { tool: 'forage', workTicks: 10 },
     spacing: 18,
     habitats: ['mud', 'forestFloor', 'cursedSoil'],
     density: 0.35,

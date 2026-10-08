@@ -76,6 +76,8 @@ export const buildPlaceholderAtlas = (textures: Phaser.Textures.TextureManager):
     { name: buildingFrame('tent'), art: paintTent() },
     { name: buildingFrame('storage'), art: paintStorage() },
     { name: buildingFrame('watchtower'), art: paintWatchtower() },
+    { name: buildingFrame('torch'), art: paintHearthfire() },
+    { name: buildingFrame('wallStake'), art: paintHearthfire() },
   ];
   const width = 256;
   const { placed, height } = packShelves(sprites, width);

@@ -3,6 +3,7 @@ import type { EventBus, GameEvents } from '../core/events';
 import { BUILDINGS, BUILDING_IDS, PLAYER_BUILDINGS, type BuildingId } from '../data/buildings';
 import { DOODADS, DOODAD_IDS } from '../data/doodads';
 import { PALETTE, toCss } from '../data/palette';
+import { RESOURCES } from '../data/resources';
 import type { TerrainDef } from '../data/terrain';
 import { SPRITES_KEY, buildingFrame } from '../render/atlas';
 import { hasComponent } from 'bitecs';
@@ -311,7 +312,7 @@ export class HudScene extends Phaser.Scene {
       const def = DOODADS[DOODAD_IDS[Doodad.kind[eid]!]!];
       const lines = [def.nameVi];
       if (def.yields) {
-        const resource = RESOURCE_VI[def.yields.resource] ?? def.yields.resource;
+        const resource = RESOURCES[def.yields.resource].nameVi;
         lines.push(`Khai thác được ${def.yields.amount} ${resource}`);
       }
       lines.push(def.blocksMovement ? 'Chắn đường đi' : 'Đi xuyên qua được');
@@ -324,10 +325,3 @@ export class HudScene extends Phaser.Scene {
     return [];
   }
 }
-
-const RESOURCE_VI: Record<string, string> = {
-  wood: 'gỗ',
-  stone: 'đá',
-  bone: 'xương',
-  food: 'thức ăn',
-};
