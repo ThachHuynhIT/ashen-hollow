@@ -67,7 +67,7 @@ export const magnetSnap = (
   return moveShape(shape, shape.cx + dx, shape.cy + dy);
 };
 
-export type PlacementProblem = 'outOfBounds' | 'terrain' | 'building' | 'doodad';
+export type PlacementProblem = 'outOfBounds' | 'terrain' | 'building' | 'doodad' | 'outOfTerritory';
 
 export interface Obstacle {
   shape: Shape;

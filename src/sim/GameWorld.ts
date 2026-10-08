@@ -3,6 +3,7 @@ import { BUILDINGS, buildingIndex, type BuildingId } from '../data/buildings';
 import { DOODADS, doodadIndex } from '../data/doodads';
 import { STARTING_STOCK, type ResourceId } from '../data/resources';
 import { Stockpile } from './colony/stockpile';
+import { inTerritory } from './colony/territory';
 import { Building, Doodad, Position, components } from './components';
 import { emit, type WorldEvent } from './events';
 import { Reservations } from './jobs/reservations';
@@ -89,14 +90,19 @@ const register = (world: GameWorld, eid: number, record: ObstacleRecord): void =
   if (record.blocksMovement) world.nav.block(record.shape);
 };
 
-const spawnBuilding = (world: GameWorld, kind: BuildingId, shape: Shape): number => {
+export const spawnBuilding = (
+  world: GameWorld,
+  kind: BuildingId,
+  shape: Shape,
+  { solid = true }: { solid?: boolean } = {},
+): number => {
   const eid = addEntity(world.ecs);
   addComponent(world.ecs, eid, Position);
   addComponent(world.ecs, eid, Building);
   Position.x[eid] = shape.cx;
   Position.y[eid] = shape.cy;
   Building.kind[eid] = buildingIndex(kind);
-  register(world, eid, { shape, type: 'building', blocksMovement: true, blocksPlacement: true });
+  register(world, eid, { shape, type: 'building', blocksMovement: solid, blocksPlacement: true });
   return eid;
 };
 
@@ -189,10 +195,13 @@ export const checkPlacement = (
 ): PlacementCheck => {
   // "Any pixel", not sub-pixel: keeps ghost, click and stored position identical.
   const raw = footprintShape(BUILDINGS[kind], Math.round(x), Math.round(y));
-  const validate = (shape: Shape): PlacementCheck => ({
-    ...validatePlacement(shape, world.terrain, nearbyObstacles(world, shape, 0)),
-    shape,
-  });
+  const validate = (shape: Shape): PlacementCheck => {
+    const result = validatePlacement(shape, world.terrain, nearbyObstacles(world, shape, 0));
+    if (result.ok && !inTerritory(world, shape.cx, shape.cy)) {
+      return { ok: false, reason: 'outOfTerritory', shape };
+    }
+    return { ...result, shape };
+  };
 
   if (snap) {
     const b = shapeBounds(raw);

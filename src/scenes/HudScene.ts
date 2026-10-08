@@ -26,6 +26,7 @@ const PLACEMENT_HELP: Record<PlacementProblem, string> = {
   terrain: 'Nền này không xây được — chọn chỗ đất khô.',
   building: 'Chồng lên công trình khác — dời ra một chút.',
   doodad: 'Vướng cây hoặc đá — chọn chỗ trống khác.',
+  outOfTerritory: 'Ngoài lãnh thổ — đặt gần Lửa Thiêng hơn.',
 };
 
 const describeTerrain = (t: TerrainDef): string[] => {
