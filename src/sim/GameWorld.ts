@@ -20,6 +20,7 @@ import {
 } from './geom';
 import { generateMap, type GeneratedMap } from './map/generate';
 import type { TerrainGrid } from './map/TerrainGrid';
+import { SyncPathService, type PathService } from './movement/PathService';
 import { NavGrid } from './nav/NavGrid';
 import {
   footprintShape,
@@ -75,6 +76,11 @@ export interface GameWorld {
   readonly reservations: Reservations;
   /** Target eid → tick until which it is considered unreachable. */
   readonly unreachable: Map<number, number>;
+  readonly pathService: PathService;
+  /** Remaining waypoints per moving colonist. */
+  readonly paths: Map<number, Vec2[]>;
+  /** The destination each current path leads to. */
+  readonly pathDest: Map<number, Vec2>;
 }
 
 export interface NewWorldOptions {
@@ -120,11 +126,12 @@ export const createGameWorld = ({
   colonists,
 }: NewWorldOptions): GameWorld => {
   const { terrain, doodads, start } = map ?? generateMap({ seed, width, height });
+  const nav = new NavGrid(terrain);
   const world: GameWorld = {
     seed,
     ecs: createWorld<WorldContext>({ components }),
     terrain,
-    nav: new NavGrid(terrain),
+    nav,
     spatial: new SpatialHash(64),
     obstacles: new Map(),
     start,
@@ -138,6 +145,9 @@ export const createGameWorld = ({
     jobs: new Map(),
     reservations: new Reservations(),
     unreachable: new Map(),
+    pathService: new SyncPathService(nav),
+    paths: new Map(),
+    pathDest: new Map(),
   };
 
   for (const d of doodads) {
