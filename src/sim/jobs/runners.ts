@@ -1,9 +1,16 @@
 import { hasComponent } from 'bitecs';
 import { IDLE_PAUSE_TICKS, IDLE_WANDER_RADIUS } from '../../data/colonists';
+import { BUILDINGS, BUILDING_IDS } from '../../data/buildings';
 import { DOODADS, DOODAD_IDS } from '../../data/doodads';
+import {
+  completeBlueprint,
+  deliverToBlueprint,
+  isBlueprint,
+  releasePending,
+} from '../colony/blueprint';
 import { markUnreachable } from '../colony/buildings';
 import { carryOf, clearCarry, isCarrying, setCarry } from '../colony/colonists';
-import { Designation, Doodad, Position } from '../components';
+import { Blueprint, Building, Designation, Doodad, Position } from '../components';
 import { emit } from '../events';
 import { removeWorldEntity, type GameWorld } from '../GameWorld';
 import type { Vec2 } from '../geom';
@@ -102,14 +109,56 @@ const runIdle: Runner = (world, eid, job) => {
   return job.timer >= IDLE_PAUSE_TICKS + (eid % 20) ? 'done' : 'running';
 };
 
-/** Replaced in Tasks 9–10. */
+const blueprintAlive = (world: GameWorld, eid: number): boolean =>
+  world.obstacles.has(eid) && isBlueprint(world, eid);
+
+/** Fetch materials from a drop point and hand them to a blueprint. */
+const runDeliver: Runner = (world, eid, job) => {
+  if (!blueprintAlive(world, job.target)) return 'failed';
+  const resource = job.resource!;
+  switch (job.stage) {
+    case 0:
+      return walkStage(world, eid, job, job.source!);
+    case 1: {
+      const taken = world.stock.take(resource, job.amount!);
+      if (taken === 0) return 'failed';
+      if (taken < job.amount!) {
+        releasePending(job.target, resource, job.amount! - taken);
+        job.amount = taken;
+      }
+      setCarry(eid, resource, taken);
+      emit(world, { type: 'stockChanged' });
+      nextStage(job);
+      return 'running';
+    }
+    case 2:
+      return walkStage(world, eid, job, job.target);
+    default:
+      deliverToBlueprint(world, job.target, resource, job.amount!);
+      clearCarry(eid);
+      return 'done';
+  }
+};
+
+/** Work on a fully supplied blueprint until it is finished. */
+const runConstruct: Runner = (world, eid, job) => {
+  if (!blueprintAlive(world, job.target)) return 'failed';
+  if (job.stage === 0) return walkStage(world, eid, job, job.target);
+  const def = BUILDINGS[BUILDING_IDS[Building.kind[job.target]!]!];
+  Blueprint.progress[job.target] = Blueprint.progress[job.target]! + 1;
+  if (Blueprint.progress[job.target]! < def.buildTicks) return 'running';
+  completeBlueprint(world, job.target);
+  return 'done';
+};
+
+/** Replaced in Task 10. */
 const notYetImplemented: Runner = () => 'failed';
 
 export const RUNNERS: Record<JobKind, Runner> = {
   harvest: runHarvest,
   haulToDrop: runHaul,
-  deliver: notYetImplemented,
-  construct: notYetImplemented,
+  deliver: runDeliver,
+  construct: runConstruct,
   eat: notYetImplemented,
   sleep: notYetImplemented,
   idle: runIdle,

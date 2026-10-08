@@ -1,8 +1,8 @@
 import { addComponent, hasComponent, removeComponent } from 'bitecs';
 import { BUILDINGS, BUILDING_IDS, type BuildingId } from '../../data/buildings';
-import { WALL_STAKE_SPACING } from '../../data/colonists';
+import { COLONIST_RADIUS, WALL_STAKE_SPACING } from '../../data/colonists';
 import { RESOURCE_IDS, resourceIndex, type ResourceId } from '../../data/resources';
-import { Blueprint, Building } from '../components';
+import { Blueprint, Building, Position } from '../components';
 import { emit } from '../events';
 import {
   checkPlacement,
@@ -11,7 +11,10 @@ import {
   type PlaceResult,
   type PlacementOptions,
 } from '../GameWorld';
-import type { Vec2 } from '../geom';
+import { inflateShape, shapeContains, type Shape, type Vec2 } from '../geom';
+import { approachPoint } from '../movement/approach';
+import { stopMoving } from '../movement/movement';
+import { livingColonists } from './colonists';
 
 const costOf = (eid: number) => BUILDINGS[BUILDING_IDS[Building.kind[eid]!]!].cost;
 
@@ -79,12 +82,30 @@ export const deliverToBlueprint = (
 };
 
 /** The blueprint becomes a real, solid building. */
+/** Anyone standing where the building just appeared steps to the nearest free spot. */
+const pushColonistsOut = (world: GameWorld, shape: Shape): void => {
+  const keepOut = inflateShape(shape, COLONIST_RADIUS);
+  for (const eid of livingColonists(world)) {
+    const x = Position.x[eid]!;
+    const y = Position.y[eid]!;
+    if (!shapeContains(keepOut, x, y)) continue;
+    const spot = approachPoint(world, shape, { x, y });
+    if (!spot) continue;
+    Position.x[eid] = spot.x;
+    Position.y[eid] = spot.y;
+    stopMoving(world, eid);
+    const job = world.jobs.get(eid);
+    if (job) job.dest = undefined;
+  }
+};
+
 export const completeBlueprint = (world: GameWorld, eid: number): void => {
   removeComponent(world.ecs, eid, Blueprint);
   const record = world.obstacles.get(eid);
   if (record && !record.blocksMovement) {
     record.blocksMovement = true;
     world.nav.block(record.shape);
+    pushColonistsOut(world, record.shape);
   }
   emit(world, { type: 'buildingCompleted', eid });
 };
