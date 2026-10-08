@@ -1,8 +1,9 @@
-import { addComponent, hasComponent, removeComponent } from 'bitecs';
+import { addComponent, hasComponent } from 'bitecs';
 import { NEEDS } from '../../data/colonists';
 import { Dead, Needs, Sleeping } from '../components';
 import { emit } from '../events';
 import type { GameWorld } from '../GameWorld';
+import { endJob } from '../jobs/jobSystem';
 import { clearCarry, livingColonists } from './colonists';
 
 const clamp = (v: number): number => Math.max(0, Math.min(100, v));
@@ -13,9 +14,9 @@ export const killColonist = (
   eid: number,
   cause: 'hunger' | 'exhaustion',
 ): void => {
-  world.jobs.delete(eid);
+  const job = world.jobs.get(eid);
+  if (job) endJob(world, eid, job, 'failed');
   world.reservations.releaseColonist(eid);
-  if (hasComponent(world.ecs, eid, Sleeping)) removeComponent(world.ecs, eid, Sleeping);
   clearCarry(eid);
   addComponent(world.ecs, eid, Dead);
   emit(world, { type: 'colonistDied', eid, cause });
