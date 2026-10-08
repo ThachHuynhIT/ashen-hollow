@@ -26,6 +26,8 @@ export interface CameraControllerOptions {
   claimDrag?: (worldX: number, worldY: number, pointer: Phaser.Input.Pointer) => boolean;
   /** A claimed drag moved; world position of the pointer. */
   onClaimedDrag?: (worldX: number, worldY: number) => void;
+  /** A claimed drag ended (the pointer was released after moving). */
+  onClaimedDragEnd?: (worldX: number, worldY: number) => void;
 }
 
 interface DragState {
@@ -211,6 +213,10 @@ export class CameraController {
 
   private onPointerUp(pointer: Phaser.Input.Pointer): void {
     const drag = this.drag;
+    if (drag && drag.pointerId === pointer.id && drag.claimed && drag.dragging) {
+      const world = this.screenToWorld(pointer.x, pointer.y);
+      this.options.onClaimedDragEnd?.(world.x, world.y);
+    }
     const isTap =
       drag !== null && drag.pointerId === pointer.id && !drag.dragging && !this.suppressTap;
     if (drag?.pointerId === pointer.id) this.drag = null;

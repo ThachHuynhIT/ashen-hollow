@@ -1,4 +1,5 @@
 import type { BuildingId } from '../data/buildings';
+import type { DesignationKind } from '../data/doodads';
 import type { ResourceId } from '../data/resources';
 import type { PlacementProblem } from '../sim/placement';
 import type { GameSpeed } from '../sim/SimClock';
@@ -29,7 +30,13 @@ export interface GameEvents {
   'ui:toggle-snap': Record<string, never>;
   'ui:build-confirm': Record<string, never>;
   'ui:build-cancel': Record<string, never>;
+  'ui:tool': { tool: OrderTool | null };
+  'tool:changed': { tool: OrderTool | null };
+  'ui:focus-colonist': { eid: number };
 }
+
+/** Map tools that aren't buildings: harvest designations, clearing them, walls. */
+export type OrderTool = DesignationKind | 'clear' | 'wall';
 
 type Handler<T> = (payload: T) => void;
 

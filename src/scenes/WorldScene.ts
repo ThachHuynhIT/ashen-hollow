@@ -1,24 +1,33 @@
 import { hasComponent } from 'bitecs';
 import Phaser from 'phaser';
-import { createGameBus, type EventBus, type GameEvents } from '../core/events';
+import { createGameBus, type EventBus, type GameEvents, type OrderTool } from '../core/events';
 import { BUILDINGS, BUILDING_IDS, PLAYER_BUILDINGS, type BuildingId } from '../data/buildings';
+import { TERRITORY_RADIUS } from '../data/colonists';
 import { PALETTE, toCss } from '../data/palette';
+import { CameraController } from '../platform/CameraController';
 import { ColonistRenderer } from '../render/ColonistRenderer';
 import { DebugOverlay } from '../render/DebugOverlay';
 import { DesignationMarkers } from '../render/DesignationMarkers';
 import { EntityRenderer } from '../render/EntityRenderer';
 import { PlacementPreview } from '../render/PlacementPreview';
 import { TerrainRenderer } from '../render/TerrainRenderer';
-import { CameraController } from '../platform/CameraController';
-import { placeBlueprint } from '../sim/colony/blueprint';
+import { WallPreview } from '../render/WallPreview';
+import { placeBlueprint, placeWall, planWall } from '../sim/colony/blueprint';
 import { colonistAt, colonistName } from '../sim/colony/colonists';
+import { designate, undesignate } from '../sim/colony/designation';
 import { Building, Colonist, Position } from '../sim/components';
 import { drainEvents } from '../sim/events';
-import { inflateShape, shapeBottom, shapeContains, type Shape } from '../sim/geom';
 import { checkPlacement, createGameWorld, entityAt, type GameWorld } from '../sim/GameWorld';
-import type { Vec2 } from '../sim/geom';
-import { stepWorld } from '../sim/step';
+import {
+  inflateShape,
+  shapeBottom,
+  shapeContains,
+  type Bounds,
+  type Shape,
+  type Vec2,
+} from '../sim/geom';
 import type { GameSpeed } from '../sim/SimClock';
+import { stepWorld } from '../sim/step';
 import { SCENES, type WorldSceneData } from './keys';
 
 /** Data handed to the HUD overlay scene. */
@@ -31,10 +40,34 @@ export interface HudSceneData {
 
 /** Right-clicks that moved less than this (screen px) count as "cancel", not a pan. */
 const RIGHT_CLICK_SLOP = 8;
+/** Half-size of the area a single click/tap designates (world px). */
+const TAP_AREA = 3;
+
+const TOOL_COLORS: Record<Exclude<OrderTool, 'wall'>, number> = {
+  chop: PALETTE.flame,
+  mine: PALETTE.stoneLight,
+  forage: PALETTE.ghostGreen,
+  clear: PALETTE.ember,
+};
+
+const TOOL_KEYS: Record<string, OrderTool> = {
+  Q: 'chop',
+  E: 'mine',
+  R: 'forage',
+  T: 'clear',
+  F: 'wall',
+};
+
+const boxBetween = (a: Vec2, b: Vec2): Bounds => ({
+  minX: Math.min(a.x, b.x),
+  minY: Math.min(a.y, b.y),
+  maxX: Math.max(a.x, b.x),
+  maxY: Math.max(a.y, b.y),
+});
 
 /**
- * The main play scene: owns the simulation, renders the free-form world and turns
- * input into selection and building placement. UI lives in HudScene (event bus only).
+ * The main play scene: owns the simulation, renders the world and turns input into
+ * selection, building placement and orders. UI lives in HudScene (event bus only).
  */
 export class WorldScene extends Phaser.Scene {
   private world!: GameWorld;
@@ -43,15 +76,19 @@ export class WorldScene extends Phaser.Scene {
   private colonists!: ColonistRenderer;
   private markers!: DesignationMarkers;
   private preview!: PlacementPreview;
+  private wallPreview!: WallPreview;
   private debug!: DebugOverlay;
   private cameraController!: CameraController;
   private selection!: Phaser.GameObjects.Graphics;
+  private box!: Phaser.GameObjects.Graphics;
+  private territory!: Phaser.GameObjects.Graphics;
   private shiftKey: Phaser.Input.Keyboard.Key | undefined;
 
   private buildKind: BuildingId | null = null;
   private lastBuildKind: BuildingId = 'tent';
+  private orderTool: OrderTool | null = null;
   private snapToggle = false;
-  /** Touch flow: where the ghost was dropped, waiting for ✓ / ✕. */
+  /** Touch flow: where the ghost was dropped, waiting for Đặt / Huỷ. */
   private pending: Vec2 | null = null;
   private cursor: Vec2 | null = null;
   private selected: number | null = null;
@@ -65,6 +102,13 @@ export class WorldScene extends Phaser.Scene {
   private holdStatusAt: string | null = null;
   /** Touch: offset from the finger to the ghost while dragging it. */
   private dragOffset: Vec2 = { x: 0, y: 0 };
+  /** What the current claimed drag is doing. */
+  private claim: 'ghost' | 'tool' | null = null;
+  /** Mouse drag start for box designation / wall. */
+  private dragStart: Vec2 | null = null;
+  /** Touch wall: first and second tap. */
+  private wallStart: Vec2 | null = null;
+  private wallEnd: Vec2 | null = null;
 
   constructor() {
     super(SCENES.world);
@@ -73,6 +117,7 @@ export class WorldScene extends Phaser.Scene {
   create(data: WorldSceneData): void {
     // Scene instances are reused between games; reset per-game state.
     this.buildKind = null;
+    this.orderTool = null;
     this.snapToggle = false;
     this.pending = null;
     this.cursor = null;
@@ -82,6 +127,10 @@ export class WorldScene extends Phaser.Scene {
     this.ghostShape = null;
     this.worldVersion = 0;
     this.holdStatusAt = null;
+    this.claim = null;
+    this.dragStart = null;
+    this.wallStart = null;
+    this.wallEnd = null;
 
     this.world = createGameWorld({ seed: data.seed });
     this.bus = createGameBus();
@@ -92,8 +141,16 @@ export class WorldScene extends Phaser.Scene {
     this.colonists = new ColonistRenderer(this, this.world);
     this.markers = new DesignationMarkers(this, this.world, this.entities);
     this.preview = new PlacementPreview(this);
+    this.wallPreview = new WallPreview(this);
     this.debug = new DebugOverlay(this, this.world);
     this.selection = this.add.graphics();
+    this.box = this.add.graphics().setDepth(999_500);
+    this.territory = this.add
+      .graphics()
+      .setDepth(-900_000)
+      .lineStyle(1, PALETTE.candle, 0.35)
+      .strokeCircle(this.world.start.x, this.world.start.y, TERRITORY_RADIUS)
+      .setVisible(false);
 
     const pad = 32;
     this.cameraController = new CameraController(this, {
@@ -105,10 +162,9 @@ export class WorldScene extends Phaser.Scene {
       },
       onTap: (x, y, pointer) => this.onTap(x, y, pointer),
       onZoomChange: (zoom) => this.bus.emit('camera:zoom', { zoom }),
-      claimDrag: (x, y, pointer) => this.claimGhostDrag(x, y, pointer),
-      onClaimedDrag: (x, y) => {
-        this.pending = { x: x + this.dragOffset.x, y: y + this.dragOffset.y };
-      },
+      claimDrag: (x, y, pointer) => this.claimDrag(x, y, pointer),
+      onClaimedDrag: (x, y) => this.onClaimedDrag(x, y),
+      onClaimedDragEnd: (x, y) => this.onClaimedDragEnd(x, y),
     });
     this.cameraController.centerOn(this.world.start.x, this.world.start.y);
 
@@ -145,6 +201,8 @@ export class WorldScene extends Phaser.Scene {
     this.entities.updateBlueprints();
     this.drawSelection();
   }
+
+  // --- world events -------------------------------------------------------------------
 
   /** Apply what the simulation reported since last frame. */
   private handleWorldEvents(): void {
@@ -202,32 +260,91 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private onTap(x: number, y: number, pointer: Phaser.Input.Pointer): void {
+    this.claim = null;
+    this.dragStart = null;
+    const p = { x: Math.round(x), y: Math.round(y) };
+    if (this.orderTool === 'wall') {
+      this.tapWall(p, pointer.wasTouch);
+      return;
+    }
+    if (this.orderTool) {
+      this.applyArea({
+        minX: p.x - TAP_AREA,
+        minY: p.y - TAP_AREA,
+        maxX: p.x + TAP_AREA,
+        maxY: p.y + TAP_AREA,
+      });
+      return;
+    }
     if (this.buildKind) {
       if (pointer.wasTouch) {
-        // Touch: drop the ghost, then confirm with ✓ — no accidental builds.
-        this.pending = { x: Math.round(x), y: Math.round(y) };
+        // Touch: drop the ghost, then confirm with Đặt — no accidental builds.
+        this.pending = p;
         this.refreshGhost();
       } else {
-        this.tryPlace(x, y);
+        this.tryPlace(p.x, p.y);
       }
       return;
     }
     this.select(colonistAt(this.world, x, y) ?? entityAt(this.world, x, y));
   }
 
-  /** Touch: pressing on the pending ghost drags it instead of panning the map. */
-  private claimGhostDrag(x: number, y: number, pointer: Phaser.Input.Pointer): boolean {
-    if (!this.buildKind || !this.pending || !this.ghostShape || !pointer.wasTouch) return false;
-    // Generous finger margin: the ghost is small at low zoom.
-    if (!shapeContains(inflateShape(this.ghostShape, 10), x, y)) return false;
-    this.dragOffset = { x: this.pending.x - x, y: this.pending.y - y };
-    return true;
+  private claimDrag(x: number, y: number, pointer: Phaser.Input.Pointer): boolean {
+    // Touch: pressing on the pending ghost drags it instead of panning the map.
+    if (this.buildKind && this.pending && this.ghostShape && pointer.wasTouch) {
+      if (shapeContains(inflateShape(this.ghostShape, 10), x, y)) {
+        this.dragOffset = { x: this.pending.x - x, y: this.pending.y - y };
+        this.claim = 'ghost';
+        return true;
+      }
+    }
+    // Mouse: with an order tool, the left button draws a box / a wall.
+    if (this.orderTool && !pointer.wasTouch && pointer.button === 0) {
+      this.dragStart = { x: Math.round(x), y: Math.round(y) };
+      this.claim = 'tool';
+      return true;
+    }
+    this.claim = null;
+    return false;
+  }
+
+  private onClaimedDrag(x: number, y: number): void {
+    if (this.claim === 'ghost') {
+      this.pending = { x: Math.round(x + this.dragOffset.x), y: Math.round(y + this.dragOffset.y) };
+      return;
+    }
+    if (this.claim !== 'tool' || !this.dragStart || !this.orderTool) return;
+    const end = { x: Math.round(x), y: Math.round(y) };
+    if (this.orderTool === 'wall') {
+      this.wallPreview.show(planWall(this.world, this.dragStart, end));
+      return;
+    }
+    const b = boxBetween(this.dragStart, end);
+    const color = TOOL_COLORS[this.orderTool];
+    this.box
+      .clear()
+      .fillStyle(color, 0.12)
+      .fillRect(b.minX, b.minY, b.maxX - b.minX, b.maxY - b.minY)
+      .lineStyle(1, color, 0.9)
+      .strokeRect(b.minX + 0.5, b.minY + 0.5, b.maxX - b.minX, b.maxY - b.minY);
+  }
+
+  private onClaimedDragEnd(x: number, y: number): void {
+    if (this.claim === 'tool' && this.dragStart && this.orderTool) {
+      const end = { x: Math.round(x), y: Math.round(y) };
+      if (this.orderTool === 'wall') this.buildWall(this.dragStart, end);
+      else this.applyArea(boxBetween(this.dragStart, end));
+    }
+    this.box.clear();
+    this.claim = null;
+    this.dragStart = null;
   }
 
   private onPointerUp(pointer: Phaser.Input.Pointer): void {
-    // Right-click (without dragging) cancels build mode.
-    if (pointer.button === 2 && pointer.getDistance() < RIGHT_CLICK_SLOP && this.buildKind) {
-      this.setBuildKind(null);
+    // Right-click (without dragging) cancels the current tool.
+    if (pointer.button === 2 && pointer.getDistance() < RIGHT_CLICK_SLOP) {
+      if (this.buildKind) this.setBuildKind(null);
+      else if (this.orderTool) this.setTool(null);
     }
   }
 
@@ -260,6 +377,56 @@ export class WorldScene extends Phaser.Scene {
     if (g.depth !== bottom - 0.25) g.setDepth(bottom - 0.25);
   }
 
+  // --- orders ------------------------------------------------------------------------
+
+  private setTool(tool: OrderTool | null): void {
+    if (tool && this.buildKind) this.setBuildKind(null);
+    this.orderTool = tool;
+    this.claim = null;
+    this.dragStart = null;
+    this.wallStart = null;
+    this.wallEnd = null;
+    this.box.clear();
+    this.wallPreview.hide();
+    this.territory.setVisible(tool === 'wall' || this.buildKind !== null);
+    if (tool) this.select(null);
+    this.bus.emit('tool:changed', { tool });
+  }
+
+  private applyArea(area: Bounds): void {
+    if (this.orderTool === 'clear') undesignate(this.world, area);
+    else if (this.orderTool && this.orderTool !== 'wall')
+      designate(this.world, area, this.orderTool);
+    this.handleWorldEvents();
+  }
+
+  private buildWall(a: Vec2, b: Vec2): void {
+    const placed = placeWall(this.world, a, b);
+    this.wallPreview.hide();
+    this.handleWorldEvents();
+    if (placed.length > 0) this.bus.emit('build:placed', { kind: 'wallStake', eid: placed[0]! });
+    else this.cameras.main.shake(80, 0.002);
+  }
+
+  /** Mouse click: a single stake. Touch: first tap = start, second tap = end (then Đặt). */
+  private tapWall(p: Vec2, touch: boolean): void {
+    if (!touch) {
+      this.buildWall(p, p);
+      return;
+    }
+    if (!this.wallStart || this.wallEnd) {
+      this.wallStart = p;
+      this.wallEnd = null;
+      this.wallPreview.show(planWall(this.world, p, p));
+      this.bus.emit('build:status', { ok: true, reason: null, pending: false });
+      return;
+    }
+    this.wallEnd = p;
+    const plan = planWall(this.world, this.wallStart, p);
+    this.wallPreview.show(plan);
+    this.bus.emit('build:status', { ok: plan.some((s) => s.ok), reason: null, pending: true });
+  }
+
   // --- building placement ------------------------------------------------------------
 
   private get snapping(): boolean {
@@ -267,6 +434,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private setBuildKind(kind: BuildingId | null): void {
+    if (kind && this.orderTool) this.setTool(null);
     this.buildKind = kind;
     this.pending = null;
     if (kind) {
@@ -275,6 +443,7 @@ export class WorldScene extends Phaser.Scene {
     } else {
       this.preview.hide();
     }
+    this.territory.setVisible(kind !== null || this.orderTool === 'wall');
     this.lastStatusKey = '';
     this.ghostKey = '';
     this.holdStatusAt = null;
@@ -301,14 +470,10 @@ export class WorldScene extends Phaser.Scene {
     const here = `${at.x}|${at.y}`;
     if (this.holdStatusAt === here) return;
     this.holdStatusAt = null;
-    const statusKey = `${check.ok}|${check.reason}|${this.pending !== null}`;
+    const statusKey = `${check.ok}|${check.reason}|${pending}`;
     if (statusKey !== this.lastStatusKey) {
       this.lastStatusKey = statusKey;
-      this.bus.emit('build:status', {
-        ok: check.ok,
-        reason: check.reason,
-        pending: this.pending !== null,
-      });
+      this.bus.emit('build:status', { ok: check.ok, reason: check.reason, pending });
     }
   }
 
@@ -322,7 +487,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.handleWorldEvents();
     this.lastStatusKey = '';
-    // Mouse: the cursor still sits on the new building; don't immediately replace
+    // Mouse: the cursor still sits on the new blueprint; don't immediately replace
     // "Đã đặt …" with "overlaps a building" until the player moves on.
     if (this.cursor) this.holdStatusAt = `${this.cursor.x}|${this.cursor.y}`;
     this.bus.emit('build:placed', { kind, eid: result.eid });
@@ -344,18 +509,32 @@ export class WorldScene extends Phaser.Scene {
     });
     this.bus.on('ui:zoom-step', ({ direction }) => this.cameraController.stepZoom(direction));
     this.bus.on('ui:build', ({ kind }) => this.setBuildKind(kind === this.buildKind ? null : kind));
+    this.bus.on('ui:tool', ({ tool }) => this.setTool(tool === this.orderTool ? null : tool));
     this.bus.on('ui:toggle-snap', () => {
       this.snapToggle = !this.snapToggle;
       this.bus.emit('build:mode', { kind: this.buildKind, snap: this.snapToggle });
     });
     this.bus.on('ui:build-confirm', () => {
-      // On success the HUD hears 'build:placed' (and hides ✓/✕); keep that message visible.
+      if (this.orderTool === 'wall' && this.wallStart && this.wallEnd) {
+        this.buildWall(this.wallStart, this.wallEnd);
+        this.wallStart = null;
+        this.wallEnd = null;
+        return;
+      }
+      // On success the HUD hears 'build:placed' (and hides Đặt/Huỷ); keep that message.
       if (this.pending && this.tryPlace(this.pending.x, this.pending.y)) {
         this.pending = null;
         this.preview.hide();
       }
     });
-    this.bus.on('ui:build-cancel', () => this.setBuildKind(null));
+    this.bus.on('ui:build-cancel', () => {
+      this.setBuildKind(null);
+      this.setTool(null);
+    });
+    this.bus.on('ui:focus-colonist', ({ eid }) => {
+      this.cameraController.centerOn(Position.x[eid]!, Position.y[eid]!);
+      this.select(eid);
+    });
   }
 
   private bindKeys(): void {
@@ -375,12 +554,16 @@ export class WorldScene extends Phaser.Scene {
       const hotkey = BUILDINGS[id].hotkey;
       if (hotkey) kb.on(`keydown-${hotkey}`, () => this.setBuildKind(id));
     }
+    for (const [key, tool] of Object.entries(TOOL_KEYS)) {
+      kb.on(`keydown-${key}`, () => this.setTool(this.orderTool === tool ? null : tool));
+    }
     kb.on('keydown-F3', (e: KeyboardEvent) => {
       e.preventDefault();
       this.debug.toggle();
     });
     kb.on('keydown-ESC', () => {
       if (this.buildKind) this.setBuildKind(null);
+      else if (this.orderTool) this.setTool(null);
       else if (this.selected !== null) this.select(null);
       else this.scene.start(SCENES.mainMenu);
     });
