@@ -33,20 +33,27 @@ export const nextStage = (job: Job): void => {
  * unreachable for a while — if there is nowhere to stand or no path; advances the
  * job to its next stage on arrival.
  */
+/** Only things that can be worked on (doodads, blueprints) are blacklisted; shared buildings never are. */
+const markIfWorkTarget = (world: GameWorld, target: number): void => {
+  if (hasComponent(world.ecs, target, Doodad) || isBlueprint(world, target)) {
+    markUnreachable(world, target);
+  }
+};
+
 export const walkStage = (world: GameWorld, eid: number, job: Job, target: number): JobStatus => {
   const shape = world.obstacles.get(target)?.shape;
   if (!shape) return 'failed';
   if (!job.dest) {
     const spot = approachPoint(world, shape, here(eid));
     if (!spot) {
-      markUnreachable(world, target);
+      markIfWorkTarget(world, target);
       return 'failed';
     }
     job.dest = spot;
   }
   const result = moveTo(world, eid, job.dest);
   if (result === 'failed') {
-    markUnreachable(world, target);
+    markIfWorkTarget(world, target);
     return 'failed';
   }
   if (result === 'arrived') nextStage(job);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { terrainIndex } from '../../data/terrain';
-import { isCarrying, livingColonists } from '../colony/colonists';
+import { isCarrying, livingColonists, setCarry } from '../colony/colonists';
 import { designate, undesignate } from '../colony/designation';
 import { Needs, Position } from '../components';
 import { entityAt } from '../GameWorld';
@@ -104,5 +104,26 @@ describe('idling and dying', () => {
     expect(w.jobs.has(c!)).toBe(false);
     expect(w.reservations.isFree(tree)).toBe(true);
     expect(w.paths.has(c!)).toBe(false);
+  });
+});
+
+describe('shared buildings', () => {
+  it('a stranded colonist does not blacklist the Hearthfire for everyone', () => {
+    const terrain = openTerrain(32, 32);
+    for (let y = 1; y <= 3; y++) {
+      for (let x = 1; x <= 3; x++) {
+        if (x !== 2 || y !== 2) terrain.set(x, y, terrainIndex('cliff'));
+      }
+    }
+    const w = scenarioWorld({ terrain, colonists: 2 });
+    const [stranded, free] = livingColonists(w);
+    Position.x[stranded!] = 40;
+    Position.y[stranded!] = 40;
+    setCarry(stranded!, 'wood', 5);
+    setCarry(free!, 'wood', 5);
+    runTicks(w, 200, () => w.stock.get('wood') === 35);
+    expect(w.unreachable.has(w.hearthfire)).toBe(false);
+    expect(w.stock.get('wood')).toBe(35);
+    expect(isCarrying(free!)).toBe(false);
   });
 });

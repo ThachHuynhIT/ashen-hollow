@@ -28,7 +28,7 @@ export const endJob = (world: GameWorld, eid: number, job: Job, status: JobStatu
   world.jobs.delete(eid);
   world.reservations.releaseColonist(eid);
   stopMoving(world, eid);
-  const undelivered = job.kind === 'deliver' && status !== 'done' && job.stage < 3;
+  const undelivered = job.kind === 'deliver' && status !== 'done';
   if (undelivered && world.obstacles.has(job.target) && isBlueprint(world, job.target)) {
     releasePending(job.target, job.resource!, job.amount!);
   }

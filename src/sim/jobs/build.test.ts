@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { completeBlueprint, isBlueprint, placeBlueprint } from '../colony/blueprint';
 import { isCarrying, livingColonists } from '../colony/colonists';
-import { Blueprint, Position } from '../components';
+import { Blueprint, Needs, Position } from '../components';
 import { removeWorldEntity } from '../GameWorld';
 import { inflateShape, shapeContains } from '../geom';
 import { runTicks, scenarioWorld } from '../testing/scenario';
@@ -72,5 +72,33 @@ describe('building', () => {
     const footprint = inflateShape(w.obstacles.get(tent)!.shape, 4);
     expect(shapeContains(footprint, Position.x[c!]!, Position.y[c!]!)).toBe(false);
     expect(navBlocked(w, Position.x[c!]!, Position.y[c!]!)).toBe(false);
+  });
+
+  describe('a delivery that ends at the hand-over stage', () => {
+    const atHandOver = () => {
+      const w = scenarioWorld({ stock: { wood: 30 } });
+      const tent = placeBlueprint(w, 'tent', 330, 300).eid!;
+      const [c] = livingColonists(w);
+      runTicks(w, 600, () => w.jobs.get(c!)?.kind === 'deliver' && w.jobs.get(c!)!.stage === 3);
+      expect(w.jobs.get(c!)?.stage).toBe(3);
+      return { w, tent, c: c! };
+    };
+
+    it('releases the pending amount when interrupted', () => {
+      const { w, tent, c } = atHandOver();
+      Needs.rest[c] = 10;
+      runTicks(w, 1);
+      expect(Blueprint.pending[0]![tent]).toBe(0);
+      expect(runTicks(w, 8000, () => !isBlueprint(w, tent))).toBeLessThan(8000);
+    });
+
+    it('releases the pending amount when the deliverer dies', () => {
+      const { w, tent, c } = atHandOver();
+      Needs.hunger[c] = 0;
+      Needs.health[c] = 0.01;
+      runTicks(w, 1);
+      expect(livingColonists(w)).toEqual([]);
+      expect(Blueprint.pending[0]![tent]).toBe(0);
+    });
   });
 });
