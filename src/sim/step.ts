@@ -1,3 +1,4 @@
+import { needsSystem } from './colony/needs';
 import type { GameWorld } from './GameWorld';
 
 /**
@@ -6,4 +7,5 @@ import type { GameWorld } from './GameWorld';
  */
 export const stepWorld = (world: GameWorld): void => {
   world.tick++;
+  needsSystem(world);
 };

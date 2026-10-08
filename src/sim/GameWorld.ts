@@ -1,7 +1,9 @@
 import { addComponent, addEntity, createWorld, removeEntity, type World } from 'bitecs';
 import { BUILDINGS, buildingIndex, type BuildingId } from '../data/buildings';
+import { STARTING_COLONISTS } from '../data/colonists';
 import { DOODADS, doodadIndex } from '../data/doodads';
 import { STARTING_STOCK, type ResourceId } from '../data/resources';
+import { spawnColonists } from './colony/colonists';
 import { Stockpile } from './colony/stockpile';
 import { inTerritory } from './colony/territory';
 import { Building, Doodad, Position, components } from './components';
@@ -82,6 +84,8 @@ export interface NewWorldOptions {
   /** Use this map instead of generating one (hand-made maps, saves, tests). */
   map?: GeneratedMap;
   stock?: Partial<Record<ResourceId, number>>;
+  /** How many colonists to start with (default STARTING_COLONISTS). */
+  colonists?: number;
 }
 
 const register = (world: GameWorld, eid: number, record: ObstacleRecord): void => {
@@ -113,6 +117,7 @@ export const createGameWorld = ({
   height = DEFAULT_MAP_HEIGHT,
   map,
   stock,
+  colonists,
 }: NewWorldOptions): GameWorld => {
   const { terrain, doodads, start } = map ?? generateMap({ seed, width, height });
   const world: GameWorld = {
@@ -156,6 +161,7 @@ export const createGameWorld = ({
     'hearthfire',
     footprintShape(BUILDINGS.hearthfire, start.x, start.y),
   );
+  spawnColonists(world, colonists ?? STARTING_COLONISTS);
   return world;
 };
 
