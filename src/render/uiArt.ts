@@ -252,3 +252,88 @@ export const paintUiDecor = (decor: UiDecor): PixelCanvas => {
       return paintFirefly();
   }
 };
+
+// --- main menu backdrop ------------------------------------------------------------------
+
+/** Sky texture height (texture px); four bands of 64 rows. */
+export const MENU_SKY_H = 256;
+
+/** Whole pixel size for the menu backdrop: the sky texture always covers the screen. */
+export const menuPixelScale = (screenHeight: number): number =>
+  Math.max(2, Math.ceil(screenHeight / MENU_SKY_H));
+
+const DITHER_ROWS = 6;
+const BAYER = [
+  [0, 2],
+  [3, 1],
+] as const;
+
+/** Ordered 2×2 dither: `level` 1..DITHER_ROWS → more and more pixels of the next band. */
+const ditherOn = (x: number, y: number, level: number): boolean =>
+  (BAYER[y % 2]![x % 2]! + 0.5) / 4 < level / (DITHER_ROWS + 1);
+
+/** Four flat sky bands (UI_PALETTE.sky, top → bottom) joined by dither; tiles horizontally. */
+export const paintSky = (): PixelCanvas => {
+  const bands = P.sky.length;
+  const band = MENU_SKY_H / bands;
+  const c = new PixelCanvas(4, MENU_SKY_H);
+  for (let y = 0; y < MENU_SKY_H; y++) {
+    const i = Math.floor(y / band);
+    const own = P.sky[i]!;
+    const next = P.sky[Math.min(i + 1, bands - 1)]!;
+    const level = y - i * band - (band - DITHER_ROWS);
+    for (let x = 0; x < 4; x++) c.set(x, y, level > 0 && ditherOn(x, y, level) ? next : own);
+  }
+  return c;
+};
+
+export interface HillLayer {
+  /** Texture height. */
+  readonly height: number;
+  /** Mean ridge height above the bottom edge. */
+  readonly base: number;
+  /** Two sine waves (whole periods over HILL_W, so the layer tiles seamlessly). */
+  readonly amp: readonly [number, number];
+  readonly freq: readonly [number, number];
+  readonly color: number;
+  /** Chance per column of a pine silhouette on the ridge. */
+  readonly trees: number;
+}
+
+/** Far → near: lower, darker, more trees. */
+export const HILL_LAYERS: readonly HillLayer[] = [
+  { height: 120, base: 70, amp: [14, 8], freq: [1, 3], color: P.woodDark, trees: 0 },
+  { height: 90, base: 46, amp: [10, 6], freq: [2, 5], color: P.text, trees: 0.04 },
+  { height: 60, base: 26, amp: [8, 4], freq: [3, 7], color: P.outline, trees: 0.07 },
+];
+
+export const HILL_W = 128;
+
+export const paintHills = (layer: number): PixelCanvas => {
+  const L = HILL_LAYERS[layer];
+  if (!L) throw new Error(`Unknown hill layer ${layer}`);
+  const c = new PixelCanvas(HILL_W, L.height);
+  const ridge: number[] = [];
+  for (let x = 0; x < HILL_W; x++) {
+    const t = (x / HILL_W) * Math.PI * 2;
+    const y = Math.round(
+      L.height -
+        L.base -
+        L.amp[0] * Math.sin(t * L.freq[0] + layer) -
+        L.amp[1] * Math.sin(t * L.freq[1] + layer * 2),
+    );
+    ridge.push(y);
+    c.fillRect(x, y, 1, L.height - y, L.color);
+  }
+  // Pointed pines standing on the ridge (wrapping, so the seam stays invisible).
+  for (let x = 0; x < HILL_W; x++) {
+    if (pixelHash(x, layer, 77) >= L.trees) continue;
+    const tall = 6 + Math.floor(pixelHash(layer, x, 78) * 7);
+    const top = ridge[x]! - tall;
+    for (let r = 0; r <= tall; r++) {
+      const half = Math.floor(r / 3);
+      for (let dx = -half; dx <= half; dx++) c.set((x + dx + HILL_W) % HILL_W, top + r, L.color);
+    }
+  }
+  return c;
+};

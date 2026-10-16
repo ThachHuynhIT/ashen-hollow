@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { UI_COLORS, UI_PALETTE } from '../data/uiPalette';
 import type { PixelCanvas } from './pixel';
 import {
+  HILL_LAYERS,
+  HILL_W,
+  MENU_SKY_H,
   UI_DECOR,
   UI_DECOR_IDS,
   UI_FRAMES,
   UI_FRAME_IDS,
+  menuPixelScale,
+  paintHills,
+  paintSky,
   paintUiDecor,
   paintUiFrame,
   type UiFrame,
@@ -124,5 +130,48 @@ describe('uiArt decorations', () => {
     expect(colorAt(fly, 1, 1)).toBe(UI_PALETTE.gold);
     expect(colorAt(fly, 1, 0)).toBe(UI_PALETTE.woodLight);
     expect(fly.alphaAt(0, 0)).toBe(0);
+  });
+});
+
+describe('menu backdrop', () => {
+  it('picks a whole pixel size so the sky always covers the screen', () => {
+    expect(menuPixelScale(400)).toBe(2);
+    expect(menuPixelScale(720)).toBe(3);
+    expect(menuPixelScale(812)).toBe(4);
+    for (const h of [300, 720, 812, 1080, 1440]) {
+      expect(MENU_SKY_H * menuPixelScale(h)).toBeGreaterThanOrEqual(h);
+    }
+  });
+
+  it('paints four sky bands from top to bottom in UI colours', () => {
+    const sky = paintSky();
+    expect([sky.width, sky.height]).toEqual([4, MENU_SKY_H]);
+    expect(colorAt(sky, 0, 0)).toBe(UI_PALETTE.sky[0]);
+    expect(colorAt(sky, 0, MENU_SKY_H / 2 - 20)).toBe(UI_PALETTE.sky[1]);
+    expect(colorAt(sky, 0, MENU_SKY_H - 1)).toBe(UI_PALETTE.sky[3]);
+    expect(foreignColors(sky)).toEqual([]);
+  });
+
+  it('dithers between bands instead of a hard edge', () => {
+    const sky = paintSky();
+    const lastRowOfFirstBand = MENU_SKY_H / 4 - 1;
+    const row = [0, 1, 2, 3].map((x) => colorAt(sky, x, lastRowOfFirstBand));
+    expect(new Set(row)).toEqual(new Set([UI_PALETTE.sky[0], UI_PALETTE.sky[1]]));
+  });
+
+  it('paints three hill layers: transparent sky on top, solid ground at the bottom', () => {
+    HILL_LAYERS.forEach((layer, i) => {
+      const hills = paintHills(i);
+      expect([hills.width, hills.height], `layer ${i}`).toEqual([HILL_W, layer.height]);
+      for (let x = 0; x < HILL_W; x++) {
+        expect(hills.alphaAt(x, 0), `layer ${i} x ${x}`).toBe(0);
+        expect(hills.alphaAt(x, layer.height - 1), `layer ${i} x ${x}`).toBe(255);
+      }
+      expect(foreignColors(hills), `layer ${i}`).toEqual([]);
+    });
+  });
+
+  it('rejects unknown hill layers', () => {
+    expect(() => paintHills(HILL_LAYERS.length)).toThrow();
   });
 });
