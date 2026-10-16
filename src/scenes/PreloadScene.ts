@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { PALETTE } from '../data/palette';
-import { buildPlaceholderAtlas } from '../render/atlas';
 import { textStyle } from '../ui/theme';
 import { SCENES } from './keys';
 
@@ -22,7 +21,6 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    buildPlaceholderAtlas(this.textures);
     this.scene.start(SCENES.mainMenu);
   }
 }

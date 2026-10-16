@@ -1,10 +1,8 @@
 import Phaser from 'phaser';
 import { PALETTE, toCss } from './data/palette';
 import { BootScene } from './scenes/BootScene';
-import { HudScene } from './scenes/HudScene';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { PreloadScene } from './scenes/PreloadScene';
-import { WorldScene } from './scenes/WorldScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -22,7 +20,7 @@ const game = new Phaser.Game({
     // Mouse + up to two simultaneous touches (pinch).
     activePointers: 3,
   },
-  scene: [BootScene, PreloadScene, MainMenuScene, WorldScene, HudScene],
+  scene: [BootScene, PreloadScene, MainMenuScene],
 });
 
 if (import.meta.env.DEV) {

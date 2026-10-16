@@ -1,4 +1,4 @@
-import type { Bounds } from '../geom';
+import type { Bounds } from './geom';
 
 /**
  * Uniform-grid spatial hash over world bounds. Stores numeric ids (entity ids) with an

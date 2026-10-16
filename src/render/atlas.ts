@@ -1,49 +1,12 @@
-import type Phaser from 'phaser';
-import type { BuildingId } from '../data/buildings';
-import type { DoodadId } from '../data/doodads';
-import { PixelCanvas } from './pixel';
-import {
-  COLONIST_POSES,
-  ICON_IDS,
-  SHIRT_COLORS,
-  paintBoneHeap,
-  paintBoulder,
-  paintColonist,
-  paintDeadTree,
-  paintGlowShroom,
-  paintGrave,
-  paintHearthfire,
-  paintIcon,
-  paintStorage,
-  paintTent,
-  paintTerrainTileset,
-  paintTorch,
-  paintWallStake,
-  paintWatchtower,
-  type ColonistPose,
-  type IconId,
-} from './terrainArt';
+import type { PixelCanvas } from './pixel';
 
-export const TERRAIN_TILESET_KEY = 'terrain-tiles';
-export const SPRITES_KEY = 'sprites';
+/**
+ * Turns generated pixel art into Phaser textures. Scenes refer to frames by name only, so
+ * an Aseprite atlas with the same frame names can replace any generated texture (spec
+ * §11.4). The UI atlas comes next in G0; world sprites (`field-tiles`, `sprites`) in G1.
+ */
 
-/** Visual variants per doodad kind (picked per entity by a stable hash). */
-export const DOODAD_VARIANTS: Record<DoodadId, number> = {
-  deadTree: 3,
-  boulder: 1,
-  boneHeap: 1,
-  glowShroom: 1,
-};
-
-export const doodadFrame = (id: DoodadId, variant: number): string => `${id}_${variant}`;
-export const buildingFrame = (id: BuildingId): string => `building_${id}`;
-
-export const colonistFrame = (shirt: number, pose: ColonistPose): string =>
-  `colonist_${shirt}_${pose}`;
-export const iconFrame = (id: IconId): string => `icon_${id}`;
-export const GRAVE_FRAME = 'grave';
-
-const toCanvas = (art: PixelCanvas): HTMLCanvasElement => {
+export const toCanvas = (art: PixelCanvas): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
   canvas.width = art.width;
   canvas.height = art.height;
@@ -53,8 +16,8 @@ const toCanvas = (art: PixelCanvas): HTMLCanvasElement => {
   return canvas;
 };
 
-/** Pack sprites left-to-right in shelves. Small and good enough for placeholder art. */
-const packShelves = (sprites: { name: string; art: PixelCanvas }[], maxWidth = 256) => {
+/** Pack sprites left-to-right in shelves. Small and good enough for generated art. */
+export const packShelves = (sprites: { name: string; art: PixelCanvas }[], maxWidth = 256) => {
   let x = 0;
   let y = 0;
   let shelf = 0;
@@ -70,44 +33,4 @@ const packShelves = (sprites: { name: string; art: PixelCanvas }[], maxWidth = 2
     return p;
   });
   return { placed, height: y + shelf };
-};
-
-/**
- * Generate all placeholder textures: the terrain tileset (used by the tilemap layers)
- * and one sprite atlas for doodads and buildings (one batch for the whole world).
- */
-export const buildPlaceholderAtlas = (textures: Phaser.Textures.TextureManager): void => {
-  if (!textures.exists(TERRAIN_TILESET_KEY)) {
-    textures.addCanvas(TERRAIN_TILESET_KEY, toCanvas(paintTerrainTileset()));
-  }
-  if (textures.exists(SPRITES_KEY)) return;
-
-  const sprites: { name: string; art: PixelCanvas }[] = [
-    ...[0, 1, 2].map((v) => ({ name: doodadFrame('deadTree', v), art: paintDeadTree(v) })),
-    { name: doodadFrame('boulder', 0), art: paintBoulder() },
-    { name: doodadFrame('boneHeap', 0), art: paintBoneHeap() },
-    { name: doodadFrame('glowShroom', 0), art: paintGlowShroom() },
-    { name: buildingFrame('hearthfire'), art: paintHearthfire() },
-    { name: buildingFrame('tent'), art: paintTent() },
-    { name: buildingFrame('storage'), art: paintStorage() },
-    { name: buildingFrame('watchtower'), art: paintWatchtower() },
-    { name: buildingFrame('torch'), art: paintTorch() },
-    { name: buildingFrame('wallStake'), art: paintWallStake() },
-    { name: GRAVE_FRAME, art: paintGrave() },
-    ...ICON_IDS.map((id) => ({ name: iconFrame(id), art: paintIcon(id) })),
-    ...SHIRT_COLORS.flatMap((color, shirt) =>
-      COLONIST_POSES.map((pose) => ({
-        name: colonistFrame(shirt, pose),
-        art: paintColonist(color, pose),
-      })),
-    ),
-  ];
-  const width = 256;
-  const { placed, height } = packShelves(sprites, width);
-  const sheet = new PixelCanvas(width, height);
-  for (const p of placed) sheet.blit(p.art, p.x, p.y);
-
-  const texture = textures.addCanvas(SPRITES_KEY, toCanvas(sheet));
-  if (!texture) throw new Error('Failed to create sprite atlas');
-  for (const p of placed) texture.add(p.name, 0, p.x, p.y, p.art.width, p.art.height);
 };
