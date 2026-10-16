@@ -25,7 +25,7 @@ Không khí: **fantasy ấm áp, dễ thương** — vương quốc nhỏ, lính
 
 ## Bảng màu thế giới "Hearth 32"
 
-Định nghĩa duy nhất tại `src/data/palette.ts` (`PALETTE`, có test: đúng 32 màu khác nhau). **Mọi pixel của thế giới** — cánh đồng, ô, công trình, đơn vị, tranh trong thẻ — **chỉ lấy từ bảng này.** Xuất palette `.gpl` cho Aseprite từ file này.
+Định nghĩa duy nhất tại `src/data/palette.ts` (`PALETTE`, có test: đúng 32 màu khác nhau). **Mọi pixel của thế giới** — cánh đồng, ô, công trình, đơn vị, tranh trong thẻ — **chỉ lấy từ bảng này.** Xuất palette `.gpl` cho Aseprite từ file này: **chưa làm** (dự kiến).
 
 - **Tối / viền:** outline, shadow, plum — bóng đổ nâu–mận, không đen thuần, không tím lạnh.
 - **Cây cỏ:** leafDark, grassDark, leaf, grass, grassLight, meadow. **Đất:** soilDark, soil, path, sand. **Lúa:** wheat, wheatLight.
@@ -78,7 +78,7 @@ Khung thẻ theo độ hiếm (thêm vào texture `ui` từ G1): thường = vi�
 
 ## Ranh giới thay art thật
 
-Mọi chỗ dùng sprite chỉ gọi frame theo tên qua các hàm `*Frame(...)` trong `atlas.ts`. Thay bằng atlas Aseprite = xuất atlas với **cùng tên frame** (`.aseprite` → spritesheet + JSON → `public/assets/atlases/`), nạp trong `PreloadScene` dưới cùng key; không sửa scene. Riêng UI: nạp dưới key `ui` thay cho `buildUiTexture`, rồi sửa `UI_FRAMES` (kích thước, slice, border).
+Hợp đồng **từ G1** (spec §11.4): mọi chỗ dùng sprite chỉ gọi frame theo tên qua các hàm `*Frame(...)` trong `atlas.ts`. Thay bằng atlas Aseprite = xuất atlas với **cùng tên frame** (`.aseprite` → spritesheet + JSON → `public/assets/atlases/`), nạp trong `PreloadScene` dưới cùng key; không sửa scene. Riêng UI: nạp dưới key `ui` thay cho `buildUiTexture`, rồi sửa `UI_FRAMES` (kích thước, slice, border).
 
 ## Nguồn asset tạm
 

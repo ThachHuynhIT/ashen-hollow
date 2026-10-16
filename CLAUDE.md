@@ -20,7 +20,7 @@ Run `npm run lint && npm run typecheck && npm test && npm run build` before call
 
 ## Architecture rules
 
-- **Layers** (spec §12.1): `src/core` (pure infra: `EventBus`/`GameEvents`, `Rng`/`hashSeed`, `SimClock`, `SpatialHash`, `geom`, `noise`), `src/data` (values and types only), `src/game` (rules: run, cards, battle, save), `src/render` (generated art + Phaser renderers), `src/ui` (theme, shared widgets, HUD parts), `src/scenes`, `src/platform`, `src/audio`.
+- **Layers** (spec §12.1): `src/core` (pure infra: `EventBus`/`GameEvents`, `Rng`/`hashSeed`, `SimClock`, `SpatialHash`, `geom`, `noise`), `src/data` (values and types only), `src/game` (rules: run, cards, battle, save), `src/render` (generated art + Phaser renderers), `src/ui` (theme, shared widgets, HUD parts), `src/scenes`, `src/platform` (chưa tạo), `src/audio` (chưa tạo).
 - **`src/game`, `src/data`, `src/core` must not import Phaser or `scenes/render/ui/platform/audio`; `src/data` must not import `src/game`** (ESLint `no-restricted-imports`, spec §12.4). Test files there obey the same rules.
 - **Determinism** (spec §8.12): `src/game`, `src/data`, `src/core` never use `Math.random`, `Date.now`, `performance.now`, `Math.hypot/sin/cos/tan/atan2/exp/log/pow` (ESLint `no-restricted-properties`); only `+ − × ÷` and `Math.sqrt/floor/ceil/round/min/max/abs`. Randomness goes through `Rng` (`src/core/random.ts`) seeded per stream with `hashSeed`; the battle uses no `Rng` at all (ties broken by id/plot). Never let `Map`/`Set` iteration order decide a simulation result — sort by id first. Battles advance in `SimClock` fixed ticks (10/s).
 - **Data-driven:** every gameplay number lives in `src/data/*`.
