@@ -7,7 +7,7 @@ import { PreloadScene } from './scenes/PreloadScene';
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  backgroundColor: toCss(PALETTE.void),
+  backgroundColor: toCss(PALETTE.outline),
   // Nearest-neighbour sampling + rounded positions: crisp pixel art at integer zoom.
   pixelArt: true,
   scale: {
