@@ -4,7 +4,7 @@ Guidance for AI coding assistants working in this repo.
 
 ## Project
 
-Ashen Hollow — dark fantasy colony builder. Phaser 4 + TypeScript (strict) + Vite + bitECS + Vitest. **Gridless world** (everything at continuous pixel coordinates; buildings placed freely; units move RTS-style), real-time with active pause, pixel art. Design docs are in Vietnamese: `docs/GDD.md`, `docs/ART_STYLE.md`, `docs/ROADMAP.md` (the phase plan; check it before starting a feature).
+Chín Vương Miện (_Nine Crowns_, working title; repo/package `ashen-hollow`) — a kingdom-building roguelite auto-battler: each year draw 3 cards, play 1 onto a 5×5 kingdom board, then watch your army fight a neighbouring king automatically. Phaser 4 + TypeScript (strict) + Vite + Vitest, generated pixel art, Stardew-style UI, web-first. The binding design is `docs/superpowers/specs/2026-10-16-nine-crowns-design.md` (Vietnamese), split into sub-projects G0–G5, each with its own plan in `docs/superpowers/plans/`. Summary docs: `docs/GDD.md`, `docs/ART_STYLE.md`, `docs/ROADMAP.md` (check it before starting a feature).
 
 ## Commands
 
@@ -16,32 +16,23 @@ npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build
 ```
 
-Run `npm test && npm run lint && npm run typecheck` before calling work done.
+Run `npm run lint && npm run typecheck && npm test && npm run build` before calling work done. In Git Bash on Windows, run npm/npx with `< /dev/null` or they can hang.
 
 ## Architecture rules
 
-- **`src/sim`, `src/data`, `src/core` must not import Phaser** (ESLint `no-restricted-imports` enforces it). They are pure TS so they can be unit-tested and moved into a worker. Test fixtures live in `src/sim/testing/` (e.g. `terrainFromAscii`).
-- **Determinism:** the sim never uses `Math.random()` or wall-clock time. Use `Rng` (`src/sim/random.ts`) and advance via `SimClock` fixed ticks (10/s). `stepWorld` in `src/sim/step.ts` is where systems get registered.
-- **Free world, hidden grids.** Positions are float world pixels (`Position`). Grids are acceleration structures only and are never shown to the player:
-  - `TerrainGrid` (16 px) — ground type; rendered seamlessly by dual-grid (`src/render/dualGrid.ts`).
-  - `NavGrid` (8 px) — walkability/cost for pathfinding; obstacles are reference-counted (`block`/`unblock`).
-  - `SpatialHash` (64 px) — neighbour and overlap queries.
-- **Shapes:** footprints/colliders are `Shape` (axis-aligned rect or circle, `src/sim/geom.ts`). Touching edges is not overlap (buildings may sit flush).
-- **Placement** goes through `checkPlacement` / `placeBuilding` (`src/sim/GameWorld.ts`): free by default, magnet-snaps to neighbouring buildings, optional 8 px snap (Shift / "Bám lưới").
-- **Pathfinding:** `findPath` (8-dir A*, no corner cutting) → `smoothPath` (string pulling via `lineWalkable`).
-- **Data-driven:** gameplay numbers live in `src/data/*` (terrain, doodads, buildings), not in systems.
-- **World ↔ UI:** the HUD may _read_ world state but never mutates it; player intents go through the typed `EventBus` (`src/core/events.ts`). Scenes launched with `scene.launch` start next frame — pass initial state in launch data, don't rely on events emitted in `create`.
+- **Layers** (spec §12.1): `src/core` (pure infra: `EventBus`/`GameEvents`, `Rng`/`hashSeed`, `SimClock`, `SpatialHash`, `geom`, `noise`), `src/data` (values and types only), `src/game` (rules: run, cards, battle, save), `src/render` (generated art + Phaser renderers), `src/ui` (theme, shared widgets, HUD parts), `src/scenes`, `src/platform`, `src/audio`.
+- **`src/game`, `src/data`, `src/core` must not import Phaser or `scenes/render/ui/platform/audio`; `src/data` must not import `src/game`** (ESLint `no-restricted-imports`, spec §12.4). Test files there obey the same rules.
+- **Determinism** (spec §8.12): `src/game`, `src/data`, `src/core` never use `Math.random`, `Date.now`, `performance.now`, `Math.hypot/sin/cos/tan/atan2/exp/log/pow` (ESLint `no-restricted-properties`); only `+ − × ÷` and `Math.sqrt/floor/ceil/round/min/max/abs`. Randomness goes through `Rng` (`src/core/random.ts`) seeded per stream with `hashSeed`; the battle uses no `Rng` at all (ties broken by id/plot). Never let `Map`/`Set` iteration order decide a simulation result — sort by id first. Battles advance in `SimClock` fixed ticks (10/s).
+- **Data-driven:** every gameplay number lives in `src/data/*`.
+- **Logic ↔ UI:** render/UI/scenes only read state and send intents through the typed `EventBus` (`src/core/events.ts`). Scenes launched with `scene.launch` start next frame — pass initial state in launch data, don't rely on events emitted in `create`.
 - **Phaser scene instances are reused** across restarts: reset per-game fields at the top of `create()`.
-- **Pixel art:** colours only from `PALETTE` (`src/data/palette.ts`); integer camera zoom only (`ZOOM_LEVELS`); sprites anchored at their feet and depth-sorted by that y; never rotate sprites.
-- **HUD text:** use `FONT_UI` — it must cover Vietnamese precomposed glyphs (Georgia does not).
-- **Systems order** (`src/sim/step.ts`): needs → jobs → movement. Sim → render/HUD changes go through `world.events` (drained by WorldScene each frame); never scan the ECS per frame to detect changes.
-- **Jobs** are plain data (`src/sim/jobs/types.ts`) run by per-kind stage machines (`runners.ts`); `chooseJob` scores candidates. Always end jobs through `endJob` (releases reservations, pending deliveries, sleep).
-- **Component arrays are module-global** (bitECS): only one live GameWorld at a time; tests comparing worlds must copy values out first.
-- **bitECS 0.4 `query()` returns a `Uint32Array`**: wrap with `Array.from(...)` when you need array methods or a `number[]` type.
+- **Pixel art:** world colours only from `PALETTE` (Hearth 32, `src/data/palette.ts`); UI colours (frames, cards, overlays, menu backdrop) only from `UI_PALETTE` (`src/data/uiPalette.ts`) — see `docs/ART_STYLE.md`. Integer camera zoom only; sprites anchored at their feet and depth-sorted by that y; never rotate sprites (horizontal flip is fine). Sprites are referenced only by frame name (spec §11.4).
+- **UI:** frames are nine-slices from the generated `ui` texture referenced by name (`UI_FRAMES` in `src/render/uiArt.ts`); size them in logical px with `createPanel` (`src/ui/theme.ts`), never with raw `Rectangle` backgrounds. Buttons come from `createButton`, tooltips from `Tooltip` (hover, or 400 ms long-press on touch), self-sizing boxes from `ContentBox`. Pure UI maths lives in `src/ui/hud/layout.ts` and `src/ui/menuLayout.ts` (tested). Every touch target is ≥ 44×44 logical px; recompute positions in `layout()` on resize; "desktop" = 1280×720, "mobile" = 375×812, `width ≥ 768` uses the desktop layout.
+- **HUD text:** use `FONT_UI` — it must cover Vietnamese precomposed glyphs (Georgia does not). Player-facing text is Vietnamese; ids in code are English.
 
 ## Phaser 4 notes
 
-Phaser 4 ships AI docs in `node_modules/phaser/skills/*/SKILL.md` (v3→v4 migration, cameras, input, tilemaps…) — read those instead of relying on Phaser 3 knowledge. Notable: `roundPixels` defaults false (set via `pixelArt: true`), FX/masks are now filters, `Geom.Point` → `Vector2`, `TilemapGPULayer` is orthographic-only and needs `generateLayerDataTexture()` after edits (we use plain `TilemapLayer`).
+Official Phaser 4 agent skills live in `.claude/skills/*/SKILL.md` (also shipped in `node_modules/phaser/skills/`) — v3→v4 migration, cameras, input, tilemaps, sprites (NineSlice)… Read those instead of relying on Phaser 3 knowledge, and check signatures in `node_modules/phaser/types/phaser.d.ts`. Notable: `roundPixels` defaults false (set via `pixelArt: true`), FX/masks are now filters, `Geom.Point` → `Vector2`, `TileSprite` was rewritten (no texture cropping, supports atlas frames).
 
 ## Dev server gotcha (Windows)
 
