@@ -130,6 +130,14 @@ export interface PressOptions {
   tooltip?: TooltipSource;
 }
 
+export interface PressHandle {
+  /**
+   * Abort any press in progress: stop the long-press timer, forget the press and hide this
+   * button's tooltip. Needed because disableInteractive() fires no pointerout.
+   */
+  cancel: () => void;
+}
+
 let nextPressId = 0;
 
 /**
@@ -140,7 +148,7 @@ export const bindPress = (
   scene: Phaser.Scene,
   target: Phaser.GameObjects.NineSlice,
   { onClick, onState, tooltip }: PressOptions,
-): void => {
+): PressHandle => {
   const owner = `press-${nextPressId++}`;
   let timer: Phaser.Time.TimerEvent | null = null;
   let down = false;
@@ -148,6 +156,12 @@ export const bindPress = (
   const stopTimer = (): void => {
     timer?.remove(false);
     timer = null;
+  };
+  const cancel = (): void => {
+    stopTimer();
+    down = false;
+    longPressed = false;
+    tooltip?.host.hide(owner);
   };
   const anchor = (): Rect => {
     const b = target.getBounds();
@@ -158,16 +172,13 @@ export const bindPress = (
     .setInteractive({ useHandCursor: true })
     .on('pointerover', (pointer: Phaser.Input.Pointer) => {
       if (pointer.wasTouch) return;
-      onState?.(down ? 'down' : 'hover');
+      onState?.('hover');
       const content = tooltip?.content();
       if (tooltip && content) tooltip.host.showAtPointer(content, owner);
     })
     .on('pointerout', () => {
-      stopTimer();
-      down = false;
-      longPressed = false;
+      cancel();
       onState?.('idle');
-      tooltip?.host.hide(owner);
     })
     .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       down = true;
@@ -199,10 +210,8 @@ export const bindPress = (
       }
       if (wasDown && pointer.getDistance() <= DRAG_SLOP) onClick();
     })
-    .once('destroy', () => {
-      stopTimer();
-      tooltip?.host.hide(owner);
-    });
+    .once('destroy', cancel);
+  return { cancel };
 };
 
 export interface ButtonOptions {
@@ -273,7 +282,7 @@ export const createButton = (
             : 'button',
     );
   };
-  bindPress(scene, box.image, {
+  const press = bindPress(scene, box.image, {
     onClick,
     tooltip,
     onState: (next) => {
@@ -300,6 +309,7 @@ export const createButton = (
         box.image.setInteractive();
       } else {
         box.image.disableInteractive();
+        press.cancel();
         state = 'idle';
         refresh();
       }
@@ -311,6 +321,7 @@ export const createButton = (
         box.image.setInteractive();
       } else {
         box.image.disableInteractive();
+        press.cancel();
         state = 'idle';
         refresh();
       }

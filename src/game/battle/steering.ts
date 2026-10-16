@@ -45,8 +45,9 @@ export const separationPush = (
       const minDist = radius[i]! + radius[j]!;
       let dx = x[j]! - x[i]!;
       let dy = y[j]! - y[i]!;
-      let d = Math.sqrt(dx * dx + dy * dy);
-      if (d >= minDist) continue;
+      const distSq = dx * dx + dy * dy;
+      if (distSq >= minDist * minDist) continue; // sqrt only for overlapping pairs
+      let d = Math.sqrt(distSq);
       if (d < COINCIDENT) {
         dx = 1;
         dy = 0;

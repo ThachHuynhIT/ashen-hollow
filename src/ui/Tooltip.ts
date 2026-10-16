@@ -13,6 +13,8 @@ import type { TooltipHost } from './theme';
 /**
  * The one tooltip of a scene: follows the mouse (+16, +16, flipping at the edges), or sits
  * above a long-pressed control on touch. Never interactive, so it never blocks input.
+ * Lifecycle: the owning scene calls refresh() from its layout() on resize and destroy() on
+ * scene SHUTDOWN.
  */
 export class Tooltip implements TooltipHost {
   private readonly box: ContentBox;

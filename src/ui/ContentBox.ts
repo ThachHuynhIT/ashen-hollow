@@ -17,8 +17,9 @@ export interface ContentBoxOptions {
 
 /**
  * A UI frame that sizes itself around TooltipContent: a bold title, then lines made of
- * text and icon parts. Used for the tooltip, the selected-thing panel, the status hint and
- * the menu's seed tag. Hidden while it has no content.
+ * text and icon parts. Used for the tooltip, the selected-thing panel and the status hint.
+ * Hidden while it has no content. Lifecycle: the owning scene calls refresh() from its
+ * layout() on resize and destroy() on scene SHUTDOWN.
  */
 export class ContentBox {
   readonly container: Phaser.GameObjects.Container;

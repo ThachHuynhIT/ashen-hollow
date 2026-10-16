@@ -31,6 +31,7 @@ describe('uiScaleFor', () => {
     expect(uiScaleFor(599, 1000)).toBe(1);
     expect(uiScaleFor(1000, 599)).toBe(1);
     expect(uiScaleFor(600, 1000)).toBe(2);
+    expect(uiScaleFor(1000, 600)).toBe(2);
   });
 });
 
