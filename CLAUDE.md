@@ -35,6 +35,21 @@ Run `npm run lint && npm run typecheck && npm test && npm run build` before call
 
 Official Phaser 4 agent skills live in `.claude/skills/*/SKILL.md` (also shipped in `node_modules/phaser/skills/`) — v3→v4 migration, cameras, input, tilemaps, sprites (NineSlice)… Read those instead of relying on Phaser 3 knowledge, and check signatures in `node_modules/phaser/types/phaser.d.ts`. Notable: `roundPixels` defaults false (set via `pixelArt: true`), FX/masks are now filters, `Geom.Point` → `Vector2`, `TileSprite` was rewritten (no texture cropping, supports atlas frames).
 
+### Which Phaser skill to read
+
+Always read `v3-to-v4-migration` before writing Phaser code from memory. Then by task:
+
+| Priority | Skills | Use for |
+|---|---|---|
+| High | `scenes`, `sprites-and-images`, `game-setup-and-config`, `scale-and-responsive`, `input-keyboard-mouse-touch`, `text-and-bitmaptext`, `events-system` | Scenes, nine-slice UI, pixel-art config, desktop/mobile layout, cards and touch, HUD text, `EventBus` |
+| Medium | `cameras`, `tweens`, `animations`, `loading-assets`, `graphics-and-shapes`, `render-textures`, `groups-and-containers`, `game-object-components`, `time-and-timers`, `v4-new-features`, `geometry-and-math` | Effects, unit animation, generated art/atlases, depth-sort/flip. Render/UI layers only |
+| Low | `filters-and-postfx`, `particles`, `audio-and-sound`, `data-manager`, `actions-and-utilities` | Polish, audio (`src/audio` not created yet). Game state lives in `src/game`, not on game objects |
+| Do not use for gameplay | `physics-arcade`, `physics-matter`, `tilemaps`, `curves-and-paths` | Battles are a custom deterministic sim (`SimClock`); the 5×5 board is not a tilemap. Phaser physics would break determinism |
+
+## Workflow (superpowers)
+
+New feature or behaviour change: `brainstorming` → `writing-plans` (spec in `docs/superpowers/specs/`, plan in `docs/superpowers/plans/`) → `test-driven-development` for `src/game`/`src/core`/`src/data` → `verification-before-completion` (the lint/typecheck/test/build command above) → `requesting-code-review` / `finishing-a-development-branch`. Bugs: `systematic-debugging` first.
+
 ## Dev server gotcha (Windows)
 
 Vite's watcher can read a file before the write finishes and serve stale code; `vite.config.ts` sets `server.watch.awaitWriteFinish`. If the browser still shows old behaviour, restart `npm run dev`. Note the served module is transformed (`0.5` → `.5`), so don't grep it for exact literals.
