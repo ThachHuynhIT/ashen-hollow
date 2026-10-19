@@ -59,3 +59,11 @@ Ngôn ngữ thị giác: **ấm = an toàn, lạnh = nguy hiểm.** Lửa và á
 ## Nguồn asset tạm
 
 Pack CC0/CC-BY từ itch.io, Kenney, OpenGameArt — ghi vào `CREDITS.md` kèm license. AI chỉ dùng cho moodboard/concept, không dùng làm sprite cuối.
+
+## Asset ngoài & AI
+
+- Mọi asset ngoài phải qua [ASSET_LICENSES.md](ASSET_LICENSES.md) và được ghi vào [ASSET_MANIFEST.md](ASSET_MANIFEST.md) + `CREDITS.md` trước khi commit. Không tự tải rồi commit chỉ vì thấy URL.
+- AI chỉ dùng cho moodboard/concept/silhouette/color/sprite draft; không đưa thẳng vào atlas. Pipeline: `concept → native-size draft → palette cleanup (Ashen 32) → manual pixel cleanup → animation → review → atlas`.
+- Asset chưa đạt yêu cầu: đánh dấu TODO, không tự ý đổi native size, không xoay sprite, giữ nguyên frame name khi thay art.
+- Checklist nghiệm thu: đúng native size · chỉ dùng Ashen 32 · không anti-aliasing/gradient mượt · ánh sáng trên-trái · silhouette đọc được ở 1× · origin (0.5, 1) · đúng frame name · license đã ghi.
+- Font UI: ưu tiên pixel font có đủ glyph tiếng Việt (ứng viên: Ark Pixel 12px proportional, SIL OFL; dự phòng Fusion Pixel). Kiểm tra glyph trước khi dùng.

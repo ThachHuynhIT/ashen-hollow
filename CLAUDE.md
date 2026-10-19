@@ -29,6 +29,7 @@ Run `npm test && npm run lint && npm run typecheck` before calling work done.
 - **Shapes:** footprints/colliders are `Shape` (axis-aligned rect or circle, `src/sim/geom.ts`). Touching edges is not overlap (buildings may sit flush).
 - **Placement** goes through `checkPlacement` / `placeBuilding` (`src/sim/GameWorld.ts`): free by default, magnet-snaps to neighbouring buildings, optional 8 px snap (Shift / "Bám lưới").
 - **Pathfinding:** `findPath` (8-dir A*, no corner cutting) → `smoothPath` (string pulling via `lineWalkable`).
+- **Asset ngoài:** theo `docs/ASSET_LICENSES.md` + `docs/ASSET_MANIFEST.md` (ghi license/credits trước khi commit; không tự tải asset).
 - **Data-driven:** gameplay numbers live in `src/data/*` (terrain, doodads, buildings), not in systems.
 - **World ↔ UI:** the HUD may _read_ world state but never mutates it; player intents go through the typed `EventBus` (`src/core/events.ts`). Scenes launched with `scene.launch` start next frame — pass initial state in launch data, don't rely on events emitted in `create`.
 - **Phaser scene instances are reused** across restarts: reset per-game fields at the top of `create()`.
