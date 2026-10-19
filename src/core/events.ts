@@ -1,18 +1,7 @@
-import type { GameSpeed } from './SimClock';
-
 /**
- * Typed event bus between game logic and the UI layers. Kept engine-free so it can be
- * unit-tested. G0 only keeps the events that do not depend on run/battle types; the rest
- * of spec §12.5 (`run:*`, `battle:*`, `ui:command`, …) is added with those types in G1.
+ * Generic typed event bus between game logic and the UI layers. Kept engine-free so it can
+ * be unit-tested. The game's event map (`GameEvents`) lives in `src/game/events.ts`.
  */
-export interface GameEvents {
-  'clock:speed': { speed: GameSpeed };
-  /** A line for the toast stack. */
-  log: { text: string };
-  'ui:set-speed': { speed: GameSpeed };
-  'ui:toggle-pause': Record<string, never>;
-}
-
 type Handler<T> = (payload: T) => void;
 
 export class EventBus<Events extends object> {
@@ -42,6 +31,3 @@ export class EventBus<Events extends object> {
     this.handlers.clear();
   }
 }
-
-/** One bus per running game session; recreated when a new run starts. */
-export const createGameBus = (): EventBus<GameEvents> => new EventBus<GameEvents>();
