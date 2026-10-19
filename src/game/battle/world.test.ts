@@ -132,6 +132,21 @@ describe('createBattle', () => {
     expect(w.y[first + 19]! - 160).toBe(Math.round(oy * 1.5));
   });
 
+  it('every offset of the second ring and beyond uses the 1.5× multiplier', () => {
+    const w = createBattle(battleSetup({ structures: [barracks(7, 33)] }));
+    const first = 2;
+    for (let k = 0; k < 33; k++) {
+      const [ox, oy] = SPAWN_OFFSETS[k % 16]!;
+      const m = k < 16 ? 1 : 1.5;
+      expect([w.x[first + k]! - 192, w.y[first + k]! - 160]).toEqual([
+        Math.round(ox * m),
+        Math.round(oy * m),
+      ]);
+    }
+    // k = 32 reuses the 1.5× ring (not 2.25×)
+    expect([w.x[first + 32]! - 192, w.y[first + 32]! - 160]).toEqual([0, -12]);
+  });
+
   it('does not depend on the order of structures', () => {
     const list = [
       barracks(3, 4),
@@ -243,6 +258,117 @@ describe('hashWorld', () => {
     expect(hashWorld(a)).toBe(hashWorld(b));
     a.x[1] = a.x[1]! + 1;
     expect(hashWorld(a)).not.toBe(hashWorld(b));
+  });
+
+  const ENTITY_ARRAYS = [
+    'x',
+    'y',
+    'prevX',
+    'prevY',
+    'hp',
+    'maxHp',
+    'dmg',
+    'range',
+    'minRange',
+    'interval',
+    'cooldown',
+    'speed',
+    'radius',
+    'armor',
+    'slowPct',
+    'projSpeed',
+    'cleave',
+    'onHitSlowPct',
+    'homeX',
+    'homeY',
+    'kbX',
+    'kbY',
+    'team',
+    'kind',
+    'alive',
+    'siege',
+    'target',
+    'slowTicks',
+    'onHitSlowTicks',
+    'sourceUid',
+    'kbTicks',
+    'targeting',
+    'dmgType',
+  ] as const;
+  const PROJECTILE_ARRAYS = [
+    'px',
+    'py',
+    'speed',
+    'dmg',
+    'slowPct',
+    'slowTicks',
+    'targetId',
+    'sourceId',
+    'sourceUid',
+    'dmgType',
+    'alive',
+  ] as const;
+
+  const withProjectile = () => {
+    const w = createBattle(battleSetup({ structures: [barracks(7, 3)] }));
+    const p = w.projectiles;
+    p.px[0] = 10;
+    p.py[0] = 20;
+    p.speed[0] = 8;
+    p.dmg[0] = 5;
+    p.targetId[0] = 2;
+    p.sourceId[0] = 0;
+    p.alive[0] = 1;
+    w.projectileCount = 1;
+    return w;
+  };
+
+  it.each(ENTITY_ARRAYS)('changes when entity array %s changes', (field) => {
+    const w = withProjectile();
+    const h = hashWorld(w);
+    const a = w[field];
+    a[w.count - 1] = a[w.count - 1]! + 1;
+    expect(hashWorld(w)).not.toBe(h);
+  });
+
+  it.each(PROJECTILE_ARRAYS)('changes when projectile array %s changes', (field) => {
+    const w = withProjectile();
+    const h = hashWorld(w);
+    const a = w.projectiles[field];
+    a[0] = a[0]! + 1;
+    expect(hashWorld(w)).not.toBe(h);
+  });
+
+  it('ignores slots beyond count and projectileCount', () => {
+    const w = withProjectile();
+    const h = hashWorld(w);
+    w.x[w.count] = 99;
+    w.projectiles.px[1] = 99;
+    expect(hashWorld(w)).toBe(h);
+  });
+
+  it.each(['readyTick', 'spawnedWaves', 'interventionsUsed', 'playerUnits'] as const)(
+    'changes when %s changes',
+    (field) => {
+      const w = withProjectile();
+      const h = hashWorld(w);
+      w[field] += 1;
+      expect(hashWorld(w)).not.toBe(h);
+    },
+  );
+
+  it('covers boulders', () => {
+    const w = withProjectile();
+    const h0 = hashWorld(w);
+    w.boulders.push({ x: 100, y: 120, dropTick: 30, impactTick: 36 });
+    const h1 = hashWorld(w);
+    expect(h1).not.toBe(h0);
+    for (const key of ['x', 'y', 'dropTick', 'impactTick'] as const) {
+      w.boulders[0]![key] += 1;
+      expect(hashWorld(w)).not.toBe(h1);
+      w.boulders[0]![key] -= 1;
+    }
+    expect(hashWorld(w)).toBe(h1);
   });
 
   it('covers tick and projectileCount', () => {

@@ -94,6 +94,7 @@ export class BattleWorld {
   readonly dmg = new Float64Array(BATTLE.entityCap);
   readonly range = new Float64Array(BATTLE.entityCap);
   readonly minRange = new Float64Array(BATTLE.entityCap);
+  /** NB: công trình không đánh (attack === null) có interval 0 và range 0 — mã chiến đấu phải chặn trường hợp này. */
   readonly interval = new Float64Array(BATTLE.entityCap);
   readonly cooldown = new Float64Array(BATTLE.entityCap);
   readonly speed = new Float64Array(BATTLE.entityCap);

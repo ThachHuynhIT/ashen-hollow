@@ -18,6 +18,15 @@ const mixWord = (h: number, word: number): number => {
   return out;
 };
 
+const scratchF64 = new Float64Array(1);
+const scratchWords = new Uint32Array(scratchF64.buffer);
+
+/** Băm một số bất kỳ theo 64 bit của nó. */
+const mixNum = (h: number, v: number): number => {
+  scratchF64[0] = v;
+  return mixWord(mixWord(h, scratchWords[0]!), scratchWords[1]!);
+};
+
 const mixF64 = (h: number, a: Float64Array, n: number): number => {
   const words = new Uint32Array(a.buffer, a.byteOffset, n * 2);
   let out = h;
@@ -92,5 +101,18 @@ export const hashWorld = (world: BattleWorld): number => {
   for (const a of [p.slowTicks, p.targetId, p.sourceId, p.sourceUid]) h = mixI32(h, a, m);
   h = mixU8(h, p.dmgType, m);
   h = mixU8(h, p.alive, m);
+
+  // Trạng thái ngoài mảng có ảnh hưởng mô phỏng (không băm label, thống kê kills, damageQueue).
+  h = mixNum(h, world.readyTick);
+  h = mixNum(h, world.spawnedWaves);
+  h = mixNum(h, world.interventionsUsed);
+  h = mixNum(h, world.playerUnits);
+  h = mixWord(h, world.boulders.length);
+  for (const b of world.boulders) {
+    h = mixNum(h, b.x);
+    h = mixNum(h, b.y);
+    h = mixNum(h, b.dropTick);
+    h = mixNum(h, b.impactTick);
+  }
   return h >>> 0;
 };
