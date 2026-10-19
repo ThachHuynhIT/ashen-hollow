@@ -1,4 +1,4 @@
-# Chín Vương Miện — Asset Manifest
+# Crowned Kingdoms — Asset Manifest
 
 Sổ đăng ký asset thật sự được đưa vào dự án. **Dữ liệu nằm ở [`assets.manifest.yml`](assets.manifest.yml)** (máy đọc được, để script kiểm tra); file này chỉ mô tả schema, quy ước đặt tên và checklist. Chỉ ghi asset đã được chọn và kiểm tra license theo [ASSET_LICENSES.md](ASSET_LICENSES.md).
 

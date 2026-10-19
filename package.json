@@ -1,8 +1,8 @@
 {
-  "name": "ashen-hollow",
+  "name": "crowned-kingdoms",
   "private": true,
-  "version": "0.0.1",
-  "description": "Nine Crowns (Chín Vương Miện) — kingdom-building roguelite auto-battler, 2D pixel art, web-first.",
+  "version": "0.1.0",
+  "description": "Crowned Kingdoms — kingdom-building roguelite auto-battler, 2D pixel art, web-first.",
   "type": "module",
   "scripts": {
     "dev": "vite",

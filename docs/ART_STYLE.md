@@ -1,6 +1,6 @@
-# Chín Vương Miện — Art Style Guide
+# Crowned Kingdoms — Art Style Guide
 
-Quy chuẩn bắt buộc cho mọi asset hình. Art tạm sinh bằng code (`src/render/*Art.ts`) cũng tuân theo file này. Nguồn chuẩn: spec tổng §11 ([2026-10-16-nine-crowns-design.md](superpowers/specs/2026-10-16-nine-crowns-design.md)).
+Quy chuẩn bắt buộc cho mọi asset hình. Art tạm sinh bằng code (`src/render/*Art.ts`) cũng tuân theo file này. Nguồn chuẩn: spec tổng §11 ([2026-10-16-crowned-kingdoms-design.md](superpowers/specs/2026-10-16-crowned-kingdoms-design.md)).
 
 Không khí: **fantasy ấm áp, dễ thương** — vương quốc nhỏ, lính chibi, đồng lúa, rừng cây, giao diện gỗ + giấy kem kiểu Stardew Valley.
 

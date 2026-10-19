@@ -1,6 +1,6 @@
-# Lộ trình — Chín Vương Miện
+# Lộ trình — Crowned Kingdoms
 
-Game đổi thể loại từ colony sim sang **roguelite xây vương quốc + tự động đánh**. Toàn bộ thiết kế nằm trong [spec tổng](superpowers/specs/2026-10-16-nine-crowns-design.md); spec chia thành 6 dự án con G0–G5, mỗi dự án con có plan riêng trong `docs/superpowers/plans/` và kết thúc bằng một bản chạy được. Lịch sử colony sim (Phase 0–1) vẫn còn trong git (nhánh `phase1-core-loop` được lưu trữ, không merge).
+Game đổi thể loại từ colony sim sang **roguelite xây vương quốc + tự động đánh**. Toàn bộ thiết kế nằm trong [spec tổng](superpowers/specs/2026-10-16-crowned-kingdoms-design.md); spec chia thành 6 dự án con G0–G5, mỗi dự án con có plan riêng trong `docs/superpowers/plans/` và kết thúc bằng một bản chạy được. Lịch sử colony sim (Phase 0–1) vẫn còn trong git (nhánh `phase1-core-loop` được lưu trữ, không merge).
 
 Điều kiện chung của mọi "Done khi": `npm run lint && npm run typecheck && npm test && npm run build` exit 0. Thứ tự phụ thuộc: **G0 → G1 → G2 → G3 → G4 → G5**; trong G5, âm thanh và juice có thể làm song song từ sau G2, cân bằng chỉ sau G4.
 

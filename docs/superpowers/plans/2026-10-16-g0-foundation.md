@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 6 (strict, `noUncheckedIndexedAccess`) · Phaser 4.2.1 · Vite 8 · Vitest 5 · ESLint 10 + typescript-eslint 8 (flat config).
 
-**Spec:** `docs/superpowers/specs/2026-10-16-nine-crowns-design.md` — plan này chỉ làm **G0** (§14 "G0 — Nền UI & dọn dẹp", mục 1–8 và "Done khi"), dựa trên §2, §10.1, §10.2, §11 (đặc biệt §11.1), §12 (§12.2, §12.3, §12.4). Code UI dùng lại từ `docs/superpowers/plans/2026-10-15-stardew-ui.md` (Task 1, 2 rút gọn, 3, 4, 9) đã được chép đầy đủ vào plan này — implementer **không cần** đọc plan cũ.
+**Spec:** `docs/superpowers/specs/2026-10-16-crowned-kingdoms-design.md` — plan này chỉ làm **G0** (§14 "G0 — Nền UI & dọn dẹp", mục 1–8 và "Done khi"), dựa trên §2, §10.1, §10.2, §11 (đặc biệt §11.1), §12 (§12.2, §12.3, §12.4). Code UI dùng lại từ `docs/superpowers/plans/2026-10-15-stardew-ui.md` (Task 1, 2 rút gọn, 3, 4, 9) đã được chép đầy đủ vào plan này — implementer **không cần** đọc plan cũ.
 
 **Repo:** `D:\WorkSpace\ashen-hollow`, nhánh `g0-foundation` (đã chứa `ui-stardew`). Trong Git Bash trên Windows, chạy mọi lệnh npm/npx kèm `< /dev/null` (nếu không có thể treo). Nếu trình duyệt vẫn hiện code cũ thì khởi động lại `npm run dev`.
 
@@ -3420,7 +3420,7 @@ Thay toàn bộ file:
 ````markdown
 # Chín Vương Miện — Game Design Document (rút gọn)
 
-> Bản tóm tắt sống của thiết kế. Nguồn chuẩn cho mọi con số, luật và nội dung: [spec tổng](superpowers/specs/2026-10-16-nine-crowns-design.md). Khi một cơ chế thay đổi, sửa spec trước, rồi file này, rồi code.
+> Bản tóm tắt sống của thiết kế. Nguồn chuẩn cho mọi con số, luật và nội dung: [spec tổng](superpowers/specs/2026-10-16-crowned-kingdoms-design.md). Khi một cơ chế thay đổi, sửa spec trước, rồi file này, rồi code.
 > Lộ trình: [ROADMAP.md](ROADMAP.md) · Quy chuẩn hình ảnh: [ART_STYLE.md](ART_STYLE.md)
 
 ## Elevator pitch
@@ -3470,7 +3470,7 @@ Thay toàn bộ file:
 ````markdown
 # Lộ trình — Chín Vương Miện
 
-Game đổi thể loại từ colony sim sang **roguelite xây vương quốc + tự động đánh**. Toàn bộ thiết kế nằm trong [spec tổng](superpowers/specs/2026-10-16-nine-crowns-design.md); spec chia thành 6 dự án con G0–G5, mỗi dự án con có plan riêng trong `docs/superpowers/plans/` và kết thúc bằng một bản chạy được. Lịch sử colony sim (Phase 0–1) vẫn còn trong git (nhánh `phase1-core-loop` được lưu trữ, không merge).
+Game đổi thể loại từ colony sim sang **roguelite xây vương quốc + tự động đánh**. Toàn bộ thiết kế nằm trong [spec tổng](superpowers/specs/2026-10-16-crowned-kingdoms-design.md); spec chia thành 6 dự án con G0–G5, mỗi dự án con có plan riêng trong `docs/superpowers/plans/` và kết thúc bằng một bản chạy được. Lịch sử colony sim (Phase 0–1) vẫn còn trong git (nhánh `phase1-core-loop` được lưu trữ, không merge).
 
 Điều kiện chung của mọi "Done khi": `npm run lint && npm run typecheck && npm test && npm run build` exit 0. Thứ tự phụ thuộc: **G0 → G1 → G2 → G3 → G4 → G5**; trong G5, âm thanh và juice có thể làm song song từ sau G2, cân bằng chỉ sau G4.
 
@@ -3496,7 +3496,7 @@ Thay toàn bộ file:
 ````markdown
 # Chín Vương Miện — Art Style Guide
 
-Quy chuẩn bắt buộc cho mọi asset hình. Art tạm sinh bằng code (`src/render/*Art.ts`) cũng tuân theo file này. Nguồn chuẩn: spec tổng §11 ([2026-10-16-nine-crowns-design.md](superpowers/specs/2026-10-16-nine-crowns-design.md)).
+Quy chuẩn bắt buộc cho mọi asset hình. Art tạm sinh bằng code (`src/render/*Art.ts`) cũng tuân theo file này. Nguồn chuẩn: spec tổng §11 ([2026-10-16-crowned-kingdoms-design.md](superpowers/specs/2026-10-16-crowned-kingdoms-design.md)).
 
 Không khí: **fantasy ấm áp, dễ thương** — vương quốc nhỏ, lính chibi, đồng lúa, rừng cây, giao diện gỗ + giấy kem kiểu Stardew Valley.
 
@@ -3592,7 +3592,7 @@ Guidance for AI coding assistants working in this repo.
 
 ## Project
 
-Chín Vương Miện (_Nine Crowns_, working title; repo/package `ashen-hollow`) — a kingdom-building roguelite auto-battler: each year draw 3 cards, play 1 onto a 5×5 kingdom board, then watch your army fight a neighbouring king automatically. Phaser 4 + TypeScript (strict) + Vite + Vitest, generated pixel art, Stardew-style UI, web-first. The binding design is `docs/superpowers/specs/2026-10-16-nine-crowns-design.md` (Vietnamese), split into sub-projects G0–G5, each with its own plan in `docs/superpowers/plans/`. Summary docs: `docs/GDD.md`, `docs/ART_STYLE.md`, `docs/ROADMAP.md` (check it before starting a feature).
+Chín Vương Miện (_Nine Crowns_, working title; repo/package `ashen-hollow`) — a kingdom-building roguelite auto-battler: each year draw 3 cards, play 1 onto a 5×5 kingdom board, then watch your army fight a neighbouring king automatically. Phaser 4 + TypeScript (strict) + Vite + Vitest, generated pixel art, Stardew-style UI, web-first. The binding design is `docs/superpowers/specs/2026-10-16-crowned-kingdoms-design.md` (Vietnamese), split into sub-projects G0–G5, each with its own plan in `docs/superpowers/plans/`. Summary docs: `docs/GDD.md`, `docs/ART_STYLE.md`, `docs/ROADMAP.md` (check it before starting a feature).
 
 ## Commands
 
@@ -3671,7 +3671,7 @@ src/
 docs/         GDD, ART_STYLE, ROADMAP, spec và plan (docs/superpowers)
 ```
 
-Nguyên tắc: **luật tách khỏi hiển thị**, tick cố định 10/s, deterministic theo seed. Chi tiết ở [docs/GDD.md](docs/GDD.md) và [spec tổng](docs/superpowers/specs/2026-10-16-nine-crowns-design.md).
+Nguyên tắc: **luật tách khỏi hiển thị**, tick cố định 10/s, deterministic theo seed. Chi tiết ở [docs/GDD.md](docs/GDD.md) và [spec tổng](docs/superpowers/specs/2026-10-16-crowned-kingdoms-design.md).
 
 ## Tài liệu
 

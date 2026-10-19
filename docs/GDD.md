@@ -1,13 +1,13 @@
-# Chín Vương Miện — Game Design Document (rút gọn)
+# Crowned Kingdoms — Game Design Document (rút gọn)
 
-> Bản tóm tắt sống của thiết kế. Nguồn chuẩn cho mọi con số, luật và nội dung: [spec tổng](superpowers/specs/2026-10-16-nine-crowns-design.md). Khi một cơ chế thay đổi, sửa spec trước, rồi file này, rồi code.
+> Bản tóm tắt sống của thiết kế. Nguồn chuẩn cho mọi con số, luật và nội dung: [spec tổng](superpowers/specs/2026-10-16-crowned-kingdoms-design.md). Khi một cơ chế thay đổi, sửa spec trước, rồi file này, rồi code.
 > Lộ trình: [ROADMAP.md](ROADMAP.md) · Quy chuẩn hình ảnh: [ART_STYLE.md](ART_STYLE.md)
 
 ## Elevator pitch
 
 Bạn là vua của một vương quốc nhỏ trên bàn cờ 5×5. Mỗi năm rút 3 thẻ, chơi 1 thẻ — dựng trại lính, tháp cung, ruộng lúa, gắn bùa — rồi xem quân mình **tự động đánh** với đạo quân của một vua láng giềng trong 30–60 giây trên cánh đồng quanh vương quốc. Sống qua năm 30 là thắng; mất hết 3 mạng là thua.
 
-**Thể loại:** roguelite xây vương quốc + tự động đánh · 2D pixel art · fantasy ấm áp, dễ thương (lính chibi, đồng lúa, giao diện gỗ + giấy kem kiểu Stardew Valley) · web-first, PWA. Tên tạm "Chín Vương Miện" (_Nine Crowns_); repo và package vẫn là `ashen-hollow`.
+**Thể loại:** roguelite xây vương quốc + tự động đánh · 2D pixel art · fantasy ấm áp, dễ thương (lính chibi, đồng lúa, giao diện gỗ + giấy kem kiểu Stardew Valley) · web-first, PWA. Tên: Crowned Kingdoms (trước đây _Chín Vương Miện_ / _Nine Crowns_); repo và package `crowned-kingdoms`.
 
 ## Vòng một năm (spec §3.2)
 

@@ -1,10 +1,10 @@
-# Chín Vương Miện — roguelite xây vương quốc + tự động đánh (Design Spec tổng)
+# Crowned Kingdoms — roguelite xây vương quốc + tự động đánh (Design Spec tổng)
 
 - **Ngày:** 2026-10-16
 - **Trạng thái:** chờ duyệt
 - **Liên quan:** [UI Stardew spec](2026-10-13-stardew-ui-design.md) · [UI Stardew plan](../plans/2026-10-15-stardew-ui.md) · [ART_STYLE.md](../../ART_STYLE.md) · [GDD.md](../../GDD.md) · [ROADMAP.md](../../ROADMAP.md) · [CLAUDE.md](../../../CLAUDE.md)
 - **Điều kiện bắt đầu:** spec này được duyệt. Mọi việc mới rẽ nhánh từ `ui-stardew`. Nhánh `phase1-core-loop` được lưu trữ (không merge, không sửa thêm). Spec này **thay** thiết kế colony sim trong `GDD.md`/`ROADMAP.md`; lịch sử colony sim vẫn còn trong git.
-- **Tên tạm:** "Chín Vương Miện" (*Nine Crowns*), đổi được. Repo và package vẫn tên `ashen-hollow`.
+- **Tên:** "Crowned Kingdoms" (trước đây "Chín Vương Miện" / *Nine Crowns*; repo và package `crowned-kingdoms`, trước là `ashen-hollow`).
 
 Game đổi thể loại từ colony sim dark fantasy sang **roguelite xây vương quốc + tự động đánh** (cùng thể loại với *9 Kings* của Sad Socket). Chỉ học **cơ chế** của thể loại; mọi tên vua, tên thẻ, con số, art và chữ trong spec này là bản gốc của dự án.
 
@@ -44,7 +44,7 @@ Các con số chuẩn nằm ở §3 (ván) và §8 (trận); bảng này chỉ g
 | Repo | **Cùng repo, thay thế.** Giữ hạ tầng: Vite, Phaser 4, Vitest, ESLint, CI, `EventBus`, `SimClock`, `Rng`/`hashSeed`, pipeline pixel art sinh bằng code, `SpatialHash`, thuật toán tách đơn vị (separation). Xoá colony sim (jobs, needs, colonist, designation, nav grid). Lịch sử còn trong git. |
 | Nhánh | `phase1-core-loop` lưu trữ, không merge, không sửa nữa. Việc mới rẽ từ `ui-stardew`. |
 | Chủ đề | Fantasy ấm áp hợp UI Stardew: vương quốc nhỏ, lính chibi, đồng ruộng, rừng. Bảng màu thế giới **ấm** — bảng "Ashen 32" bị thay bằng bảng "Hearth 32" (§11.1); `UI_PALETTE` của UI spec giữ nguyên. |
-| Tên tạm | "Chín Vương Miện" (*Nine Crowns*), đổi được. |
+| Tên | "Crowned Kingdoms" (trước đây "Chín Vương Miện" / *Nine Crowns*). |
 | Phạm vi | **Toàn bộ game** trong spec tổng này, chia G0–G5, mỗi phần một plan (§14). |
 | UI | Giữ UI Stardew. Từ plan UI dùng lại Task 1–4 và 9; bỏ Task 5–8 (HUD colony). |
 | Vòng năm | Rút 3, chơi 1 (đổi bài tốn vàng, giá tăng dần); xem trước quân địch trên lịch; trận tự động thời gian thực 30–60 s nhìn từ trên xuống trên cánh đồng quanh bàn cờ; lính sinh từ ô lúc bắt đầu trận, tháp bắn, địch vào từ mép bản đồ; một kỹ năng can thiệp hoàng gia có hồi chiêu; mọi thứ hồi đầy sau trận. |
@@ -1094,7 +1094,7 @@ Cuối ván (thắng hay thua):
 
 ### 9.3 Lưu (IndexedDB)
 
-- Database `nine-crowns`, version 1, object store `run` (khoá `'current'`) và `meta` (khoá `'profile'`).
+- Database `crowned-kingdoms`, version 1, object store `run` (khoá `'current'`) và `meta` (khoá `'profile'`).
 - **Ván:** lưu toàn bộ `RunState` (JSON) sau **mọi lệnh thành công ngoài trận** và khi vào/ra pha `battle`. Không lưu giữa trận: tải lại khi đang `battle` → dựng lại `BattleSetup` từ `RunState` và đánh lại từ tick 0 (cùng đạo quân, cùng tay bài). Ván kết thúc → xoá `run`.
 - **Meta:** `{ version, crownPoints, mastery: Record<KingId, number>, unlockedKings, unlockedCards, wins: Record<KingId, number>, highestDifficultyWon, settings: { master, music, sfx } }`, lưu khi kết thúc ván, khi mở khoá, khi đổi cài đặt.
 - **Phiên bản:** `RUN_SAVE_VERSION = 1`, `META_SAVE_VERSION = 1`. Mỗi bản lưu có `version` và `contentHash` (`hashSeed` của danh sách mọi `CardId` + `UnitId` đã sắp). Tải: `version` thấp hơn → chạy chuỗi migrator; không có migrator, version cao hơn, hoặc `contentHash` khác mà có `CardId` không còn tồn tại → bỏ ván, toast "Ván đang chơi không còn tương thích với bản cập nhật này." Meta **luôn** phải có migrator (không bao giờ xoá meta).
@@ -1111,7 +1111,7 @@ Cuối ván (thắng hay thua):
 
 ### 10.2 Menu chính (`MainMenuScene`)
 
-Theo UI plan Task 9 (trời dither, đồi parallax, đom đóm), đổi: logo "Chín Vương Miện", phụ đề "Một vương quốc nhỏ, chín ngai vàng". Nút 200×52 xếp dọc: **Tiếp tục** (chỉ hiện khi có ván lưu), **Ván mới** (→ Chọn vua), **Vương Miện** (→ §10.9), **Cài đặt** (→ §10.10). Bỏ nút "Đổi seed" và dòng seed (chuyển sang Chọn vua). Nút của tính năng chưa có trong G hiện tại thì ẩn.
+Theo UI plan Task 9 (trời dither, đồi parallax, đom đóm), đổi: logo "Crowned Kingdoms", phụ đề "Một vương quốc nhỏ, chín ngai vàng". Nút 200×52 xếp dọc: **Tiếp tục** (chỉ hiện khi có ván lưu), **Ván mới** (→ Chọn vua), **Vương Miện** (→ §10.9), **Cài đặt** (→ §10.10). Bỏ nút "Đổi seed" và dòng seed (chuyển sang Chọn vua). Nút của tính năng chưa có trong G hiện tại thì ẩn.
 
 ### 10.3 Chọn vua (`KingSelectScene`)
 

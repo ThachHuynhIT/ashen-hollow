@@ -1,4 +1,4 @@
-# Chín Vương Miện — Asset License Policy
+# Crowned Kingdoms — Asset License Policy
 
 ## 1. Purpose
 
