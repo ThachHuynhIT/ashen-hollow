@@ -19,6 +19,14 @@ const ARROW_DEPTH = 100_000;
 /** Gap between the board and an edge arrow's tip (world px). */
 const ARROW_GAP = 4;
 const ARROW_HALF = 7;
+/** How a plot is outlined while a card is aimed (§10.4): legal, illegal, or already picked. */
+export type PlotHighlight = 'good' | 'bad' | 'selected';
+
+const HIGHLIGHT_COLOR: Readonly<Record<PlotHighlight, number>> = {
+  good: UI_PALETTE.good,
+  bad: UI_PALETTE.bad,
+  selected: UI_PALETTE.gold,
+};
 
 /** Foot y of a building standing on `plot` (the bottom edge of the cell, spec §11.2). */
 export const buildingFootY = (plot: number): number => plotCenter(plot).y + BATTLE.plot / 2;
@@ -71,8 +79,8 @@ export class BoardRenderer {
     this.buildings.forEach((b, p) => b?.setVisible(visible && this.cards[p] !== null));
   }
 
-  /** Outline the given plots in UI_PALETTE.good / bad; an empty map clears them. */
-  setHighlights(map: ReadonlyMap<number, 'good' | 'bad'>): void {
+  /** Outline plots in UI_PALETTE.good / bad, picked ones in gold; an empty map clears them. */
+  setHighlights(map: ReadonlyMap<number, PlotHighlight>): void {
     const g = this.highlights;
     g.clear();
     const plots = [...map.keys()].sort((a, b) => a - b);
@@ -80,7 +88,7 @@ export class BoardRenderer {
       if (p < 0 || p >= PLOTS) continue;
       const c = plotCenter(p);
       const half = BATTLE.plot / 2;
-      g.lineStyle(2, map.get(p) === 'good' ? UI_PALETTE.good : UI_PALETTE.bad, 1);
+      g.lineStyle(2, HIGHLIGHT_COLOR[map.get(p) ?? 'bad'], 1);
       g.strokeRect(c.x - half + 1, c.y - half + 1, BATTLE.plot - 2, BATTLE.plot - 2);
     }
   }

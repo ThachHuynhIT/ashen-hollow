@@ -1,5 +1,6 @@
 import { BATTLE } from '../../data/battle';
-import { plotCol, plotRow } from '../../game/run/board';
+import { plotCenter } from '../../game/battle/world';
+import { THRONE_PLOT, plotCol, plotRow } from '../../game/run/board';
 import { GAP, MARGIN, SPEED_GAP, type Point, type Rect, type Size } from '../hud/layout';
 
 /**
@@ -37,7 +38,8 @@ const DESK = {
 const PHONE = {
   top: { lives: 96, h: 48 },
   boardY: 124,
-  scout: { y: 508, h: 134 },
+  // Ends 12 px above the hand (y 650) so a lifted selected card (CARD_LIFT) clears it.
+  scout: { y: 508, h: 130 },
   card: { w: 108, h: 152, gap: 8 },
   skip: { w: 84, h: 48, y: 452 },
 } as const;
@@ -295,4 +297,24 @@ export const screenToWorld = (p: Point, scroll: Point, screen: Size, zoom: numbe
     x: scroll.x + mx + (p.x - mx) / zoom,
     y: scroll.y + my + (p.y - my) / zoom,
   };
+};
+
+/** §10.7 battle camera: zoom `battleZoom`, the throne at the screen centre. */
+export const battleCamera = (screen: Size): { zoom: number; scroll: Point } => {
+  const zoom = battleZoom(screen.w, screen.h);
+  const scroll = cameraScroll(
+    plotCenter(THRONE_PLOT),
+    { x: screen.w / 2, y: screen.h / 2 },
+    screen,
+    zoom,
+  );
+  return { zoom, scroll };
+};
+
+/** World point under screen point `p` in the battle view, null outside the field. */
+export const battleWorldAt = (p: Point, screen: Size): Point | null => {
+  const { zoom, scroll } = battleCamera(screen);
+  const w = screenToWorld(p, scroll, screen, zoom);
+  if (w.x < 0 || w.x > BATTLE.field || w.y < 0 || w.y > BATTLE.field) return null;
+  return w;
 };

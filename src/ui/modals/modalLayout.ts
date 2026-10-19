@@ -1,4 +1,4 @@
-import { MARGIN, type Rect, type Size } from '../hud/layout';
+import { CARD_LIFT, MARGIN, type Rect, type Size } from '../hud/layout';
 import { isDesktop } from '../realm/realmLayout';
 
 /**
@@ -31,7 +31,6 @@ export interface RewardLayout {
 }
 
 const TITLE_H = 28;
-const CARD_LIFT = 12;
 const GAP_ABOVE_CARDS = 8;
 const GAP_BELOW_CARDS = 16;
 const BUTTON_GAP = 16;
@@ -70,4 +69,59 @@ export const rewardLayout = (screen: Size, inset: number, count = 3): RewardLayo
     skip: { x: bx, y: by, w: button.w, h: button.h },
     take: { x: bx + button.w + BUTTON_GAP, y: by, w: button.w, h: button.h },
   };
+};
+
+export interface ResultLayout {
+  panel: Rect;
+  title: Rect;
+  /** One row per text line under the title. */
+  lines: readonly Rect[];
+  /** A centred row of buttons at the bottom. */
+  buttons: readonly Rect[];
+}
+
+/** Buttons of the result panels ("Tiếp tục", "Về menu", "Ván mới"). */
+export const RESULT_BUTTON = { w: 140, h: 52 } as const;
+const RESULT = { w: 420, titleH: 40, lineH: 26, gapAboveLines: 8, gapAboveButtons: 20 } as const;
+
+/**
+ * A result panel (battle summary §10.7, run end §10.8): a title, `lineCount` text rows and
+ * `buttonCount` buttons side by side, centred on screen; 420 px wide, narrower on phones.
+ */
+export const resultLayout = (
+  screen: Size,
+  inset: number,
+  lineCount: number,
+  buttonCount: number,
+): ResultLayout => {
+  const n = Math.max(1, buttonCount);
+  const row = n * RESULT_BUTTON.w + (n - 1) * BUTTON_GAP;
+  const w = Math.max(RESULT.w, row + 2 * inset);
+  const h =
+    inset +
+    RESULT.titleH +
+    RESULT.gapAboveLines +
+    lineCount * RESULT.lineH +
+    RESULT.gapAboveButtons +
+    RESULT_BUTTON.h +
+    inset;
+  const panel = centredPanel(screen, w, h);
+  const innerW = panel.w - 2 * inset;
+  const title = { x: panel.x + inset, y: panel.y + inset, w: innerW, h: RESULT.titleH };
+  const y0 = title.y + title.h + RESULT.gapAboveLines;
+  const lines = Array.from({ length: lineCount }, (_, i) => ({
+    x: title.x,
+    y: y0 + i * RESULT.lineH,
+    w: innerW,
+    h: RESULT.lineH,
+  }));
+  const by = y0 + lineCount * RESULT.lineH + RESULT.gapAboveButtons;
+  const bx = Math.round(panel.x + (panel.w - row) / 2);
+  const buttons = Array.from({ length: n }, (_, i) => ({
+    x: bx + i * (RESULT_BUTTON.w + BUTTON_GAP),
+    y: by,
+    w: RESULT_BUTTON.w,
+    h: RESULT_BUTTON.h,
+  }));
+  return { panel, title, lines, buttons };
 };

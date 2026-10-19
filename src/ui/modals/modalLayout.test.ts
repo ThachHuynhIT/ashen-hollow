@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Rect, Size } from '../hud/layout';
-import { centredPanel, rewardLayout } from './modalLayout';
+import { centredPanel, resultLayout, rewardLayout } from './modalLayout';
 
 const DESKTOP: Size = { w: 1280, h: 720 };
 const MOBILE: Size = { w: 375, h: 812 };
@@ -53,5 +53,36 @@ describe('rewardLayout', () => {
         for (let j = i + 1; j < parts.length; j++)
           expect(overlaps(parts[i]!, parts[j]!)).toBe(false);
     });
+  }
+});
+
+describe('resultLayout', () => {
+  for (const [name, screen, inset] of [
+    ['desktop', DESKTOP, 28],
+    ['mobile', MOBILE, 22],
+  ] as const) {
+    for (const buttons of [1, 2]) {
+      it(`fits title, 3 lines and ${buttons} button(s) inside the panel (${name})`, () => {
+        const l = resultLayout(screen, inset, 3, buttons);
+        expect(contains({ x: 0, y: 0, ...screen }, l.panel)).toBe(true);
+        expect(l.lines).toHaveLength(3);
+        expect(l.buttons).toHaveLength(buttons);
+        const inner = {
+          x: l.panel.x + inset,
+          y: l.panel.y + inset,
+          w: l.panel.w - 2 * inset,
+          h: l.panel.h - 2 * inset,
+        };
+        const parts = [l.title, ...l.lines, ...l.buttons];
+        for (const r of parts) expect(contains(inner, r), JSON.stringify(r)).toBe(true);
+        for (const b of l.buttons) {
+          expect(b.w).toBeGreaterThanOrEqual(44);
+          expect(b.h).toBeGreaterThanOrEqual(44);
+        }
+        for (let i = 0; i < parts.length; i++)
+          for (let j = i + 1; j < parts.length; j++)
+            expect(overlaps(parts[i]!, parts[j]!)).toBe(false);
+      });
+    }
   }
 });

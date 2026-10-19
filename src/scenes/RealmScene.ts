@@ -2,11 +2,11 @@ import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
 import { BATTLE } from '../data/battle';
 import type { Edge } from '../game/battle/types';
-import { drainEvents, plotCenter } from '../game/battle/world';
+import { drainEvents } from '../game/battle/world';
 import { CONTENT } from '../game/cards/registry';
 import { createGameBus, type GameEvents } from '../game/events';
 import { RunController } from '../game/run/RunController';
-import { THRONE_PLOT, checkTargetStep, targetCount } from '../game/run/board';
+import { checkTargetStep, targetCount } from '../game/run/board';
 import type { PlayTarget, RunState } from '../game/run/state';
 import { newRun } from '../game/run/yearFlow';
 import { BoardRenderer } from '../render/BoardRenderer';
@@ -15,8 +15,10 @@ import { FxRenderer } from '../render/FxRenderer';
 import { UnitRenderer } from '../render/UnitRenderer';
 import { buildSpritesTexture } from '../render/atlas';
 import { DRAG_SLOP, type Size } from '../ui/hud/layout';
-import { PLANNING_ZOOM, battleZoom, cameraScroll, planningLayout } from '../ui/realm/realmLayout';
+import { plotHighlights } from '../ui/planning/targetHints';
+import { PLANNING_ZOOM, battleCamera, cameraScroll, planningLayout } from '../ui/realm/realmLayout';
 import { SCENES } from './keys';
+import type { RunEndData } from './RunEndScene';
 
 export interface RealmData {
   seed: number;
@@ -33,6 +35,9 @@ interface PendingPlay {
   handIndex: number;
   targets: number[];
 }
+
+/** Toast shown when the battle reaches the rage tick (§10.7). */
+export const RAGE_TEXT = 'Quân địch nổi cơn cuồng nộ!';
 
 /** Centre of the 5×5 board in world px (the board spans boardOrigin … +5 plots). */
 const BOARD_CENTRE = {
@@ -54,7 +59,8 @@ export class RealmScene extends Phaser.Scene {
   private fx: FxRenderer | null = null;
   private pending: PendingPlay | null = null;
   private inBattle = false;
-  private down: { x: number; y: number } | null = null;
+  /** The press that may become a board click (only that pointer's release counts). */
+  private down: { id: number; x: number; y: number } | null = null;
 
   constructor() {
     super(SCENES.realm);
@@ -100,8 +106,10 @@ export class RealmScene extends Phaser.Scene {
     this.controller.update(delta);
     if (runner && this.units && this.fx) {
       const alpha = runner.clock.alpha;
+      const events = drainEvents(runner.world);
       this.units.sync(runner.world, alpha);
-      this.fx.sync(runner.world, drainEvents(runner.world), alpha);
+      this.fx.sync(runner.world, events, alpha);
+      if (events.some((e) => e.type === 'rage')) this.bus.emit('log', { text: RAGE_TEXT });
     }
   }
 
@@ -137,7 +145,8 @@ export class RealmScene extends Phaser.Scene {
     this.board?.setBuildingsVisible(false);
     this.placeCamera();
     this.scene.stop(SCENES.planningHud);
-    this.launchIfRegistered(SCENES.battleHud);
+    const hud: RealmHudData = { bus: this.bus, controller: this.controller };
+    this.scene.launch(SCENES.battleHud, hud);
   }
 
   /** "Tiếp tục" after the battle summary (BattleHudScene). */
@@ -149,8 +158,8 @@ export class RealmScene extends Phaser.Scene {
       this.bus.emit('ui:command', { command: { type: 'advance' } });
       this.relaunchPlanningHud();
     } else if (state.phase === 'ended') {
-      if (this.isRegistered(SCENES.runEnd)) this.scene.start(SCENES.runEnd, { state });
-      else this.scene.start(SCENES.mainMenu); // RunEndScene arrives in Task 17
+      const data: RunEndData = { state };
+      this.scene.start(SCENES.runEnd, data);
     }
   }
 
@@ -158,16 +167,6 @@ export class RealmScene extends Phaser.Scene {
     this.scene.stop(SCENES.battleHud);
     const hud: RealmHudData = { bus: this.bus, controller: this.controller };
     this.scene.launch(SCENES.planningHud, hud);
-  }
-
-  private isRegistered(key: string): boolean {
-    return key in this.scene.manager.keys;
-  }
-
-  private launchIfRegistered(key: string): void {
-    if (!this.isRegistered(key)) return;
-    const hud: RealmHudData = { bus: this.bus, controller: this.controller };
-    this.scene.launch(key, hud);
   }
 
   // ---- pending play --------------------------------------------------------------------
@@ -209,14 +208,7 @@ export class RealmScene extends Phaser.Scene {
       board.setHighlights(new Map());
       return;
     }
-    const card = CONTENT.card(cardId);
-    const chosen = p.targets.slice(0, targetCount(card) - 1);
-    const map = new Map<number, 'good' | 'bad'>();
-    for (let plot = 0; plot < state.plots.length; plot++) {
-      map.set(plot, checkTargetStep(state.plots, card, chosen, plot) === null ? 'good' : 'bad');
-    }
-    for (const t of p.targets) map.set(t, 'good');
-    board.setHighlights(map);
+    board.setHighlights(plotHighlights(state.plots, CONTENT.card(cardId), p.targets));
   }
 
   /** A click on `plot` while aiming: add it as the next target (replacing the last if full). */
@@ -245,13 +237,14 @@ export class RealmScene extends Phaser.Scene {
   // ---- input -----------------------------------------------------------------------------
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
-    this.down = { x: pointer.x, y: pointer.y };
+    this.down = { id: pointer.id, x: pointer.x, y: pointer.y };
   }
 
   private onPointerUp(pointer: Phaser.Input.Pointer): void {
     const down = this.down;
+    if (!down || down.id !== pointer.id) return;
     this.down = null;
-    if (!down || this.inBattle || !this.pending || !this.board) return;
+    if (this.inBattle || !this.pending || !this.board) return;
     const dx = pointer.x - down.x;
     const dy = pointer.y - down.y;
     if (dx * dx + dy * dy > DRAG_SLOP * DRAG_SLOP) return;
@@ -267,10 +260,8 @@ export class RealmScene extends Phaser.Scene {
     const screen: Size = { w: this.scale.width, h: this.scale.height };
     const cam = this.cameras.main;
     if (this.inBattle) {
-      const zoom = battleZoom(screen.w, screen.h);
-      const throne = plotCenter(THRONE_PLOT);
-      const s = cameraScroll(throne, { x: screen.w / 2, y: screen.h / 2 }, screen, zoom);
-      cam.setZoom(zoom).setScroll(s.x, s.y);
+      const { zoom, scroll } = battleCamera(screen);
+      cam.setZoom(zoom).setScroll(scroll.x, scroll.y);
       return;
     }
     const board = planningLayout(screen).board;
@@ -284,7 +275,7 @@ export class RealmScene extends Phaser.Scene {
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
     this.scene.stop(SCENES.planningHud);
-    if (this.isRegistered(SCENES.battleHud)) this.scene.stop(SCENES.battleHud);
+    this.scene.stop(SCENES.battleHud);
     this.controller.dispose();
     this.units?.destroy();
     this.fx?.destroy();

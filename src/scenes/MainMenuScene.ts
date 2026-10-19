@@ -15,6 +15,7 @@ import {
   type UiBox,
 } from '../ui/theme';
 import { SCENES } from './keys';
+import type { RealmData } from './RealmScene';
 
 const TITLE = 'Crowned Kingdoms';
 const SUBTITLE = 'Một vương quốc nhỏ, chín ngai vàng';
@@ -26,17 +27,27 @@ const FIREFLIES = 24;
 
 /**
  * One §10.2 menu button. Buttons of features that do not exist yet are simply not listed
- * ("Tiếp tục" G3, "Vương Miện" G4, "Cài đặt" G5). G0 lists "Ván mới" disabled ("Sắp có")
- * because King select / Realm arrive in G1.
+ * ("Tiếp tục" G3, "Vương Miện" G4, "Cài đặt" G5). In G1 "Ván mới" starts a run straight
+ * away (King select arrives in G2).
  */
 interface MenuEntry {
   readonly label: string;
   readonly enabled: boolean;
-  readonly onClick: () => void;
+  readonly onClick: (scene: Phaser.Scene) => void;
 }
 
+/** A fresh run seed; scenes may use wall-clock randomness (the run itself is seeded). */
+export const newRunSeed = (): number => (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+
 const MENU_ENTRIES: readonly MenuEntry[] = [
-  { label: 'Ván mới — Sắp có', enabled: false, onClick: () => undefined },
+  {
+    label: 'Ván mới',
+    enabled: true,
+    onClick: (scene) => {
+      const data: RealmData = { seed: newRunSeed() };
+      scene.scene.start(SCENES.realm, data);
+    },
+  },
 ];
 
 export class MainMenuScene extends Phaser.Scene {
@@ -86,7 +97,7 @@ export class MainMenuScene extends Phaser.Scene {
         width: MENU_BUTTON.w,
         height: MENU_BUTTON.h,
         fontSize: 18,
-        onClick: entry.onClick,
+        onClick: () => entry.onClick(this),
       });
       button.setEnabled(entry.enabled);
       return button;

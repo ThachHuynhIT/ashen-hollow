@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { Rect, Size } from '../hud/layout';
+import { CARD_LIFT, type Rect, type Size } from '../hud/layout';
 import {
   PLANNING_ZOOM,
+  battleCamera,
   battleLayout,
+  battleWorldAt,
   battleZoom,
   cameraScroll,
   confirmFor,
@@ -67,8 +69,21 @@ describe('planningLayout', () => {
     expect(l.hand).toHaveLength(3);
     expect(l.hand[0]).toEqual({ x: 18, y: 650, w: 108, h: 152 });
     expect(l.hand[1]!.x).toBe(134);
-    expect(l.scout).toEqual({ x: 10, y: 508, w: 355, h: 134 });
+    expect(l.scout).toEqual({ x: 10, y: 508, w: 355, h: 130 });
   });
+
+  for (const [name, screen] of [
+    ['desktop', DESKTOP],
+    ['mobile', MOBILE],
+  ] as const) {
+    it(`leaves room for a lifted selected card under the panels above the hand (${name})`, () => {
+      const l = planningLayout(screen);
+      for (const card of l.hand) {
+        const lifted = { ...card, y: card.y - CARD_LIFT };
+        expectSeparate({ lifted, scout: l.scout, board: l.board, skip: l.skip });
+      }
+    });
+  }
 
   for (const [name, screen] of [
     ['desktop', DESKTOP],
@@ -269,5 +284,28 @@ describe('cameraScroll / screenToWorld', () => {
       x: 192 - 640,
       y: 192 - 360,
     });
+  });
+});
+
+describe('battleCamera / battleWorldAt', () => {
+  it('centres the throne (plot 12, world 192,192) on screen', () => {
+    for (const screen of [DESKTOP, MOBILE]) {
+      const mid = { x: screen.w / 2, y: screen.h / 2 };
+      const p = battleWorldAt(mid, screen)!;
+      expect(p.x).toBeCloseTo(192, 9);
+      expect(p.y).toBeCloseTo(192, 9);
+    }
+    expect(battleCamera(DESKTOP).zoom).toBe(2);
+    expect(battleCamera(MOBILE).zoom).toBe(1);
+  });
+
+  it('maps screen offsets by 1 / zoom and returns null off the field', () => {
+    const p = battleWorldAt({ x: 640 + 100, y: 360 - 50 }, DESKTOP)!;
+    expect(p.x).toBeCloseTo(242, 9);
+    expect(p.y).toBeCloseTo(167, 9);
+    // Desktop shows world x 192 ± 320: the screen's left edge is off the field.
+    expect(battleWorldAt({ x: 0, y: 360 }, DESKTOP)).toBeNull();
+    expect(battleWorldAt({ x: 187.5 - 192, y: 406 }, MOBILE)!.x).toBeCloseTo(0, 9);
+    expect(battleWorldAt({ x: 187.5 - 193, y: 406 }, MOBILE)).toBeNull();
   });
 });

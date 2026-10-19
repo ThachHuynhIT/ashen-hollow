@@ -4,7 +4,7 @@ import { RULES_G1 } from '../data/run';
 import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
-import { checkTargetStep, hasAnyTarget, targetCount } from '../game/run/board';
+import { hasAnyTarget, targetCount } from '../game/run/board';
 import type { IllegalReason, RunState } from '../game/run/state';
 import { SPRITES_KEY, iconFrame } from '../render/atlas';
 import { ContentBox } from '../ui/ContentBox';
@@ -15,6 +15,7 @@ import { createOverlay, fitOverlay } from '../ui/modals/overlay';
 import { RewardModal } from '../ui/modals/RewardModal';
 import { HandView } from '../ui/planning/HandView';
 import { ScoutPanel } from '../ui/planning/ScoutPanel';
+import { plotIllegalReason } from '../ui/planning/targetHints';
 import {
   confirmFor,
   planningLayout,
@@ -171,7 +172,9 @@ export class PlanningHudScene extends Phaser.Scene {
         this.refreshPending();
       }),
       bus.on('run:illegal', ({ reason }) => this.flashIllegal(reason)),
-      bus.on('ui:open-modal', () => this.openScout()),
+      bus.on('ui:open-modal', ({ modal }) => {
+        if (modal === 'scout') this.openScout();
+      }),
       bus.on('ui:close-modal', () => this.closeScout()),
     );
 
@@ -285,6 +288,7 @@ export class PlanningHudScene extends Phaser.Scene {
   }
 
   private onKey(event: KeyboardEvent): void {
+    if (event.repeat) return; // a held key acts once
     if (this.reward) {
       if (event.key === 'Enter') this.reward.confirm();
       return;
@@ -326,9 +330,7 @@ export class PlanningHudScene extends Phaser.Scene {
     if (cardId === undefined) return null;
     const plot = plotAtScreen(this.lay, { x, y });
     if (plot === null) return null;
-    const card = CONTENT.card(cardId);
-    const chosen = p.targets.slice(0, targetCount(card) - 1);
-    const reason = checkTargetStep(state.plots, card, chosen, plot);
+    const reason = plotIllegalReason(state.plots, CONTENT.card(cardId), p.targets, plot);
     return reason === null ? null : { plot, reason };
   }
 

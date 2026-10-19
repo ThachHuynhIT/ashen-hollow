@@ -6,7 +6,7 @@ import type { Content } from '../../game/cards/registry';
 import { SPRITES_KEY, cardArtFrame, iconFrame } from '../../render/atlas';
 import { CARD_ART } from '../../render/cardArt';
 import type { UiFrame } from '../../render/uiArt';
-import { ellipsize, type Size, type TooltipContent } from '../hud/layout';
+import { CARD_LIFT, ellipsize, type Size, type TooltipContent } from '../hud/layout';
 import {
   addUiText,
   bindPress,
@@ -58,7 +58,7 @@ const clampLines = (
  * picture at an integer scale, kind icon top-left, first description line cut to two lines,
  * optional "Lên cấp" badge. Hover / 400 ms long-press shows the full text in the shared
  * Tooltip; clicks go through bindPress (same drag-slop rules as buttons). Pure display: it
- * never touches game state. Selecting lifts the card 12 px above its set position.
+ * never touches game state. Selecting lifts the card CARD_LIFT (12) px above its set position.
  */
 export class CardView {
   readonly container: Phaser.GameObjects.Container;
@@ -131,7 +131,7 @@ export class CardView {
   }
 
   private place(): void {
-    this.container.setPosition(this.base.x, this.base.y - (this.selected ? 12 : 0));
+    this.container.setPosition(this.base.x, this.base.y - (this.selected ? CARD_LIFT : 0));
   }
 
   private tooltipContent(): TooltipContent | null {
