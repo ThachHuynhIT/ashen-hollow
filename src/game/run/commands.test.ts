@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Rng, hashSeed } from '../../core/random';
 import { RULES_G1, START_DECK_G1 } from '../../data/run';
 import { SLOT_MULT } from '../../data/battle';
 import { armyBudget, composeArmy } from '../battle/compose';
@@ -9,6 +10,7 @@ import { runState } from '../testing/fixtures';
 import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
 import type { IllegalReason, PlayTarget, RunCommand, RunState } from './state';
+import { drawHand } from './deck';
 import { newRun } from './yearFlow';
 
 const roster = CONTENT.raiderRoster().map((r) => ({
@@ -311,5 +313,76 @@ describe('full run', () => {
     expect(last.won).toBe(true);
     expect(last.year).toBe(10);
     expect(drive()).toEqual(a);
+  });
+});
+
+describe('rng persistence', () => {
+  const lostBattle = (): RunState =>
+    ok(
+      applyCommand(
+        runState({ phase: 'battle', hand: [], played: true }),
+        { type: 'battleResult', result: result(false) },
+        CONTENT,
+      ),
+    ).state;
+
+  it('newRun advances draw state but not reward state', () => {
+    const s = newRun(7, 'wheat', CONTENT);
+    expect(s.rng.draw).not.toBe(hashSeed('7:draw'));
+    expect(s.rng.reward).toBe(hashSeed('7:reward'));
+  });
+
+  it('advance and pickOffer persist a new draw state', () => {
+    const ye = lostBattle();
+    const adv = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
+    expect(adv.rng.draw).not.toBe(ye.rng.draw);
+
+    const won = ok(
+      applyCommand(
+        runState({ phase: 'battle', hand: [], played: true, year: 3 }),
+        { type: 'battleResult', result: result(true) },
+        CONTENT,
+      ),
+    ).state;
+    expect(won.rng.reward).not.toBe(runState().rng.reward);
+    const picked = ok(applyCommand(won, { type: 'pickOffer', index: null }, CONTENT)).state;
+    expect(picked.rng.draw).not.toBe(won.rng.draw);
+  });
+
+  it('next hand equals drawHand from the persisted state', () => {
+    const ye = lostBattle();
+    const expected = drawHand(ye.deck, new Rng(ye.rng.draw), 3);
+    const adv = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
+    expect(adv.hand).toEqual(expected);
+  });
+});
+
+describe('extra error branches', () => {
+  it('rejects commands in wrong phases', () => {
+    const cases: [RunState, RunCommand][] = [
+      [runState({ phase: 'reward', offers: null }), { type: 'pickOffer', index: 0 }],
+      [runState({ phase: 'ended' }), { type: 'advance' }],
+      [runState({ phase: 'reward' }), { type: 'advance' }],
+      [runState({ phase: 'ended', played: true }), { type: 'startBattle' }],
+      [runState({ phase: 'ended' }), { type: 'skip' }],
+    ];
+    for (const [s, cmd] of cases) expect(errorOf(s, cmd)).toBe('wrongPhase');
+  });
+
+  it('battleResult twice: second is wrongPhase', () => {
+    const s = runState({ phase: 'battle', hand: [], played: true });
+    const first = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT));
+    expect(errorOf(first.state, { type: 'battleResult', result: result(false) })).toBe(
+      'wrongPhase',
+    );
+  });
+
+  it('battleResult win is deterministic', () => {
+    const s = runState({ phase: 'battle', hand: [], played: true, year: 3 });
+    const cmd: RunCommand = { type: 'battleResult', result: result(true) };
+    const a = ok(applyCommand(s, cmd, CONTENT));
+    const b = ok(applyCommand(s, cmd, CONTENT));
+    expect(a).toEqual(b);
+    expect(a.state.offers).toEqual(b.state.offers);
   });
 });
