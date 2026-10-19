@@ -48,15 +48,42 @@ describe('stepBattle', () => {
     expect(w.spawnedWaves).toBe(2);
   });
 
-  it('ignores inputs for now and stays deterministic', () => {
+  it('applies only the inputs of the current tick (step 2), then drops due boulders', () => {
     const setup = battleSetup({ waves: [wave(5, 0), wave(5, 30)] });
     const a = createBattle(setup);
     const b = createBattle(setup);
+    const c = createBattle(setup);
+    const bEvents: BattleEvent[] = [];
     for (let i = 0; i < 80; i++) {
       stepBattle(a, []);
+      // b: lệnh của tick hiện tại (chỉ tick 30 là hợp lệ, sau đó đang hồi chiêu)
       stepBattle(b, [{ tick: b.tick, x: 100, y: 100 }]);
+      // c: lệnh lệch tick → bị bỏ qua
+      stepBattle(c, [{ tick: c.tick + 1, x: 100, y: 100 }]);
+      bEvents.push(...drainEvents(b));
     }
-    expect(hashWorld(a)).toBe(hashWorld(b));
+    expect(a.interventionsUsed).toBe(0);
+    expect(b.interventionsUsed).toBe(1);
+    expect(b.inputs).toEqual([{ tick: 30, x: 100, y: 100 }]);
+    expect(b.readyTick).toBe(180);
+    expect(bEvents.filter((e) => e.type === 'boulder')).toEqual([
+      { type: 'boulder', phase: 'drop', x: 100, y: 100 },
+      { type: 'boulder', phase: 'impact', x: 100, y: 100 },
+    ]);
+    expect(hashWorld(b)).not.toBe(hashWorld(a));
+    expect(c.interventionsUsed).toBe(0);
+    expect(hashWorld(c)).toBe(hashWorld(a));
+  });
+
+  it('applies several inputs of one tick in the given order', () => {
+    const w = createBattle(battleSetup({ waves: [wave(1, 0, { speed: 0 })] }));
+    for (let i = 0; i < 30; i++) stepBattle(w, []);
+    stepBattle(w, [
+      { tick: 30, x: 50, y: 60 },
+      { tick: 30, x: 70, y: 80 },
+    ]);
+    expect(w.inputs).toEqual([{ tick: 30, x: 50, y: 60 }]); // lệnh thứ hai gặp hồi chiêu
+    expect(w.interventionsUsed).toBe(1);
   });
 
   it('does nothing once the battle has ended', () => {

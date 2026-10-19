@@ -1,10 +1,11 @@
 /**
- * Một tick trận (spec §8.9) và kết thúc (§8.8). Thứ tự cố định: xuất đợt → can thiệp (Task 8)
+ * Một tick trận (spec §8.9) và kết thúc (§8.8). Thứ tự cố định: xuất đợt → can thiệp + tảng đá
  * → (hook, chưa có) → chọn mục tiêu → di chuyển → đánh → đạn → áp sát thương → trạng thái →
  * chết → kiểm tra kết thúc, rồi `tick += 1`. Không dùng Rng.
  */
 import { BATTLE } from '../../data/battle';
 import { applyDamagePhase, attackPhase, deathPhase, projectilePhase, statusPhase } from './combat';
+import { boulderPhase, tryIntervene } from './intervention';
 import { moveEntities } from './movement';
 import { retarget } from './targeting';
 import type { BattleInput, BattleResult, BattleSetup } from './types';
@@ -44,9 +45,11 @@ export const stepBattle = (world: BattleWorld, inputs: readonly BattleInput[]): 
   // (1) xuất đợt
   spawnDueWaves(world);
   if (world.tick === BATTLE.rageTick) world.events.push({ type: 'rage' });
-  // (2) can thiệp — HOOK Task 8: `for (const input of inputs) tryIntervene(world, input);`
-  //     rồi `boulderPhase(world)`. Hiện bỏ qua `inputs`.
-  void inputs;
+  // (2) can thiệp: lệnh của tick này theo thứ tự nhận (lệnh tick khác bị bỏ), rồi tảng đá đến hạn rơi.
+  for (const input of inputs) {
+    if (input.tick === world.tick) tryIntervene(world, input);
+  }
+  boulderPhase(world);
   // (3) hook onBattleTick — chưa có ở G1.
   retarget(world); // (4)
   moveEntities(world); // (5)
