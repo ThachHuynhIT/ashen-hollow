@@ -1,52 +1,52 @@
 /**
- * "Ashen 32" — the locked game palette. Every pixel in the game (art and placeholder
- * art alike) should come from this list. See docs/ART_STYLE.md for usage rules.
+ * "Hearth 32" — the locked world palette. Every world pixel (field, plots, buildings,
+ * units, card pictures) comes from this list; UI pixels come from UI_PALETTE
+ * (src/data/uiPalette.ts). See docs/ART_STYLE.md.
  *
- * Visual language: cold desaturated violets/greens for darkness, warm oranges for fire
- * and safety, blood red and ghost green as rare accents.
+ * Visual language: warm, medium saturation, shadows in brown–plum (never black or cold
+ * violet); blue = our side, red = the enemy.
  */
 export const PALETTE = {
-  // Darks / void
-  void: 0x0b0a10,
-  ink: 0x15131c,
-  nightViolet: 0x221d2e,
-  dusk: 0x332b40,
-  shadowPlum: 0x4a3b54,
-  ashGrey: 0x6b6470,
-  boneGrey: 0x9a9196,
-  bone: 0xcfc4b8,
-  parchment: 0xe9dfcc,
-
-  // Earth / dead vegetation
-  rotBrown: 0x2e2420,
-  mud: 0x4a3a2c,
-  peat: 0x5e4a35,
-  deadGrass: 0x6e6a43,
-  driedMoss: 0x8a8550,
-  swampGreen: 0x2f3b2c,
-  mossDark: 0x3c4a33,
-  pineDark: 0x1f2a24,
-  pine: 0x2d3d31,
-
-  // Stone
-  slateDark: 0x2b2c33,
-  slate: 0x44464f,
-  stone: 0x63656e,
-  stoneLight: 0x868893,
-
+  // Darks / outlines
+  outline: 0x2a1a14,
+  shadow: 0x4a2f27,
+  plum: 0x6b3f5a,
+  // Plants
+  leafDark: 0x2f5a35,
+  grassDark: 0x3f6b2a,
+  leaf: 0x4a8a3f,
+  grass: 0x5d9b3a,
+  grassLight: 0x8cc455,
+  meadow: 0xb8d86a,
+  // Earth
+  soilDark: 0x6b4423,
+  soil: 0x9a6634,
+  path: 0xc89458,
+  sand: 0xe8c68a,
+  // Wheat
+  wheat: 0xe8b84a,
+  wheatLight: 0xf6dc7a,
   // Water
-  blackWater: 0x141a22,
-  deepWater: 0x1f2b38,
-  waterSheen: 0x3a4d5e,
-
+  waterDeep: 0x2f6f9a,
+  water: 0x4a9ac8,
+  waterLight: 0x8fd0e8,
+  // Stone
+  stoneDark: 0x5e5a66,
+  stone: 0x8c8794,
+  stoneLight: 0xc2bcc4,
+  // Skin, light cloth
+  skin: 0xf2c49b,
+  skinShadow: 0xc98a64,
+  cream: 0xfaf0d7,
+  white: 0xfffbf0,
   // Accents
-  emberDark: 0x7a2e12,
-  ember: 0xc8541c,
-  flame: 0xf0a040,
-  candle: 0xffe1a0,
-  blood: 0x8c1c24,
-  ghostGreen: 0x6fd3a0,
-  veilViolet: 0x8a5cc8,
+  red: 0xd04a3a,
+  redDark: 0x8e2d2b,
+  orange: 0xf08a3a,
+  gold: 0xf6c445,
+  blue: 0x4a6fc8,
+  purple: 0x8a5ab8,
+  teal: 0x3aa89a,
 } as const;
 
 export type PaletteColor = keyof typeof PALETTE;

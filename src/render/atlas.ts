@@ -1,34 +1,17 @@
 import type Phaser from 'phaser';
-import type { BuildingId } from '../data/buildings';
-import type { DoodadId } from '../data/doodads';
 import { PixelCanvas } from './pixel';
-import {
-  paintBoneHeap,
-  paintBoulder,
-  paintDeadTree,
-  paintGlowShroom,
-  paintHearthfire,
-  paintStorage,
-  paintTent,
-  paintTerrainTileset,
-  paintWatchtower,
-} from './terrainArt';
+import { UI_DECOR_IDS, UI_FRAME_IDS, paintUiDecor, paintUiFrame } from './uiArt';
 
-export const TERRAIN_TILESET_KEY = 'terrain-tiles';
-export const SPRITES_KEY = 'sprites';
+/**
+ * Turns generated pixel art into Phaser textures. Scenes refer to frames by name only, so
+ * an Aseprite atlas with the same frame names can replace any generated texture (spec
+ * §11.4). World sprites (`field-tiles`, `sprites`) are added here from G1.
+ */
 
-/** Visual variants per doodad kind (picked per entity by a stable hash). */
-export const DOODAD_VARIANTS: Record<DoodadId, number> = {
-  deadTree: 3,
-  boulder: 1,
-  boneHeap: 1,
-  glowShroom: 1,
-};
+/** UI frames (nine-slice sources) and decorations, named as in uiArt.ts. */
+export const UI_KEY = 'ui';
 
-export const doodadFrame = (id: DoodadId, variant: number): string => `${id}_${variant}`;
-export const buildingFrame = (id: BuildingId): string => `building_${id}`;
-
-const toCanvas = (art: PixelCanvas): HTMLCanvasElement => {
+export const toCanvas = (art: PixelCanvas): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
   canvas.width = art.width;
   canvas.height = art.height;
@@ -38,8 +21,8 @@ const toCanvas = (art: PixelCanvas): HTMLCanvasElement => {
   return canvas;
 };
 
-/** Pack sprites left-to-right in shelves. Small and good enough for placeholder art. */
-const packShelves = (sprites: { name: string; art: PixelCanvas }[], maxWidth = 256) => {
+/** Pack sprites left-to-right in shelves. Small and good enough for generated art. */
+export const packShelves = (sprites: { name: string; art: PixelCanvas }[], maxWidth = 256) => {
   let x = 0;
   let y = 0;
   let shelf = 0;
@@ -57,32 +40,31 @@ const packShelves = (sprites: { name: string; art: PixelCanvas }[], maxWidth = 2
   return { placed, height: y + shelf };
 };
 
-/**
- * Generate all placeholder textures: the terrain tileset (used by the tilemap layers)
- * and one sprite atlas for doodads and buildings (one batch for the whole world).
- */
-export const buildPlaceholderAtlas = (textures: Phaser.Textures.TextureManager): void => {
-  if (!textures.exists(TERRAIN_TILESET_KEY)) {
-    textures.addCanvas(TERRAIN_TILESET_KEY, toCanvas(paintTerrainTileset()));
-  }
-  if (textures.exists(SPRITES_KEY)) return;
+/** Upload one generated canvas as its own texture (no-op if the key already exists). */
+export const addPixelTexture = (
+  textures: Phaser.Textures.TextureManager,
+  key: string,
+  art: PixelCanvas,
+): void => {
+  if (textures.exists(key)) return;
+  if (!textures.addCanvas(key, toCanvas(art))) throw new Error(`Failed to create texture ${key}`);
+};
 
+/**
+ * The UI atlas: every UI_FRAMES frame and UI_DECOR decoration under its own name, so the
+ * HUD only ever refers to frames by name (swap for an Aseprite atlas with the same names).
+ */
+export const buildUiTexture = (textures: Phaser.Textures.TextureManager): void => {
+  if (textures.exists(UI_KEY)) return;
   const sprites: { name: string; art: PixelCanvas }[] = [
-    ...[0, 1, 2].map((v) => ({ name: doodadFrame('deadTree', v), art: paintDeadTree(v) })),
-    { name: doodadFrame('boulder', 0), art: paintBoulder() },
-    { name: doodadFrame('boneHeap', 0), art: paintBoneHeap() },
-    { name: doodadFrame('glowShroom', 0), art: paintGlowShroom() },
-    { name: buildingFrame('hearthfire'), art: paintHearthfire() },
-    { name: buildingFrame('tent'), art: paintTent() },
-    { name: buildingFrame('storage'), art: paintStorage() },
-    { name: buildingFrame('watchtower'), art: paintWatchtower() },
+    ...UI_FRAME_IDS.map((id) => ({ name: id, art: paintUiFrame(id) })),
+    ...UI_DECOR_IDS.map((id) => ({ name: id, art: paintUiDecor(id) })),
   ];
-  const width = 256;
+  const width = 128;
   const { placed, height } = packShelves(sprites, width);
   const sheet = new PixelCanvas(width, height);
   for (const p of placed) sheet.blit(p.art, p.x, p.y);
-
-  const texture = textures.addCanvas(SPRITES_KEY, toCanvas(sheet));
-  if (!texture) throw new Error('Failed to create sprite atlas');
+  const texture = textures.addCanvas(UI_KEY, toCanvas(sheet));
+  if (!texture) throw new Error('Failed to create UI texture');
   for (const p of placed) texture.add(p.name, 0, p.x, p.y, p.art.width, p.art.height);
 };
