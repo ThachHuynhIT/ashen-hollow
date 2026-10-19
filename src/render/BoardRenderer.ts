@@ -16,8 +16,9 @@ const PLOT_DEPTH = 1;
 const HIGHLIGHT_DEPTH = 2;
 /** Edge arrows are an overlay above every world sprite. */
 const ARROW_DEPTH = 100_000;
-const ARROW_INSET = 10;
-const ARROW_HALF = 8;
+/** Gap between the board and an edge arrow's tip (world px). */
+const ARROW_GAP = 4;
+const ARROW_HALF = 7;
 
 /** Foot y of a building standing on `plot` (the bottom edge of the cell, spec §11.2). */
 export const buildingFootY = (plot: number): number => plotCenter(plot).y + BATTLE.plot / 2;
@@ -84,26 +85,33 @@ export class BoardRenderer {
     }
   }
 
-  /** Gold arrows at the middle of each edge the next army comes from, pointing inward. */
+  /**
+   * Gold arrows pointing at the middle of each board side the next army comes from. They sit
+   * just outside the board rather than at the field edge: the planning view crops the
+   * field (§10.7 allows 48 px; the zoom-2 planning camera crops more, on mobile all sides),
+   * while the board itself is always on screen.
+   */
   setEdgeArrows(edges: readonly Edge[]): void {
     const g = this.arrows;
     g.clear();
-    const f = BATTLE.field;
-    const mid = f / 2;
-    const i = ARROW_INSET;
+    const lo = BATTLE.boardOrigin;
+    const hi = BATTLE.boardOrigin + BATTLE.plot * SIZE;
+    const mid = (lo + hi) / 2;
     const h = ARROW_HALF;
+    const n = lo - ARROW_GAP; // tip of an arrow above / left of the board
+    const s = hi + ARROW_GAP; // tip of an arrow below / right of the board
     for (const edge of new Set(edges)) {
-      // Triangle tip points into the field; drawn twice for a 1 px outline.
+      // Triangle tip points at the board; drawn twice for a 1 px outline.
       const tri = ((): [number, number, number, number, number, number] => {
         switch (edge) {
           case 'N':
-            return [mid - h, i, mid + h, i, mid, i + h];
+            return [mid - h, n - h, mid + h, n - h, mid, n];
           case 'S':
-            return [mid - h, f - i, mid + h, f - i, mid, f - i - h];
+            return [mid - h, s + h, mid + h, s + h, mid, s];
           case 'W':
-            return [i, mid - h, i, mid + h, i + h, mid];
+            return [n - h, mid - h, n - h, mid + h, n, mid];
           case 'E':
-            return [f - i, mid - h, f - i, mid + h, f - i - h, mid];
+            return [s + h, mid - h, s + h, mid + h, s, mid];
         }
       })();
       g.fillStyle(UI_PALETTE.gold, 1);

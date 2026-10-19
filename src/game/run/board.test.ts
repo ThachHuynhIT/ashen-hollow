@@ -3,11 +3,13 @@ import { CONTENT } from '../cards/registry';
 import {
   THRONE_PLOT,
   checkPlay,
+  checkTargetStep,
   hasAnyTarget,
   initialPlots,
   moveBuilding,
   neighbours,
   placeBuilding,
+  targetCount,
   unlockPlot,
 } from './board';
 import type { BuildingState, PlotState } from './state';
@@ -83,7 +85,8 @@ describe('checkPlay lockedPlot (clear land)', () => {
 
 describe('checkPlay buildingThenPlot (move)', () => {
   const plots = placeBuilding(withThrone(), 7, bld(1));
-  const two = (first: number, second: number) => checkPlay(plots, move, { kind: 'two', first, second });
+  const two = (first: number, second: number) =>
+    checkPlay(plots, move, { kind: 'two', first, second });
   it('applies source and destination rules', () => {
     expect(two(12, 6)).toBe('throne');
     expect(two(6, 8)).toBe('noBuilding');
@@ -99,6 +102,38 @@ describe('checkPlay buildingThenPlot (move)', () => {
   it('has no target without a non-throne building', () => {
     expect(hasAnyTarget(withThrone(), move)).toBe(false);
     expect(hasAnyTarget(plots, move)).toBe(true);
+  });
+});
+
+describe('targetCount / checkTargetStep', () => {
+  const plots = placeBuilding(withThrone(), 7, bld(1));
+  it('counts two targets only for the building-then-plot tome', () => {
+    expect(targetCount(troop)).toBe(1);
+    expect(targetCount(clearLand)).toBe(1);
+    expect(targetCount(move)).toBe(2);
+  });
+  it('checks single-target cards like checkPlay', () => {
+    expect(checkTargetStep(plots, troop, [], 6)).toBeNull();
+    expect(checkTargetStep(plots, troop, [], 7)).toBe('occupied');
+    expect(checkTargetStep(plots, clearLand, [], 1)).toBeNull();
+    expect(checkTargetStep(plots, clearLand, [], 0)).toBe('notAdjacent');
+  });
+  it('checks the first pick of a two-target card against any second plot', () => {
+    expect(checkTargetStep(plots, move, [], 7)).toBeNull();
+    expect(checkTargetStep(plots, move, [], 6)).toBe('noBuilding');
+    expect(checkTargetStep(plots, move, [], 12)).toBe('throne');
+    expect(checkTargetStep(plots, move, [], 0)).toBe('locked');
+  });
+  it('checks the second pick against the first', () => {
+    expect(checkTargetStep(plots, move, [7], 6)).toBeNull();
+    expect(checkTargetStep(plots, move, [7], 7)).toBe('badTarget');
+    expect(checkTargetStep(plots, move, [7], 12)).toBe('throne');
+    expect(checkTargetStep(plots, move, [7], 0)).toBe('locked');
+  });
+  it('reports badTarget for a source with nowhere to go', () => {
+    // Only the throne and plot 7 are open: 7 is a fine source but has no destination.
+    const tiny = plots.map((p, i) => ({ ...p, unlocked: i === 7 || i === THRONE_PLOT }));
+    expect(checkTargetStep(tiny, move, [], 7)).toBe('badTarget');
   });
 });
 

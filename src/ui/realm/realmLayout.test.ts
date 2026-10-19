@@ -8,6 +8,7 @@ import {
   confirmFor,
   isDesktop,
   planningLayout,
+  plotAtScreen,
   plotScreenRect,
   screenToWorld,
 } from './realmLayout';
@@ -115,6 +116,43 @@ describe('plotScreenRect', () => {
     expect(plotScreenRect(l, 0)).toEqual({ x: l.board.x, y: l.board.y, w: 64, h: 64 });
     expect(plotScreenRect(l, 24)).toEqual({ x: 480 + 256, y: 180 + 256, w: 64, h: 64 });
   });
+});
+
+describe('plotAtScreen', () => {
+  it('inverts plotScreenRect and returns null off the board', () => {
+    for (const screen of [DESKTOP, MOBILE]) {
+      const l = planningLayout(screen);
+      for (const plot of [0, 7, 12, 24]) {
+        const r = plotScreenRect(l, plot);
+        expect(plotAtScreen(l, { x: r.x, y: r.y })).toBe(plot);
+        expect(plotAtScreen(l, { x: r.x + r.w - 0.5, y: r.y + r.h - 0.5 })).toBe(plot);
+      }
+      expect(plotAtScreen(l, { x: l.board.x - 1, y: l.board.y })).toBeNull();
+      expect(plotAtScreen(l, { x: l.board.x, y: l.board.y + l.board.h })).toBeNull();
+    }
+  });
+});
+
+describe('hint rect', () => {
+  for (const [name, screen] of [
+    ['desktop', DESKTOP],
+    ['mobile', MOBILE],
+  ] as const) {
+    it(`sits above the board, clear of the HUD and ✓/✕ (${name})`, () => {
+      const l = planningLayout(screen);
+      expect(inside(l.hint, screen)).toBe(true);
+      expect(l.hint.w).toBeGreaterThanOrEqual(100);
+      expect(l.hint.h).toBeGreaterThanOrEqual(40);
+      expectSeparate({
+        hint: l.hint,
+        lives: l.lives,
+        year: l.year,
+        board: l.board,
+        scout: l.scout,
+        ...(l.desktop ? {} : { confirm: l.confirm, cancel: l.cancel }),
+      });
+    });
+  }
 });
 
 describe('confirmFor', () => {

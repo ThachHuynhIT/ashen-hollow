@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { UI_PALETTE } from '../data/uiPalette';
-import { buildUiTexture } from '../render/atlas';
+import { CONTENT } from '../game/cards/registry';
+import { buildSpritesTexture, buildUiTexture } from '../render/atlas';
 import { textStyle } from '../ui/theme';
 import { SCENES } from './keys';
 
@@ -25,6 +26,8 @@ export class PreloadScene extends Phaser.Scene {
 
   create(): void {
     buildUiTexture(this.textures);
+    // World sprites, card pictures and icons: built once, shared by every scene.
+    buildSpritesTexture(this.textures, CONTENT);
     this.scene.start(SCENES.mainMenu);
   }
 }

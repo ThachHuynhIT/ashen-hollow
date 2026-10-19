@@ -57,6 +57,8 @@ export interface PlanningLayout {
   /** Default ✓/✕ spot: the row above the board on mobile, beside the centre plot on desktop. */
   confirm: Rect;
   cancel: Rect;
+  /** Room for the play hint (a `tooltip` box): above the board, clear of ✓/✕ on mobile. */
+  hint: Rect;
 }
 
 const handRow = (screen: Size, card: { w: number; h: number; gap: number }): Rect[] => {
@@ -147,6 +149,12 @@ const desktopLayout = (screen: Size): PlanningLayout => {
     skip,
     fight: fightOver(screen, hand),
     ...besidePlot(centre, screen),
+    hint: {
+      x: board.x,
+      y: year.y + year.h + MARGIN,
+      w: board.w,
+      h: Math.max(0, board.y - GAP - (year.y + year.h + MARGIN)),
+    },
   };
 };
 
@@ -168,6 +176,7 @@ const mobileLayout = (screen: Size): PlanningLayout => {
     h: PHONE.scout.h,
   };
   const hand = handRow(screen, PHONE.card);
+  const pair = aboveBoard(screen, board);
   const skip = {
     x: w - MARGIN - PHONE.skip.w,
     y: PHONE.skip.y,
@@ -183,7 +192,13 @@ const mobileLayout = (screen: Size): PlanningLayout => {
     hand,
     skip,
     fight: fightOver(screen, hand),
-    ...aboveBoard(screen, board),
+    ...pair,
+    hint: {
+      x: MARGIN,
+      y: pair.cancel.y,
+      w: Math.max(0, pair.cancel.x - GAP - MARGIN),
+      h: Math.max(0, board.y - GAP - pair.cancel.y),
+    },
   };
 };
 
@@ -198,6 +213,14 @@ export const plotScreenRect = (layout: PlanningLayout, plot: number): Rect => ({
   w: CELL,
   h: CELL,
 });
+
+/** Plot under a screen point (the inverse of plotScreenRect), null off the board. */
+export const plotAtScreen = (layout: PlanningLayout, p: Point): number | null => {
+  const col = Math.floor((p.x - layout.board.x) / CELL);
+  const row = Math.floor((p.y - layout.board.y) / CELL);
+  if (col < 0 || col >= BOARD_SIDE || row < 0 || row >= BOARD_SIDE) return null;
+  return row * BOARD_SIDE + col;
+};
 
 /** ✓/✕ for a chosen plot: beside it on desktop, the row above the board on mobile. */
 export const confirmFor = (

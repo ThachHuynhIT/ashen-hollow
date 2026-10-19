@@ -95,6 +95,33 @@ export function checkPlay(
   return 'badTarget';
 }
 
+/** How many plots a card targets: 2 for the building-then-plot tome (Dời Nhà), else 1. */
+export const targetCount = (card: CardDef): 1 | 2 =>
+  card.kind === 'tome' && card.target === 'buildingThenPlot' ? 2 : 1;
+
+/**
+ * Legality of picking `plot` as the next target of `card`, given the plots already
+ * `chosen` (used while the player picks targets one by one). A first pick of a two-target
+ * card is legal when some second plot completes a legal play.
+ */
+export function checkTargetStep(
+  plots: readonly PlotState[],
+  card: CardDef,
+  chosen: readonly number[],
+  plot: number,
+): IllegalReason | null {
+  if (targetCount(card) === 1) return checkPlay(plots, card, { kind: 'plot', plot });
+  const first = chosen[0];
+  if (first !== undefined) return checkPlay(plots, card, { kind: 'two', first, second: plot });
+  for (let second = 0; second < COUNT; second++) {
+    if (second === plot) continue;
+    if (checkPlay(plots, card, { kind: 'two', first: plot, second }) === null) return null;
+  }
+  // No second plot works: report why `plot` fails as a first pick ('badTarget' if it is
+  // a fine first pick with nowhere to go).
+  return checkPlay(plots, card, { kind: 'two', first: plot, second: plot });
+}
+
 const cloneBuilding = (b: BuildingState | null): BuildingState | null => (b ? { ...b } : null);
 
 const clonePlots = (plots: readonly PlotState[]): PlotState[] =>
