@@ -4,7 +4,7 @@ Guidance for AI coding assistants working in this repo.
 
 ## Project
 
-Chín Vương Miện (_Nine Crowns_, working title; repo/package `ashen-hollow`) — a kingdom-building roguelite auto-battler: each year draw 3 cards, play 1 onto a 5×5 kingdom board, then watch your army fight a neighbouring king automatically. Phaser 4 + TypeScript (strict) + Vite + Vitest, generated pixel art, Stardew-style UI, web-first. The binding design is `docs/superpowers/specs/2026-10-16-nine-crowns-design.md` (Vietnamese), split into sub-projects G0–G5, each with its own plan in `docs/superpowers/plans/`. Summary docs: `docs/GDD.md`, `docs/ART_STYLE.md`, `docs/ROADMAP.md` (check it before starting a feature).
+Crowned Kingdoms (formerly _Chín Vương Miện_ / _Nine Crowns_; repo and package `crowned-kingdoms`) — a kingdom-building roguelite auto-battler: each year draw 3 cards, play 1 onto a 5×5 kingdom board, then watch your army fight a neighbouring king automatically. Phaser 4 + TypeScript (strict) + Vite + Vitest, generated pixel art, Stardew-style UI, web-first. The binding design is `docs/superpowers/specs/2026-10-16-crowned-kingdoms-design.md` (Vietnamese), split into sub-projects G0–G5, each with its own plan in `docs/superpowers/plans/`. Summary docs: `docs/GDD.md`, `docs/ART_STYLE.md`, `docs/ROADMAP.md` (check it before starting a feature).
 
 ## Commands
 
@@ -24,6 +24,7 @@ Run `npm run lint && npm run typecheck && npm test && npm run build` before call
 - **`src/game`, `src/data`, `src/core` must not import Phaser or `scenes/render/ui/platform/audio`; `src/data` must not import `src/game`** (ESLint `no-restricted-imports`, spec §12.4). Test files there obey the same rules.
 - **Determinism** (spec §8.12): `src/game`, `src/data`, `src/core` never use `Math.random`, `Date.now`, `performance.now`, `Math.hypot/sin/cos/tan/atan2/exp/log/pow` (ESLint `no-restricted-properties`); only `+ − × ÷` and `Math.sqrt/floor/ceil/round/min/max/abs`. Randomness goes through `Rng` (`src/core/random.ts`) seeded per stream with `hashSeed`; the battle uses no `Rng` at all (ties broken by id/plot). Never let `Map`/`Set` iteration order decide a simulation result — sort by id first. Battles advance in `SimClock` fixed ticks (10/s).
 - **Data-driven:** every gameplay number lives in `src/data/*`.
+- **External assets:** follow `docs/ASSET_LICENSES.md`; register them in `docs/assets.manifest.yml` (schema: `docs/ASSET_MANIFEST.md`) and `CREDITS.md` before committing. Never download and commit an asset just because a URL was found.
 - **Logic ↔ UI:** render/UI/scenes only read state and send intents through the typed `EventBus` (`src/core/events.ts`). Scenes launched with `scene.launch` start next frame — pass initial state in launch data, don't rely on events emitted in `create`.
 - **Phaser scene instances are reused** across restarts: reset per-game fields at the top of `create()`.
 - **Pixel art:** world colours only from `PALETTE` (Hearth 32, `src/data/palette.ts`); UI colours (frames, cards, overlays, menu backdrop) only from `UI_PALETTE` (`src/data/uiPalette.ts`) — see `docs/ART_STYLE.md`. Integer camera zoom only; sprites anchored at their feet and depth-sorted by that y; never rotate sprites (horizontal flip is fine). Sprites are referenced only by frame name (spec §11.4).

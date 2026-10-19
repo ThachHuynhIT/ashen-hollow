@@ -1,6 +1,6 @@
-# Chín Vương Miện
+# Crowned Kingdoms
 
-Roguelite xây vương quốc + tự động đánh, 2D pixel art, web-first. Tên tạm _Nine Crowns_; repo và package vẫn là `ashen-hollow`.
+Roguelite xây vương quốc + tự động đánh, 2D pixel art, web-first. Trước đây tên _Chín Vương Miện_ / _Nine Crowns_ (repo cũ `ashen-hollow`).
 
 > Một vương quốc nhỏ, chín ngai vàng. Mỗi năm chơi một thẻ, rồi xem quân mình tự đánh.
 
@@ -37,7 +37,7 @@ src/
 docs/         GDD, ART_STYLE, ROADMAP, spec và plan (docs/superpowers)
 ```
 
-Nguyên tắc: **luật tách khỏi hiển thị**, tick cố định 10/s, deterministic theo seed. Chi tiết ở [docs/GDD.md](docs/GDD.md) và [spec tổng](docs/superpowers/specs/2026-10-16-nine-crowns-design.md).
+Nguyên tắc: **luật tách khỏi hiển thị**, tick cố định 10/s, deterministic theo seed. Chi tiết ở [docs/GDD.md](docs/GDD.md) và [spec tổng](docs/superpowers/specs/2026-10-16-crowned-kingdoms-design.md).
 
 ## Tài liệu
 

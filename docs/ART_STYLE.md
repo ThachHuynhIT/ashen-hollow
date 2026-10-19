@@ -1,6 +1,6 @@
-# Chín Vương Miện — Art Style Guide
+# Crowned Kingdoms — Art Style Guide
 
-Quy chuẩn bắt buộc cho mọi asset hình. Art tạm sinh bằng code (`src/render/*Art.ts`) cũng tuân theo file này. Nguồn chuẩn: spec tổng §11 ([2026-10-16-nine-crowns-design.md](superpowers/specs/2026-10-16-nine-crowns-design.md)).
+Quy chuẩn bắt buộc cho mọi asset hình. Art tạm sinh bằng code (`src/render/*Art.ts`) cũng tuân theo file này. Nguồn chuẩn: spec tổng §11 ([2026-10-16-crowned-kingdoms-design.md](superpowers/specs/2026-10-16-crowned-kingdoms-design.md)).
 
 Không khí: **fantasy ấm áp, dễ thương** — vương quốc nhỏ, lính chibi, đồng lúa, rừng cây, giao diện gỗ + giấy kem kiểu Stardew Valley.
 
@@ -83,3 +83,10 @@ Hợp đồng **từ G1** (spec §11.4): mọi chỗ dùng sprite chỉ gọi fr
 ## Nguồn asset tạm
 
 Pack CC0/CC-BY từ itch.io, Kenney, OpenGameArt — ghi vào `CREDITS.md` kèm license. AI chỉ dùng cho moodboard/concept, không dùng làm sprite cuối.
+
+## Asset ngoài & AI
+
+- Mọi asset ngoài phải qua [ASSET_LICENSES.md](ASSET_LICENSES.md) và được ghi vào [ASSET_MANIFEST.md](ASSET_MANIFEST.md) (dữ liệu ở `docs/assets.manifest.yml`) + `CREDITS.md` trước khi commit. Không tự tải rồi commit chỉ vì thấy URL.
+- AI chỉ dùng cho moodboard/concept/silhouette/color/sprite draft; không đưa thẳng vào atlas. Pipeline: `concept → native-size draft → palette cleanup (Hearth 32) → manual pixel cleanup → animation → review → atlas`.
+- Asset chưa đạt yêu cầu: đánh dấu TODO, không tự ý đổi native size/projection, không xoay sprite, giữ nguyên frame name khi thay art.
+- Checklist nghiệm thu: đúng native size · đúng projection · chỉ dùng Hearth 32 (world) · không anti-aliasing/gradient mượt · ánh sáng trên-trái · silhouette đọc được ở 1× · origin (0.5, 1) · đúng frame name · license đã ghi.
