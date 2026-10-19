@@ -31,20 +31,22 @@ Không đưa vào public repo nếu:
 - license không rõ;
 - quyền sử dụng không xác minh được.
 
-## 5. Public GitHub Rule
+## 5. Redistribution Rule (repo và bản phát hành)
 
-Asset commit vào public GitHub được xem là redistribution.
+Asset bị phân phối lại ở **hai chỗ**: commit lên GitHub công khai, và đóng gói trong bản game phát hành (web, Tauri, Capacitor, itch.io, Steam). Asset phải hợp lệ ở cả hai; bản game vẫn là redistribution kể cả khi repo private.
 
 ```text
 CC0
 → OK
 
 CC-BY
-→ OK + attribution
+→ OK + attribution (CREDITS.md và màn hình credits trong game)
 
 No redistribution
-→ NOT OK unless explicit permission / compatible distribution architecture
+→ NOT OK (repo công khai lẫn bản game) unless explicit written permission
 ```
+
+Font OFL: được đóng gói cùng game, giữ nguyên file license/copyright trong bản phát hành.
 
 ## 6. Attribution
 
@@ -58,8 +60,9 @@ CC-BY entry phải ghi:
 Đặt tại:
 
 ```text
-CREDITS.md
-docs/licenses/
+CREDITS.md            (repo)
+Màn hình credits      (trong game — bắt buộc cho mọi asset attribution: true)
+docs/licenses/        (bằng chứng license)
 ```
 
 ## 7. License Evidence
@@ -91,4 +94,4 @@ Claude Code/Codex không được tự động tải và commit external asset c
 
 Trước commit phải có:
 
-`source → license → redistribution → attribution → manifest → credits`
+`source → license → redistribution (repo + bản game) → attribution → assets.manifest.yml → credits`

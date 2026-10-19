@@ -1,57 +1,75 @@
 # Ashen Hollow — Asset Manifest
 
-> Template. Chỉ ghi asset đã thực sự được chọn và kiểm tra.
+Sổ đăng ký asset thật sự được đưa vào dự án. **Dữ liệu nằm ở [`assets.manifest.yml`](assets.manifest.yml)** (máy đọc được, để script kiểm tra); file này chỉ mô tả schema, quy ước đặt tên và checklist. Chỉ ghi asset đã được chọn và kiểm tra license theo [ASSET_LICENSES.md](ASSET_LICENSES.md).
 
-## 1. Required Fields
+## 1. Schema
 
-| Field | Required | Meaning |
-|---|---|---|
-| id | yes | Stable asset identifier |
-| path | yes | Repo path |
-| category | yes | terrain/building/unit/ui/etc. |
-| source | yes for external | Original source |
-| creator | yes for external | Creator |
-| license | yes for external | License |
-| attribution | yes | Credit required? |
-| modified | yes | Modified? |
-| projection | yes for world | `topdown_free` (gridless, sprite anchored at feet) / other |
-| nativeSize | yes | Native canvas size |
-| finalSize | yes | Size used in game |
-| notes | no | Integration notes |
+| Field       | Required         | Meaning                                                                    |
+| ----------- | ---------------- | -------------------------------------------------------------------------- |
+| id          | yes              | Stable identifier, `snake_case`, trùng frame name (xem §2)                 |
+| path        | yes              | Đường dẫn trong repo                                                       |
+| category    | yes              | terrain / doodad / building / unit / ui / icon / fx / font / audio         |
+| origin      | yes              | `external` hoặc `custom` (tự vẽ / code-generated)                          |
+| source      | external         | URL gốc                                                                    |
+| creator     | external         | Tác giả                                                                    |
+| license     | external         | SPDX-like: `CC0-1.0`, `CC-BY-4.0`, `OFL-1.1`…                              |
+| attribution | yes              | `true` nếu bắt buộc ghi công                                               |
+| redistribute| external         | `true` nếu license cho phép phân phối lại (repo công khai **và** bản game) |
+| evidence    | external         | Thư mục `docs/licenses/<asset-name>/` (license + ngày kiểm tra)            |
+| modified    | yes              | Đã chỉnh sửa/đổi palette chưa                                              |
+| nativeSize  | yes (hình)       | `WxH` canvas gốc                                                           |
+| finalSize   | yes (hình)       | `WxH` dùng trong game (chỉ scale số nguyên)                                |
+| anchor      | yes (world)      | Mặc định `feet` = origin (0.5, 1)                                          |
+| notes       | no               | Ghi chú tích hợp                                                           |
 
-## 2. Example
+Ví dụ một entry trong `assets.manifest.yml`:
 
 ```yaml
-id: example_building
-path: public/assets/buildings/example_building.png
-category: building
-source: https://example.com
-creator: Example Author
-license: CC0-1.0
-attribution: false
-modified: true
-projection: topdown_free
-nativeSize: 16x24
-finalSize: 16x24
-notes: Example only
+- id: dead_tree
+  path: public/assets/doodads/dead_tree.png
+  category: doodad
+  origin: external
+  source: https://example.com/pack
+  creator: Example Author
+  license: CC0-1.0
+  attribution: false
+  redistribute: true
+  evidence: docs/licenses/example-pack/
+  modified: true
+  nativeSize: 16x24
+  finalSize: 16x24
+  anchor: feet
+  notes: Example only
 ```
 
-## 3. Naming
+Asset `origin: custom` bỏ qua `source/creator/license/redistribute/evidence`.
 
-Use lowercase `snake_case`, e.g. `tent`, `watchtower`, `dead_tree`, `worker_walk_00`, `icon_ember`.
+## 2. Quy ước đặt tên (một chuẩn duy nhất)
 
-## 4. Variants
+`snake_case`, thống nhất giữa `id`, tên file và frame trong atlas:
 
-Prefer `base asset + palette data` over duplicated files when the visual design permits it.
+| Loại                  | Mẫu                    | Ví dụ                                   |
+| --------------------- | ---------------------- | --------------------------------------- |
+| Tĩnh                  | `<id>`                 | `tent`, `watchtower`, `dead_tree`       |
+| Frame animation       | `<id>_<anim>_<nn>`     | `colonist_walk_00`, `ghoul_attack_01`   |
+| Icon                  | `icon_<id>`            | `icon_ember`                            |
+| VFX                   | `fx_<id>` / `fx_<id>_<nn>` | `fx_hit_00`                         |
 
-## 5. Validation
+- `<nn>` luôn **2 chữ số** (`00`, `01`…), `<anim>` ∈ `idle|walk|work|attack|hurt|die`.
+- **Không đưa team/faction/hướng vào tên**: biến thể màu qua palette/data, hướng qua flip hoặc frame riêng `<id>_<anim>_<dir>_<nn>` chỉ khi thật sự cần (`dir` ∈ `n|e|s|w`).
+- Code gameplay không truy cập tên file trực tiếp; đi qua helper trong `src/render/atlas.ts`.
 
-- [ ] file exists
-- [ ] source recorded
-- [ ] license recorded
-- [ ] attribution recorded
-- [ ] projection checked (no rotation; feet-anchored)
-- [ ] native size checked
-- [ ] palette checked (Ashen 32 only)
-- [ ] atlas frame checked
-- [ ] credits updated
+## 3. Biến thể
+
+Ưu tiên `asset gốc + dữ liệu palette` thay vì nhân bản file khi thiết kế cho phép.
+
+## 4. Validation
+
+Mỗi entry (script kiểm tra tương lai đọc `assets.manifest.yml`):
+
+- [ ] file tồn tại
+- [ ] đủ field bắt buộc; asset `external` có `license`, `redistribute: true`, `evidence`
+- [ ] `attribution: true` ⇒ có dòng trong `CREDITS.md` **và** trong màn hình credits của game
+- [ ] đúng `nativeSize`, chỉ dùng màu Ashen 32, không anti-aliasing
+- [ ] anchor chân, không xoay sprite
+- [ ] frame name đúng quy ước §2
