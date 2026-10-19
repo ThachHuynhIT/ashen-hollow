@@ -1,0 +1,376 @@
+import { describe, expect, it } from 'vitest';
+import { BATTLE } from '../../data/battle';
+import { attackStats, battleSetup, structure, throneSetup, unitStats } from '../testing/fixtures';
+import {
+  applyDamagePhase,
+  attackPhase,
+  deathPhase,
+  mitigate,
+  projectilePhase,
+  queueDamage,
+  statusPhase,
+} from './combat';
+import { retarget } from './targeting';
+import type { StructureSetup, UnitStats } from './types';
+import {
+  DMG_PHYSICAL,
+  TEAM_ALLY,
+  TEAM_FOE,
+  addUnit,
+  createBattle,
+  drainEvents,
+  type BattleWorld,
+} from './world';
+
+/** Thế giới có Ngai không đánh (để Ngai không chen vào các phép đo). */
+const world = (structures: StructureSetup[] = []): BattleWorld =>
+  createBattle(battleSetup({ throne: throneSetup({ attack: null }), structures }));
+
+const unit = (
+  w: BattleWorld,
+  team: number,
+  x: number,
+  y: number,
+  over: Partial<UnitStats> = {},
+  sourceUid = -1,
+): number => addUnit(w, unitStats(over), team, x, y, x, y, sourceUid);
+
+/** Một tick chiến đấu thuần (không di chuyển/chọn mục tiêu). */
+const fight = (w: BattleWorld): void => {
+  attackPhase(w);
+  projectilePhase(w);
+  applyDamagePhase(w);
+  statusPhase(w);
+  deathPhase(w);
+};
+
+/** Tháp Cung ở plot 7 = (192, 160), r 12: dmg 7, tầm 88, đạn 8 px/tick. */
+const archerTower = (over: Partial<StructureSetup> = {}): StructureSetup =>
+  structure(7, {
+    uid: 70,
+    kind: 'tower',
+    attack: attackStats({ dmg: 7, range: 88, interval: 100, projectileSpeed: 8 }),
+    targeting: 'closestToThrone',
+    ...over,
+  });
+
+describe('mitigate', () => {
+  it('applies armor by damage type (§8.5)', () => {
+    expect(mitigate(10, 'physical', 0.1)).toBe(9);
+    expect(mitigate(10, 'fire', 0.2)).toBe(9);
+    expect(mitigate(10, 'magic', 0.5)).toBe(10);
+  });
+});
+
+describe('attack cadence', () => {
+  it('a unit with interval 10 hits at T and T+10, never T+9 or T+11', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { interval: 10 });
+    const f = unit(w, TEAM_FOE, 110, 100, { hp: 1000, dmg: 0 });
+    w.target[a] = f;
+    const hits: number[] = [];
+    for (let t = 0; t < 25; t++) {
+      const before = w.hp[f]!;
+      fight(w);
+      if (w.hp[f]! < before) hits.push(t);
+    }
+    expect(hits).toEqual([0, 10, 20]);
+  });
+
+  it('an idle unit strikes once on contact, then waits a full interval (no stored hits)', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { interval: 10 });
+    const f = unit(w, TEAM_FOE, 300, 100, { hp: 1000, dmg: 0 });
+    w.target[a] = f;
+    for (let t = 0; t < 30; t++) fight(w);
+    expect(w.hp[f]).toBe(1000);
+    w.x[f] = 110;
+    const hits: number[] = [];
+    for (let t = 0; t < 15; t++) {
+      const before = w.hp[f]!;
+      fight(w);
+      if (w.hp[f]! < before) hits.push(t);
+    }
+    expect(hits).toEqual([0, 10]);
+  });
+
+  it('structures without an attack never attack', () => {
+    const w = world([structure(7)]);
+    unit(w, TEAM_FOE, 192, 140, { hp: 100, dmg: 0 });
+    for (let t = 0; t < 5; t++) attackPhase(w);
+    expect(w.damageQueue).toEqual([]);
+    expect(w.projectileCount).toBe(0);
+    expect(w.cooldown[1]).toBe(0);
+  });
+});
+
+describe('instant melee damage', () => {
+  it('footman dmg 7 removes 7 HP at armor 0 and 6.3 at armor 0.1', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 7 });
+    const f = unit(w, TEAM_FOE, 110, 100, { hp: 45, dmg: 0 });
+    const g = unit(w, TEAM_FOE, 100, 110, { hp: 45, dmg: 0, armor: 0.1 });
+    const b = unit(w, TEAM_ALLY, 100, 120, { dmg: 7 });
+    w.target[a] = f;
+    w.target[b] = g;
+    attackPhase(w);
+    expect(w.hp[f]).toBe(45); // chưa trừ ở bước 6
+    applyDamagePhase(w);
+    expect(w.hp[f]).toBe(38);
+    expect(w.hp[g]).toBeCloseTo(45 - 6.3, 10);
+    expect(w.damageQueue).toEqual([]);
+    const hits = drainEvents(w).filter((e) => e.type === 'hit');
+    expect(hits).toContainEqual({ type: 'hit', id: f, dmg: 7 });
+  });
+
+  it('does not attack a target out of range', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 7 });
+    const f = unit(w, TEAM_FOE, 111, 100, { dmg: 0 }); // edge distance 3 > range 2
+    w.target[a] = f;
+    attackPhase(w);
+    expect(w.damageQueue).toEqual([]);
+  });
+
+  it('cleave 2: primary −9, nearest other −4.5, third untouched', () => {
+    const w = world();
+    const r = unit(w, TEAM_ALLY, 100, 100, { dmg: 9, cleave: 2, range: 20 });
+    const main = unit(w, TEAM_FOE, 120, 100, { hp: 50, dmg: 0 });
+    const far = unit(w, TEAM_FOE, 100, 125, { hp: 50, dmg: 0 });
+    const near = unit(w, TEAM_FOE, 100, 112, { hp: 50, dmg: 0 });
+    w.target[r] = main;
+    attackPhase(w);
+    applyDamagePhase(w);
+    expect(w.hp[main]).toBe(41);
+    expect(w.hp[near]).toBe(45.5);
+    expect(w.hp[far]).toBe(50);
+  });
+});
+
+describe('projectiles', () => {
+  /** Tháp id 1 ở (192,160) r12; địch r4 cách mép–mép 80 px → tâm (192, 64). */
+  const setupShot = () => {
+    const w = world([archerTower()]);
+    const f = unit(w, TEAM_FOE, 192, 64, { hp: 100, dmg: 0, speed: 0 });
+    return { w, f, tower: 1 };
+  };
+
+  it('flies 8 px per tick and hits exactly once on arrival', () => {
+    const { w, f } = setupShot();
+    attackPhase(w);
+    expect(w.projectileCount).toBe(1);
+    expect(w.damageQueue).toEqual([]);
+    const hits: number[] = [];
+    for (let t = 0; t < 30; t++) {
+      if (t > 0) attackPhase(w);
+      const py = w.projectiles.py[0]!;
+      projectilePhase(w);
+      if (t === 0) {
+        expect(w.projectiles.py[0]).toBe(152);
+        expect(py).toBe(160);
+      }
+      const before = w.hp[f]!;
+      applyDamagePhase(w);
+      if (w.hp[f]! < before) hits.push(t);
+    }
+    // tâm cách 96 px → 12 lần bay
+    expect(hits).toEqual([11]);
+    expect(w.hp[f]).toBe(93);
+    expect(w.projectileCount).toBe(0);
+  });
+
+  it('homes on the current position of a moving target', () => {
+    const { w, f } = setupShot();
+    attackPhase(w);
+    projectilePhase(w);
+    expect([w.projectiles.px[0], w.projectiles.py[0]]).toEqual([192, 152]);
+    w.x[f] = 192 + 88; // mục tiêu sang ngang: (280, 64) → hướng (88, −88)/√2·88
+    projectilePhase(w);
+    const s = 8 / Math.sqrt(2);
+    expect(w.projectiles.px[0]).toBeCloseTo(192 + s, 10);
+    expect(w.projectiles.py[0]).toBeCloseTo(152 - s, 10);
+  });
+
+  it('vanishes without damage when its target dies first', () => {
+    const { w, f } = setupShot();
+    const other = unit(w, TEAM_FOE, 200, 56, { hp: 100, dmg: 0, speed: 0 }); // ngoài tầm tháp, gần đường đạn
+    attackPhase(w);
+    w.interval[1] = 0; // tháp không bắn thêm
+    projectilePhase(w);
+    w.hp[f] = 0;
+    deathPhase(w);
+    expect(w.alive[f]).toBe(0);
+    projectilePhase(w);
+    expect(w.projectileCount).toBe(0);
+    expect(w.damageQueue).toEqual([]);
+    for (let t = 0; t < 20; t++) fight(w);
+    expect(w.hp[other]).toBe(100);
+  });
+
+  it('hits instantly when the pool is full', () => {
+    const { w, f } = setupShot();
+    w.projectileCount = BATTLE.projectileCap;
+    attackPhase(w);
+    expect(w.projectileCount).toBe(BATTLE.projectileCap);
+    expect(w.damageQueue).toHaveLength(1);
+    applyDamagePhase(w);
+    expect(w.hp[f]).toBe(93);
+  });
+
+  it('records sourceId and sourceUid on the projectile', () => {
+    const { w, f } = setupShot();
+    attackPhase(w);
+    expect(w.projectiles.sourceId[0]).toBe(1);
+    expect(w.projectiles.sourceUid[0]).toBe(70);
+    expect(w.projectiles.targetId[0]).toBe(f);
+    expect(w.projectiles.alive[0]).toBe(1);
+  });
+});
+
+describe('slow (onHit)', () => {
+  const slowed = () => {
+    const w = world();
+    const f = unit(w, TEAM_FOE, 100, 100, { hp: 1000 });
+    return { w, f };
+  };
+
+  it('applies slowPct/slowTicks and refreshes without stacking', () => {
+    const { w, f } = slowed();
+    queueDamage(w, f, 1, DMG_PHYSICAL, 5, { pct: 20, ticks: 20 });
+    applyDamagePhase(w);
+    expect([w.slowPct[f], w.slowTicks[f]]).toEqual([20, 20]);
+    for (let t = 0; t < 5; t++) statusPhase(w);
+    expect(w.slowTicks[f]).toBe(15);
+    queueDamage(w, f, 1, DMG_PHYSICAL, 5, { pct: 20, ticks: 20 });
+    applyDamagePhase(w);
+    expect([w.slowPct[f], w.slowTicks[f]]).toEqual([20, 20]);
+  });
+
+  it('keeps the strongest of two sources', () => {
+    const { w, f } = slowed();
+    queueDamage(w, f, 1, DMG_PHYSICAL, 5, { pct: 20, ticks: 20 });
+    queueDamage(w, f, 1, DMG_PHYSICAL, 6, { pct: 50, ticks: 20 });
+    applyDamagePhase(w);
+    expect(w.slowPct[f]).toBe(50);
+    queueDamage(w, f, 1, DMG_PHYSICAL, 5, { pct: 20, ticks: 20 });
+    applyDamagePhase(w);
+    expect(w.slowPct[f]).toBe(50);
+  });
+
+  it('clamps to maxSlowPct', () => {
+    const { w, f } = slowed();
+    queueDamage(w, f, 1, DMG_PHYSICAL, 5, { pct: 80, ticks: 20 });
+    applyDamagePhase(w);
+    expect(w.slowPct[f]).toBe(BATTLE.maxSlowPct);
+  });
+
+  it('expires back to 0', () => {
+    const { w, f } = slowed();
+    queueDamage(w, f, 1, DMG_PHYSICAL, 5, { pct: 20, ticks: 20 });
+    applyDamagePhase(w);
+    for (let t = 0; t < 19; t++) statusPhase(w);
+    expect(w.slowPct[f]).toBe(20);
+    statusPhase(w);
+    expect([w.slowPct[f], w.slowTicks[f]]).toEqual([0, 0]);
+  });
+
+  it('an attacker with onHit slow slows its target', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { slowPct: 20, slowTicks: 20 });
+    const f = unit(w, TEAM_FOE, 110, 100, { hp: 1000, dmg: 0 });
+    w.target[a] = f;
+    attackPhase(w);
+    applyDamagePhase(w);
+    expect([w.slowPct[f], w.slowTicks[f]]).toEqual([20, 20]);
+    // chỉ số đòn của người đánh không đổi
+    statusPhase(w);
+    expect([w.onHitSlowPct[a], w.onHitSlowTicks[a]]).toEqual([20, 20]);
+  });
+});
+
+describe('damage queue order', () => {
+  it('applies by (source id, victim id, creation order)', () => {
+    const w = world();
+    const f = unit(w, TEAM_FOE, 100, 100, { hp: 100 });
+    const g = unit(w, TEAM_FOE, 120, 100, { hp: 100 });
+    queueDamage(w, g, 1, DMG_PHYSICAL, 9, undefined, 7);
+    queueDamage(w, f, 2, DMG_PHYSICAL, 9, undefined, 7);
+    queueDamage(w, g, 3, DMG_PHYSICAL, 9, undefined, 3);
+    queueDamage(w, f, 4, DMG_PHYSICAL, 9, undefined, 7);
+    applyDamagePhase(w);
+    const hits = drainEvents(w).filter((e) => e.type === 'hit');
+    expect(hits).toEqual([
+      { type: 'hit', id: g, dmg: 3 },
+      { type: 'hit', id: f, dmg: 2 },
+      { type: 'hit', id: f, dmg: 4 },
+      { type: 'hit', id: g, dmg: 1 },
+    ]);
+  });
+});
+
+describe('deaths', () => {
+  it('two units killing one foe in a tick: one death, kill to the smaller source id', () => {
+    const w = world([
+      structure(6, { uid: 60, spawn: { stats: unitStats({ dmg: 7 }), count: 1 } }),
+      structure(8, { uid: 80, spawn: { stats: unitStats({ dmg: 7 }), count: 1 } }),
+    ]);
+    // ids: 0 Ngai, 1 plot 6, 2 plot 8, 3 lính uid 60, 4 lính uid 80
+    expect([w.sourceUid[3], w.sourceUid[4]]).toEqual([60, 80]);
+    const f = unit(w, TEAM_FOE, 300, 300, { hp: 5, dmg: 0 });
+    w.x[3] = 290;
+    w.y[3] = 300;
+    w.x[4] = 310;
+    w.y[4] = 300;
+    w.target[3] = f;
+    w.target[4] = f;
+    drainEvents(w);
+    fight(w);
+    expect(w.alive[f]).toBe(0);
+    expect(w.kills).toBe(1);
+    expect(w.killsBySource).toEqual({ 60: 1 });
+    expect(drainEvents(w).filter((e) => e.type === 'death')).toEqual([{ type: 'death', id: f }]);
+    fight(w);
+    expect(w.kills).toBe(1);
+  });
+
+  it('counts ally unit deaths in unitsLost, not structure deaths', () => {
+    const w = world([structure(7, { spawn: { stats: unitStats(), count: 1 } })]);
+    const ally = 2;
+    w.hp[ally] = 0;
+    w.hp[1] = -3;
+    deathPhase(w);
+    expect([w.alive[1], w.alive[ally]]).toEqual([0, 0]);
+    expect(w.unitsLost).toBe(1);
+    expect(w.kills).toBe(0);
+  });
+
+  it('a destroyed structure stops shooting; its troops keep fighting; foes retarget', () => {
+    const w = world([
+      archerTower({ attack: attackStats({ dmg: 7, range: 88, interval: 10 }) }),
+      structure(6, { uid: 60, spawn: { stats: unitStats(), count: 1 } }),
+    ]);
+    // ids: 0 Ngai, 1 plot 6 trại, 2 plot 7 tháp, 3 lính
+    const towerId = 2;
+    const soldier = 3;
+    const f = unit(w, TEAM_FOE, 192, 141, { hp: 1000, dmg: 0, speed: 0 });
+    retarget(w);
+    expect(w.target[f]).toBe(towerId);
+    w.hp[towerId] = 0;
+    deathPhase(w);
+    expect(w.alive[towerId]).toBe(0);
+    for (let t = 0; t < 30; t++) attackPhase(w);
+    expect(w.damageQueue.every((d) => d.sourceId !== towerId)).toBe(true);
+    expect(w.projectileCount).toBe(0);
+    retarget(w);
+    expect(w.target[f]).not.toBe(towerId);
+    expect(w.alive[w.target[f]!]).toBe(1);
+    // lính của trại vẫn đánh
+    w.damageQueue = [];
+    w.x[soldier] = 192;
+    w.y[soldier] = 151;
+    w.target[soldier] = f;
+    w.cooldown[soldier] = 0;
+    attackPhase(w);
+    expect(w.damageQueue.map((d) => d.sourceId)).toEqual([soldier]);
+  });
+});

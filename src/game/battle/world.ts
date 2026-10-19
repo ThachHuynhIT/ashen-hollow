@@ -128,6 +128,8 @@ export class BattleWorld {
   readonly kbTicks = new Int32Array(BATTLE.entityCap);
   /** TARGET_* (0 nearest, 1 closestToThrone, 2 lowestHp, 3 highestHp). */
   readonly targeting = new Int32Array(BATTLE.entityCap);
+  /** sourceUid của đòn đưa HP về ≤ 0 trong tick (thống kê killsBySource); −1 = chưa có. */
+  readonly killerUid = new Int32Array(BATTLE.entityCap);
 
   /** DMG_* (0 physical, 1 fire, 2 magic). */
   readonly dmgType = new Uint8Array(BATTLE.entityCap);
@@ -158,6 +160,12 @@ export class BattleWorld {
   readyTick: number = INTERVENTION.firstReadyTick;
   boulders: Boulder[] = [];
 
+  /** Trận đã kết thúc (§8.8); khi đó stepBattle không làm gì nữa. */
+  ended = false;
+  won = false;
+  /** Tick trong đó trận kết thúc (BattleResult.ticks), −1 khi chưa. */
+  endTick = -1;
+
   constructor(setup: BattleSetup) {
     this.setup = setup;
   }
@@ -169,6 +177,7 @@ export class BattleWorld {
     this.count += 1;
     this.alive[id] = 1;
     this.target[id] = -1;
+    this.killerUid[id] = -1;
     this.cooldown[id] = 0;
     return id;
   }

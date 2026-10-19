@@ -75,6 +75,8 @@ describe('createBattle', () => {
     expect(w.readyTick).toBe(INTERVENTION.firstReadyTick);
     expect(w.boulders).toEqual([]);
     expect(w.damageQueue).toEqual([]);
+    expect([w.ended, w.won, w.endTick]).toEqual([false, false, -1]);
+    for (let id = 0; id < w.count; id++) expect(w.killerUid[id]).toBe(-1);
     const spawned = w.events.filter((e) => e.type === 'spawn').map((e) => (e as { id: number }).id);
     expect(spawned).toEqual([0, 1, 2, 3, 4, 5]);
   });
@@ -293,6 +295,7 @@ describe('hashWorld', () => {
     'sourceUid',
     'kbTicks',
     'targeting',
+    'killerUid',
     'dmgType',
   ] as const;
   const PROJECTILE_ARRAYS = [
@@ -347,7 +350,7 @@ describe('hashWorld', () => {
     expect(hashWorld(w)).toBe(h);
   });
 
-  it.each(['readyTick', 'spawnedWaves', 'interventionsUsed', 'playerUnits'] as const)(
+  it.each(['readyTick', 'spawnedWaves', 'interventionsUsed', 'playerUnits', 'endTick'] as const)(
     'changes when %s changes',
     (field) => {
       const w = withProjectile();
@@ -356,6 +359,13 @@ describe('hashWorld', () => {
       expect(hashWorld(w)).not.toBe(h);
     },
   );
+
+  it.each(['ended', 'won'] as const)('changes when %s flips', (field) => {
+    const w = withProjectile();
+    const h = hashWorld(w);
+    w[field] = !w[field];
+    expect(hashWorld(w)).not.toBe(h);
+  });
 
   it('covers boulders', () => {
     const w = withProjectile();

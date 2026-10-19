@@ -90,6 +90,7 @@ export const hashWorld = (world: BattleWorld): number => {
     world.sourceUid,
     world.kbTicks,
     world.targeting,
+    world.killerUid,
   ]) {
     h = mixI32(h, a, n);
   }
@@ -107,6 +108,9 @@ export const hashWorld = (world: BattleWorld): number => {
   h = mixNum(h, world.spawnedWaves);
   h = mixNum(h, world.interventionsUsed);
   h = mixNum(h, world.playerUnits);
+  h = mixWord(h, world.ended ? 1 : 0);
+  h = mixWord(h, world.won ? 1 : 0);
+  h = mixNum(h, world.endTick);
   h = mixWord(h, world.boulders.length);
   for (const b of world.boulders) {
     h = mixNum(h, b.x);
