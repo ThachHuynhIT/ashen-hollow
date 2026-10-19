@@ -1,4 +1,7 @@
 /** Dựng setup trận nhỏ cho test (không dùng trong mã chạy thật). */
+import { CONTENT } from '../cards/registry';
+import { newRun } from '../run/yearFlow';
+import type { RunState } from '../run/state';
 import type { AttackStats, BattleSetup, StructureSetup, UnitStats } from '../battle/types';
 
 /** Đòn cận chiến tức thời: dmg 5, tầm 2, 10 tick/đòn. */
@@ -62,5 +65,11 @@ export const battleSetup = (over: Partial<BattleSetup> = {}): BattleSetup => ({
   throne: throneSetup(),
   structures: [],
   waves: [],
+  ...over,
+});
+
+/** Ván mới năm 1 (vua lúa mì, seed 1) với các trường ghi đè. */
+export const runState = (over: Partial<RunState> = {}): RunState => ({
+  ...newRun(1, 'wheat', CONTENT),
   ...over,
 });

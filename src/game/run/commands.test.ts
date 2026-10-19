@@ -1,0 +1,315 @@
+import { describe, expect, it } from 'vitest';
+import { RULES_G1, START_DECK_G1 } from '../../data/run';
+import { SLOT_MULT } from '../../data/battle';
+import { armyBudget, composeArmy } from '../battle/compose';
+import type { CardId } from '../../data/types';
+import type { BattleResult } from '../battle/types';
+import { CONTENT } from '../cards/registry';
+import { runState } from '../testing/fixtures';
+import { applyCommand } from './commands';
+import type { CommandResult } from './commands';
+import type { IllegalReason, PlayTarget, RunCommand, RunState } from './state';
+import { newRun } from './yearFlow';
+
+const roster = CONTENT.raiderRoster().map((r) => ({
+  unit: r.unit.id,
+  weight: r.weight,
+  enemyCost: r.unit.enemyCost,
+}));
+
+const result = (won: boolean, kills = 4): BattleResult => ({
+  won,
+  ticks: 100,
+  throneHpLostPct: 0,
+  kills,
+  killsBySource: {},
+  interventionsUsed: 0,
+  unitsLost: 0,
+  capped: 0,
+  inputs: [],
+});
+
+const ok = (r: CommandResult) => {
+  if ('error' in r) throw new Error(`unexpected error ${r.error}`);
+  return r;
+};
+
+const errorOf = (state: RunState, cmd: RunCommand): IllegalReason => {
+  const before = structuredClone(state);
+  const r = applyCommand(state, cmd, CONTENT);
+  expect(state).toEqual(before);
+  if (!('error' in r)) throw new Error('expected error');
+  return r.error;
+};
+
+const plot = (n: number): PlayTarget => ({ kind: 'plot', plot: n });
+const two = (first: number, second: number): PlayTarget => ({ kind: 'two', first, second });
+const play = (handIndex: number, target: PlayTarget): RunCommand => ({
+  type: 'play',
+  handIndex,
+  target,
+});
+
+describe('newRun', () => {
+  it('builds year 1 planning state', () => {
+    const s = newRun(7, 'wheat', CONTENT);
+    expect(s.year).toBe(1);
+    expect(s.phase).toBe('planning');
+    expect(s.lives).toBe(3);
+    expect(s.plots.filter((p) => p.unlocked)).toHaveLength(9);
+    expect(s.plots[12]!.building!.cardId).toBe('wheat_throne');
+    expect(s.plots[12]!.building!.uid).toBe(0);
+    expect(s.deck).toEqual([...START_DECK_G1]);
+    expect(s.hand).toHaveLength(3);
+    for (const c of s.hand) expect(s.deck).toContain(c);
+    expect(s.played).toBe(false);
+    expect(s.nextUid).toBe(1);
+    expect(s.won).toBeNull();
+    expect(s.army).toEqual(composeArmy(roster, 10, 1, 7));
+    expect(s.army!.budget).toBe(armyBudget(1, SLOT_MULT.raiders));
+  });
+
+  it('is deterministic and seed dependent', () => {
+    expect(newRun(7, 'wheat', CONTENT)).toEqual(newRun(7, 'wheat', CONTENT));
+    let differs = 0;
+    const base = newRun(0, 'wheat', CONTENT);
+    for (let seed = 1; seed <= 10; seed++) {
+      const s = newRun(seed, 'wheat', CONTENT);
+      if (
+        JSON.stringify(s.hand) !== JSON.stringify(base.hand) ||
+        JSON.stringify(s.army) !== JSON.stringify(base.army)
+      ) {
+        differs += 1;
+      }
+    }
+    expect(differs).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('play / skip', () => {
+  const hand: CardId[] = ['wheat_militia', 'neutral_barracks', 'neutral_move'];
+
+  it('places a troop and consumes the hand', () => {
+    const s = runState({ hand });
+    const before = structuredClone(s);
+    const r = ok(applyCommand(s, play(0, plot(6)), CONTENT));
+    expect(s).toEqual(before);
+    expect(r.state.plots[6]!.building).toEqual({
+      uid: 1,
+      cardId: 'wheat_militia',
+      level: 1,
+      placedYear: s.year,
+    });
+    expect(r.state.nextUid).toBe(2);
+    expect(r.state.hand).toEqual([]);
+    expect(r.state.played).toBe(true);
+    expect(r.state.deck).toEqual(s.deck);
+    expect(r.events).toContainEqual({ type: 'cardPlayed', cardId: 'wheat_militia' });
+  });
+
+  it('clear land unlocks a plot', () => {
+    const s = runState({ hand: ['neutral_clear_land'] });
+    const r = ok(applyCommand(s, play(0, plot(1)), CONTENT));
+    expect(r.state.plots[1]!.unlocked).toBe(true);
+    expect(r.state.nextUid).toBe(1);
+  });
+
+  it('move relocates and swaps', () => {
+    const base = runState({ hand: ['neutral_move'] });
+    const b7 = { uid: 1, cardId: 'wheat_militia' as CardId, level: 1 as const, placedYear: 1 };
+    const b6 = { uid: 2, cardId: 'neutral_barracks' as CardId, level: 1 as const, placedYear: 1 };
+    const plots = structuredClone(base.plots);
+    plots[7]!.building = b7;
+    const moved = ok(applyCommand({ ...base, plots }, play(0, two(7, 6)), CONTENT));
+    expect(moved.state.plots[6]!.building).toEqual(b7);
+    expect(moved.state.plots[7]!.building).toBeNull();
+
+    plots[6]!.building = b6;
+    const swapped = ok(applyCommand({ ...base, plots }, play(0, two(7, 6)), CONTENT));
+    expect(swapped.state.plots[6]!.building).toEqual(b7);
+    expect(swapped.state.plots[7]!.building).toEqual(b6);
+  });
+
+  it('skip consumes the hand', () => {
+    const r = ok(applyCommand(runState({ hand }), { type: 'skip' }, CONTENT));
+    expect(r.state.played).toBe(true);
+    expect(r.state.hand).toEqual([]);
+  });
+});
+
+describe('errors', () => {
+  const hand: CardId[] = ['wheat_militia', 'neutral_barracks', 'neutral_move'];
+
+  it('phase and played errors', () => {
+    expect(errorOf(runState({ hand: [], played: true }), play(0, plot(6)))).toBe('alreadyPlayed');
+    expect(errorOf(runState({ hand, phase: 'battle' }), play(0, plot(6)))).toBe('wrongPhase');
+    expect(errorOf(runState({ hand }), { type: 'startBattle' })).toBe('notPlayed');
+    expect(errorOf(runState({ hand }), { type: 'pickOffer', index: 0 })).toBe('wrongPhase');
+    expect(errorOf(runState({ hand }), { type: 'advance' })).toBe('wrongPhase');
+    expect(errorOf(runState({ hand }), { type: 'battleResult', result: result(true) })).toBe(
+      'wrongPhase',
+    );
+    expect(errorOf(runState({ hand, played: true }), { type: 'skip' })).toBe('alreadyPlayed');
+    expect(errorOf(runState({ hand, phase: 'reward' }), { type: 'skip' })).toBe('wrongPhase');
+    expect(errorOf(runState({ hand, phase: 'yearEnd' }), { type: 'startBattle' })).toBe(
+      'wrongPhase',
+    );
+  });
+
+  it('badTarget for bad hand index', () => {
+    expect(errorOf(runState({ hand }), play(5, plot(6)))).toBe('badTarget');
+    expect(errorOf(runState({ hand }), play(-1, plot(6)))).toBe('badTarget');
+  });
+
+  it('pickOffer out of range', () => {
+    const s = runState({
+      phase: 'reward',
+      offers: { kind: 'reward', cardIds: ['neutral_move', 'neutral_move', 'neutral_move'] },
+    });
+    expect(errorOf(s, { type: 'pickOffer', index: 3 })).toBe('badTarget');
+    expect(errorOf(s, { type: 'pickOffer', index: -1 })).toBe('badTarget');
+  });
+
+  it('checkPlay reasons', () => {
+    const s = runState({ hand });
+    expect(errorOf(s, play(0, plot(0)))).toBe('locked');
+    expect(errorOf(s, play(0, plot(12)))).toBe('throne');
+    expect(errorOf(s, play(0, { kind: 'none' }))).toBe('badTarget');
+    expect(errorOf(s, play(2, two(7, 6)))).toBe('noTarget');
+    const occ = runState({ hand });
+    occ.plots[6]!.building = { uid: 1, cardId: 'wheat_militia', level: 1, placedYear: 1 };
+    expect(errorOf(occ, play(0, plot(6)))).toBe('occupied');
+    expect(errorOf(occ, play(2, two(7, 6)))).toBe('noBuilding');
+    const clear = runState({ hand: ['neutral_clear_land'] });
+    expect(errorOf(clear, play(0, plot(0)))).toBe('notAdjacent');
+  });
+});
+
+describe('battle flow', () => {
+  const planned = (over: Partial<RunState> = {}): RunState =>
+    runState({ hand: [], played: true, ...over });
+
+  it('startBattle after skip', () => {
+    const r = ok(applyCommand(planned(), { type: 'startBattle' }, CONTENT));
+    expect(r.state.phase).toBe('battle');
+  });
+
+  it('win at year 3 gives 3 offers and advances rng.reward', () => {
+    const s = planned({ phase: 'battle', year: 3 });
+    const r = ok(applyCommand(s, { type: 'battleResult', result: result(true, 7) }, CONTENT));
+    expect(r.state.phase).toBe('reward');
+    expect(r.state.offers!.cardIds).toHaveLength(3);
+    expect(r.state.stats.battlesWon).toBe(1);
+    expect(r.state.stats.kills).toBe(7);
+    expect(r.state.rng.reward).not.toBe(s.rng.reward);
+    expect(r.events).toContainEqual({ type: 'battleEnded', won: true });
+  });
+
+  it('loss with 3 lives goes to yearEnd then advance', () => {
+    const s = planned({ phase: 'battle' });
+    const r = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT));
+    expect(r.state.lives).toBe(2);
+    expect(r.state.phase).toBe('yearEnd');
+    expect(r.state.offers).toBeNull();
+    expect(r.state.stats.battlesLost).toBe(1);
+    const n = ok(applyCommand(r.state, { type: 'advance' }, CONTENT));
+    expect(n.state.year).toBe(s.year + 1);
+    expect(n.state.phase).toBe('planning');
+    expect(n.state.hand).toHaveLength(3);
+    expect(n.state.played).toBe(false);
+    expect(n.state.army).toEqual(
+      composeArmy(roster, armyBudget(2, SLOT_MULT.raiders), 2, s.seed),
+    );
+    expect(n.events).toContainEqual({ type: 'yearStarted', year: 2 });
+  });
+
+  it('loss with 1 life ends the run', () => {
+    const s = planned({ phase: 'battle', lives: 1 });
+    const r = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT));
+    expect(r.state.phase).toBe('ended');
+    expect(r.state.won).toBe(false);
+    expect(r.state.lives).toBe(0);
+    expect(r.events).toContainEqual({ type: 'runEnded', won: false });
+  });
+
+  it('win at final year ends with victory and no offers', () => {
+    const s = planned({ phase: 'battle', year: RULES_G1.years });
+    const r = ok(applyCommand(s, { type: 'battleResult', result: result(true) }, CONTENT));
+    expect(r.state.phase).toBe('ended');
+    expect(r.state.won).toBe(true);
+    expect(r.state.offers).toBeNull();
+    expect(r.events).toContainEqual({ type: 'runEnded', won: true });
+  });
+
+  it('loss at final year with lives left still wins the run (spec 3.10)', () => {
+    const s = planned({ phase: 'battle', year: RULES_G1.years, lives: 3 });
+    const r = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT));
+    expect(r.state.phase).toBe('ended');
+    expect(r.state.won).toBe(true);
+    expect(r.state.lives).toBe(2);
+    expect(r.state.stats.battlesLost).toBe(1);
+  });
+
+  it('loss at final year with 1 life loses the run', () => {
+    const s = planned({ phase: 'battle', year: RULES_G1.years, lives: 1 });
+    const r = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT));
+    expect(r.state.won).toBe(false);
+    expect(r.state.lives).toBe(0);
+  });
+});
+
+describe('rewards', () => {
+  const reward = (): RunState => {
+    const s = runState({ phase: 'battle', hand: [], played: true, year: 3 });
+    return ok(applyCommand(s, { type: 'battleResult', result: result(true) }, CONTENT)).state;
+  };
+
+  it('pickOffer 0 appends to the deck and starts next year', () => {
+    const s = reward();
+    const r = ok(applyCommand(s, { type: 'pickOffer', index: 0 }, CONTENT));
+    expect(r.state.deck).toHaveLength(12);
+    expect(r.state.deck[11]).toBe(s.offers!.cardIds[0]);
+    expect(r.state.phase).toBe('planning');
+    expect(r.state.year).toBe(4);
+    expect(r.state.offers).toBeNull();
+  });
+
+  it('pickOffer null skips', () => {
+    const s = reward();
+    const r = ok(applyCommand(s, { type: 'pickOffer', index: null }, CONTENT));
+    expect(r.state.deck).toEqual(s.deck);
+    expect(r.state.year).toBe(4);
+    expect(r.state.phase).toBe('planning');
+  });
+});
+
+describe('full run', () => {
+  const drive = (): RunState[] => {
+    const states: RunState[] = [];
+    let s = newRun(11, 'wheat', CONTENT);
+    const step = (cmd: RunCommand): void => {
+      s = ok(applyCommand(s, cmd, CONTENT)).state;
+      states.push(s);
+    };
+    for (let guard = 0; guard < 100 && s.phase !== 'ended'; guard++) {
+      if (s.phase === 'planning') {
+        step({ type: 'skip' });
+        step({ type: 'startBattle' });
+      } else if (s.phase === 'battle') {
+        step({ type: 'battleResult', result: result(true) });
+      } else if (s.phase === 'reward') {
+        step({ type: 'pickOffer', index: 0 });
+      }
+    }
+    return states;
+  };
+
+  it('plays 10 years to victory, deterministically', () => {
+    const a = drive();
+    const last = a[a.length - 1]!;
+    expect(last.phase).toBe('ended');
+    expect(last.won).toBe(true);
+    expect(last.year).toBe(10);
+    expect(drive()).toEqual(a);
+  });
+});
