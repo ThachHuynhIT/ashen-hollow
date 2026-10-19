@@ -16,7 +16,7 @@ import {
 } from '../ui/theme';
 import { SCENES } from './keys';
 
-const TITLE = 'Chín Vương Miện';
+const TITLE = 'Crowned Kingdoms';
 const SUBTITLE = 'Một vương quốc nhỏ, chín ngai vàng';
 const SKY_KEY = 'menu-sky';
 const hillKey = (layer: number): string => `menu-hills-${layer}`;

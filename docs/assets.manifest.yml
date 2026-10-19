@@ -1,0 +1,3 @@
+# Machine-readable asset register. Schema and rules: docs/ASSET_MANIFEST.md
+# Add an entry only after the license check in docs/ASSET_LICENSES.md passes.
+assets: []
