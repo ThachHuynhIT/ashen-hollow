@@ -32,6 +32,7 @@ export class UnitRenderer {
   private readonly slots: (Slot | null)[] = [];
   private readonly bars: Phaser.GameObjects.Graphics;
   private readonly frameOk = new Map<string, boolean>();
+  private readonly warned = new Set<string>();
   private world: BattleWorld | null = null;
 
   constructor(scene: Phaser.Scene) {
@@ -50,6 +51,8 @@ export class UnitRenderer {
     this.bars.clear();
     for (let id = 0; id < world.count; id++) {
       const known = this.slots[id];
+      // Never create a sprite for an entity already dead on first sight (no flash).
+      if (known === undefined && world.alive[id] === 0) continue;
       const slot = known === undefined ? this.create(world, id) : known;
       if (slot === null || slot.dead) continue;
       if (world.alive[id] === 0) {
@@ -152,6 +155,10 @@ export class UnitRenderer {
     if (ok === undefined) {
       ok = this.scene.textures.get(SPRITES_KEY).has(frame);
       this.frameOk.set(frame, ok);
+    }
+    if (!ok && !this.warned.has(frame)) {
+      this.warned.add(frame);
+      console.warn(`UnitRenderer: missing sprite frame "${frame}" in "${SPRITES_KEY}"`);
     }
     return ok;
   }

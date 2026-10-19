@@ -26,6 +26,8 @@ interface Ring {
  * Battle effects: projectiles from the world's pool (one pre-drawn arrow per direction,
  * never rotated), a spark on each `hit`, the falling royal boulder with its shadow and an
  * impact ring. The caller passes the events it drained from the world this frame.
+ * The `boulder drop` event is intentionally unused: the falling boulder is drawn from
+ * `world.boulders` (dropTick/impactTick), which also follows pause and game speed.
  */
 export class FxRenderer {
   private readonly scene: Phaser.Scene;
@@ -80,7 +82,13 @@ export class FxRenderer {
       const dx = world.x[t]! - p.px[k]!;
       const dy = world.y[t]! - p.py[k]!;
       const d = Math.sqrt(dx * dx + dy * dy);
-      const back = d > 0 ? (p.speed[k]! * (1 - a)) / d : 0;
+      // Step back at most one tick of motion and never behind the shooter.
+      const src = p.sourceId[k]!;
+      const sx = p.px[k]! - world.x[src]!;
+      const sy = p.py[k]! - world.y[src]!;
+      const travelled = Math.sqrt(sx * sx + sy * sy);
+      const backDist = Math.min(p.speed[k]! * (1 - a), travelled);
+      const back = d > 0 ? backDist / d : 0;
       const x = p.px[k]! - dx * back;
       const y = p.py[k]! - dy * back;
       const img = this.image(this.projectiles, used, fxFrame(`arrow_${arrowDir(dx, dy)}`));
@@ -114,7 +122,12 @@ export class FxRenderer {
 
   private spark(world: BattleWorld, id: number): void {
     if (id < 0 || id >= world.count) return;
-    let img = this.sparks.find((s) => !s.visible);
+    let img: Phaser.GameObjects.Image | undefined;
+    for (const s of this.sparks)
+      if (!s.visible) {
+        img = s;
+        break;
+      }
     if (img === undefined) {
       img = this.scene.add.image(0, 0, SPRITES_KEY, fxFrame('spark'));
       this.sparks.push(img);

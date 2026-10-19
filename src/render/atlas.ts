@@ -97,7 +97,6 @@ export const buildUiTexture = (textures: Phaser.Textures.TextureManager): void =
 /** Every world sprite (units, buildings, plots, card pictures, icons, fx). */
 export const SPRITES_KEY = 'sprites';
 const SPRITES_WIDTH = 512;
-const FIELD_PREFIX = 'field-';
 
 /** Accent colour of a card: its king's colour, neutral cards blue. */
 const cardAccent = (content: Content, def: CardDef): number => {
@@ -156,16 +155,15 @@ export const buildSpritesTexture = (
 };
 
 /**
- * Make sure the painted field for `seed` exists and return its key. Field textures of
- * other seeds are removed first, so at most one 384x384 field stays in memory.
+ * Make sure the painted field for `seed` exists (painted only if missing) and return its
+ * key. It never removes textures: the owner (FieldRenderer.destroy) removes its own
+ * `field-<seed>` texture once no image uses it.
  */
 export const ensureFieldTexture = (
   textures: Phaser.Textures.TextureManager,
   seed: number,
 ): string => {
   const key = fieldKey(seed);
-  for (const k of textures.getTextureKeys())
-    if (k.startsWith(FIELD_PREFIX) && k !== key) textures.remove(k);
   if (!textures.exists(key)) addPixelTexture(textures, key, paintField(seed));
   return key;
 };

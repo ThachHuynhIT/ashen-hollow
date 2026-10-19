@@ -131,12 +131,14 @@ export class BoardRenderer {
     this.arrows.destroy();
   }
 
-  private throneCard(state: RunState): CardId | null {
+  private throneCard(state: RunState): CardId {
+    let king;
     try {
-      return this.content.king(state.kingId).throne.id;
-    } catch {
-      return null;
+      king = this.content.king(state.kingId);
+    } catch (err) {
+      throw new Error(`BoardRenderer: unknown king id "${state.kingId}"`, { cause: err });
     }
+    return king.throne.id;
   }
 
   private setBuilding(plot: number, cardId: CardId | null): void {
