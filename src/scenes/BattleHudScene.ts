@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
 import type { GameSpeed } from '../core/SimClock';
 import { INTERVENTION } from '../data/battle';
+import { toCss } from '../data/palette';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { BattleResult } from '../game/battle/types';
 import type { BattleWorld } from '../game/battle/world';
@@ -193,7 +194,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.cooldownText = addUiText(this, 0, 0, '', 22, UI_PALETTE.creamLight)
       .setOrigin(0.5)
       .setFontStyle('bold')
-      .setShadow(1, 1, '#000000', 0, false, true);
+      .setShadow(1, 1, toCss(UI_PALETTE.outline), 0, false, true);
     this.ring = this.add.graphics().setDepth(RING_DEPTH);
 
     const bus = this.bus;
