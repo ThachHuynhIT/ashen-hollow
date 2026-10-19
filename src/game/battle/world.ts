@@ -260,7 +260,8 @@ const addStructure = (w: BattleWorld, s: StructureSetup, isThrone: boolean): num
   return id;
 };
 
-const addUnit = (
+/** Thêm một lính ở (x, y) với điểm về (homeX, homeY); −1 nếu đầy entityCap. Phát sự kiện spawn. */
+export const addUnit = (
   w: BattleWorld,
   stats: UnitStats,
   team: number,
