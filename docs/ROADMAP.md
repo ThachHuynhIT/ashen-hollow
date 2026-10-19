@@ -13,6 +13,17 @@ Game đổi thể loại từ colony sim sang **roguelite xây vương quốc + 
 | G4  | Đủ 9 vua, perk, meta-progression                      | 6 vua còn lại, 27 perk, hai thẻ trung lập meta; Điểm Vương Miện, thông thạo, mở khoá, độ khó Gai; `CrownsScene`                                                                                                                  | 9 vua chơi được; Du Mục khoá đúng điều kiện; mở khoá còn sau khi tải lại trang; headless 9 vua × 3 seed                                                                             |
 | G5  | Cân bằng, âm thanh, juice, mobile, đóng gói           | `tools/balance.ts` + bot `greedy`; âm thanh và nhạc sinh bằng code, juice, `SettingsScene`; safe-area, chặn kéo-làm-mới; PWA                                                                                                     | Toàn bộ "Done khi" §1 của spec (tỉ lệ thắng của bot 35–65% mỗi vua, chênh lệch ≤ 15 điểm %)                                                                                         |
 
+## Trạng thái
+
+**G0 ✔ · G1 ✔** — G1 chơi được: "Ván mới" → Vua Lúa Mì, 10 năm, thắng/thua kết thúc ở `RunEndScene`; headless 3 seed, test deterministic + benchmark (0,36 ms/tick) pass. Tiếp theo: **G2**.
+
+Việc còn lại / lỗ hổng đã biết từ G1 (làm ở lượt art/G5, không chặn G2):
+
+- Nút Can Thiệp đang vuông (chưa có art nút riêng).
+- Ở 1280 rộng, zoom 2, sân trận chỉ rộng 768 px nên hai bên có dải tối.
+- Cân bằng G1 chưa đo: bot `random` thắng dễ; cân bằng thật thuộc G5 (`tools/balance.ts`).
+- `src/platform` và `src/audio` vẫn chưa tạo (G3 lưu ván, G5 âm thanh).
+
 ## Kiểm thử mỗi G
 
 - Vitest cho dữ liệu, luật và trận (spec §13.1–13.3).
