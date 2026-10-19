@@ -12,6 +12,7 @@ export class BattleRunner {
   private readonly bus: EventBus<GameEvents>;
   private queue: BattleInput[] = [];
   private finished: BattleResult | null = null;
+  private disposed = false;
   private readonly unsubscribe: (() => void)[];
 
   constructor(setup: BattleSetup, bus: EventBus<GameEvents>, clock: SimClock = new SimClock()) {
@@ -37,12 +38,12 @@ export class BattleRunner {
 
   /** Xếp lệnh can thiệp cho tick kế tiếp được chạy (kể cả khi đang tạm dừng). */
   intervene(x: number, y: number): void {
-    if (this.finished !== null) return;
+    if (this.finished !== null || this.disposed) return;
     this.queue.push({ tick: this.world.tick, x, y });
   }
 
   update(deltaMs: number): void {
-    if (this.finished !== null) return;
+    if (this.finished !== null || this.disposed) return;
     const ticks = this.clock.advance(deltaMs);
     for (let i = 0; i < ticks; i++) {
       const tick = this.world.tick;
@@ -62,6 +63,7 @@ export class BattleRunner {
   }
 
   dispose(): void {
+    this.disposed = true;
     for (const off of this.unsubscribe) off();
     this.unsubscribe.length = 0;
   }

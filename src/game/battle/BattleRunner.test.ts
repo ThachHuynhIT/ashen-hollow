@@ -129,8 +129,14 @@ describe('BattleRunner', () => {
     bus.emit('ui:toggle-pause', {});
     bus.emit('ui:intervene', { x: 1, y: 1 });
     expect(runner.clock.speed).toBe(1);
+  });
+
+  it('is inert after dispose: update does nothing and intervene is ignored', () => {
+    const { runner } = make();
+    runner.dispose();
+    runner.intervene(1, 1);
     runner.update(100);
-    expect(runner.world.tick).toBe(1);
+    expect(runner.world.tick).toBe(0);
     expect(runner.world.inputs).toHaveLength(0);
   });
 });

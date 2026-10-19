@@ -21,6 +21,7 @@ export class RunController {
     this.unsubscribe = [
       bus.on('ui:command', ({ command }) => this.handle(command)),
       bus.on('battle:ended', ({ result }) => {
+        if (this.active === null) return; // stray event: no battle in progress
         this.active?.dispose();
         this.active = null;
         this.handle({ type: 'battleResult', result });
@@ -57,6 +58,7 @@ export class RunController {
     this.bus.emit('run:state', { state: this.current });
     for (const event of result.events) {
       if (event.type === 'runEnded') {
+        // G4 (meta-progression) fills crownPoints and unlocks.
         this.bus.emit('run:ended', { won: event.won, crownPoints: 0, unlocks: [] });
       }
     }
