@@ -19,6 +19,10 @@ export const UI_FRAME_IDS = [
   'slotSelected',
   'tooltip',
   'bar',
+  'card',
+  'cardUncommon',
+  'cardRare',
+  'cardSelected',
 ] as const;
 export type UiFrame = (typeof UI_FRAME_IDS)[number];
 
@@ -43,6 +47,10 @@ export const UI_FRAMES: Readonly<Record<UiFrame, UiFrameDef>> = {
   slotSelected: { w: 18, h: 18, slice: 4, border: 3 },
   tooltip: { w: 12, h: 12, slice: 4, border: 2 },
   bar: { w: 8, h: 6, slice: 2, border: 1 },
+  card: { w: 24, h: 32, slice: 8, border: 4 },
+  cardUncommon: { w: 24, h: 32, slice: 8, border: 4 },
+  cardRare: { w: 24, h: 32, slice: 8, border: 4 },
+  cardSelected: { w: 24, h: 32, slice: 8, border: 5 },
 };
 
 /** Decorations drawn unstretched. */
@@ -101,6 +109,10 @@ interface WoodFrame {
   readonly pressed?: boolean;
   /** 1 px gold ring just inside the groove (active button). */
   readonly gold?: boolean;
+  /** 1 px woodLight ring just inside the groove (uncommon card). */
+  readonly lightRing?: boolean;
+  /** Recolour the outer 2 px (outline + first wood row) in the selection red. */
+  readonly selectRing?: boolean;
   readonly seed: number;
 }
 
@@ -138,13 +150,23 @@ const paintWoodFrame = (f: WoodFrame): PixelCanvas => {
   strokeRect(c, g, g, f.w - 2 * g, f.h - 2 * g, P.woodDark);
   const k = g + 1;
   c.fillRect(k, k, f.w - 2 * k, f.h - 2 * k, f.core);
-  if (f.gold) {
+  if (f.lightRing) {
+    strokeRect(c, k, k, f.w - 2 * k, f.h - 2 * k, P.woodLight);
+  } else if (f.gold) {
     strokeRect(c, k, k, f.w - 2 * k, f.h - 2 * k, P.gold);
   } else {
     c.fillRect(k, k, f.w - 2 * k, 1, P.creamDark);
     c.fillRect(k, k, 1, f.h - 2 * k, P.creamDark);
   }
   roundCorners(c);
+  if (f.selectRing) {
+    for (let i = 0; i < 2; i++) {
+      for (let x = i; x < f.w - i; x++)
+        for (const y of [i, f.h - 1 - i]) if (c.alphaAt(x, y) > 0) c.set(x, y, P.select);
+      for (let y = i; y < f.h - i; y++)
+        for (const x of [i, f.w - 1 - i]) if (c.alphaAt(x, y) > 0) c.set(x, y, P.select);
+    }
+  }
   return c;
 };
 
@@ -200,6 +222,14 @@ export const paintUiFrame = (frame: UiFrame): PixelCanvas => {
       return paintTooltip();
     case 'bar':
       return paintBar();
+    case 'card':
+      return wood(frame, { wood: 2, core: P.cream, seed: 3 });
+    case 'cardUncommon':
+      return wood(frame, { wood: 2, core: P.cream, lightRing: true, seed: 3 });
+    case 'cardRare':
+      return wood(frame, { wood: 2, core: P.cream, gold: true, seed: 3 });
+    case 'cardSelected':
+      return wood(frame, { wood: 3, core: P.cream, selectRing: true, seed: 3 });
   }
 };
 
