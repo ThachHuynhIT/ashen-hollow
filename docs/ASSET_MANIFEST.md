@@ -1,4 +1,4 @@
-# Ashen Hollow — Asset Manifest
+# Chín Vương Miện — Asset Manifest
 
 Sổ đăng ký asset thật sự được đưa vào dự án. **Dữ liệu nằm ở [`assets.manifest.yml`](assets.manifest.yml)** (máy đọc được, để script kiểm tra); file này chỉ mô tả schema, quy ước đặt tên và checklist. Chỉ ghi asset đã được chọn và kiểm tra license theo [ASSET_LICENSES.md](ASSET_LICENSES.md).
 
@@ -19,15 +19,16 @@ Sổ đăng ký asset thật sự được đưa vào dự án. **Dữ liệu n�
 | modified    | yes              | Đã chỉnh sửa/đổi palette chưa                                              |
 | nativeSize  | yes (hình)       | `WxH` canvas gốc                                                           |
 | finalSize   | yes (hình)       | `WxH` dùng trong game (chỉ scale số nguyên)                                |
+| projection  | yes (world)      | `iso_2_1` / khác                                                           |
 | anchor      | yes (world)      | Mặc định `feet` = origin (0.5, 1)                                          |
 | notes       | no               | Ghi chú tích hợp                                                           |
 
 Ví dụ một entry trong `assets.manifest.yml`:
 
 ```yaml
-- id: dead_tree
-  path: public/assets/doodads/dead_tree.png
-  category: doodad
+- id: building_farm
+  path: public/assets/buildings/example_building.png
+  category: building
   origin: external
   source: https://example.com/pack
   creator: Example Author
@@ -36,28 +37,30 @@ Ví dụ một entry trong `assets.manifest.yml`:
   redistribute: true
   evidence: docs/licenses/example-pack/
   modified: true
-  nativeSize: 16x24
-  finalSize: 16x24
+  projection: iso_2_1
+  nativeSize: 32x40
+  finalSize: 32x40
   anchor: feet
   notes: Example only
 ```
 
 Asset `origin: custom` bỏ qua `source/creator/license/redistribute/evidence`.
 
-## 2. Quy ước đặt tên (một chuẩn duy nhất)
+## 2. Quy ước đặt tên (theo atlas contract, spec §11.4)
 
-`snake_case`, thống nhất giữa `id`, tên file và frame trong atlas:
+`id` của asset = tên frame trong atlas; `snake_case`, một chuẩn duy nhất:
 
-| Loại                  | Mẫu                    | Ví dụ                                   |
-| --------------------- | ---------------------- | --------------------------------------- |
-| Tĩnh                  | `<id>`                 | `tent`, `watchtower`, `dead_tree`       |
-| Frame animation       | `<id>_<anim>_<nn>`     | `colonist_walk_00`, `ghoul_attack_01`   |
-| Icon                  | `icon_<id>`            | `icon_ember`                            |
-| VFX                   | `fx_<id>` / `fx_<id>_<nn>` | `fx_hit_00`                         |
+| Loại       | Mẫu                          | Ví dụ                       |
+| ---------- | ---------------------------- | --------------------------- |
+| Công trình | `building_<cardId>`          | `building_farm`             |
+| Đơn vị     | `unit_<id>_<team>_<anim><n>` | `unit_swordsman_ally_walk0` |
+| Tranh thẻ  | `card_art_<cardId>`          | `card_art_farm`             |
+| Icon       | `icon_<id>`                  | `icon_gold`                 |
+| VFX        | `fx_<id>`                    | `fx_hit`                    |
 
-- `<nn>` luôn **2 chữ số** (`00`, `01`…), `<anim>` ∈ `idle|walk|work|attack|hurt|die`.
-- **Không đưa team/faction/hướng vào tên**: biến thể màu qua palette/data, hướng qua flip hoặc frame riêng `<id>_<anim>_<dir>_<nn>` chỉ khi thật sự cần (`dir` ∈ `n|e|s|w`).
-- Code gameplay không truy cập tên file trực tiếp; đi qua helper trong `src/render/atlas.ts`.
+- `<team>` ∈ `ally|foe` (biến thể sinh từ atlas, không phải màu faction); `<anim>` ∈ `idle|walk|attack|hit|death|spawn`; `<n>` là chỉ số frame, không đệm số 0 (`attack0`, `attack1`).
+- Không nhân bản frame chỉ vì faction nếu faction được palette-swap lúc chạy.
+- Code gameplay không truy cập tên file trực tiếp; đi qua các hàm `*Frame(...)` trong `src/render/atlas.ts`.
 
 ## 3. Biến thể
 
@@ -70,6 +73,6 @@ Mỗi entry (script kiểm tra tương lai đọc `assets.manifest.yml`):
 - [ ] file tồn tại
 - [ ] đủ field bắt buộc; asset `external` có `license`, `redistribute: true`, `evidence`
 - [ ] `attribution: true` ⇒ có dòng trong `CREDITS.md` **và** trong màn hình credits của game
-- [ ] đúng `nativeSize`, chỉ dùng màu Ashen 32, không anti-aliasing
-- [ ] anchor chân, không xoay sprite
+- [ ] đúng `nativeSize`, chỉ dùng Hearth 32 (world), không anti-aliasing
+- [ ] đúng projection, anchor chân, không xoay sprite
 - [ ] frame name đúng quy ước §2

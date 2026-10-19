@@ -1,4 +1,4 @@
-# Ashen Hollow — Asset License Policy
+# Chín Vương Miện — Asset License Policy
 
 ## 1. Purpose
 
