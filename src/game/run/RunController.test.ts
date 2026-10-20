@@ -22,6 +22,68 @@ const runBattle = (bus: ReturnType<typeof createGameBus>, controller: RunControl
   return ended;
 };
 
+const allOpenHand = (): RunState => {
+  const s = runState({ hand: ['neutral_clear_land'] });
+  return { ...s, plots: s.plots.map((p) => ({ ...p, unlocked: true })) };
+};
+
+describe('RunController auto-start', () => {
+  it('starts the battle right after the action when rules.autoStart is on', () => {
+    const { bus, controller } = setup();
+    const started: number[] = [];
+    bus.on('battle:started', (p) => started.push(p.setup.year));
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
+    expect(started).toEqual([1]);
+    expect(controller.state.phase).toBe('battle');
+    expect(controller.runner).not.toBeNull();
+  });
+
+  it('waits for startBattle when rules.autoStart is off', () => {
+    const bus = createGameBus();
+    const controller = new RunController(bus, CONTENT, runState(), { autoStart: false });
+    const started: number[] = [];
+    bus.on('battle:started', (p) => started.push(p.setup.year));
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
+    expect(started).toEqual([]);
+    expect(controller.state.phase).toBe('planning');
+    controller.kickoff();
+    expect(started).toEqual([]);
+    bus.emit('ui:command', { command: { type: 'startBattle' } });
+    expect(started).toEqual([1]);
+  });
+
+  it('kickoff starts a battle once when no card in hand has a target', () => {
+    const bus = createGameBus();
+    const controller = new RunController(bus, CONTENT, allOpenHand());
+    const started: number[] = [];
+    bus.on('battle:started', (p) => started.push(p.setup.year));
+    controller.kickoff();
+    controller.kickoff();
+    expect(started).toEqual([1]);
+    expect(controller.state.phase).toBe('battle');
+  });
+
+  it('kickoff does nothing while some card is playable', () => {
+    const bus = createGameBus();
+    const controller = new RunController(bus, CONTENT, runState({ hand: ['wheat_militia'] }));
+    const started: number[] = [];
+    bus.on('battle:started', () => started.push(1));
+    controller.kickoff();
+    expect(started).toEqual([]);
+    expect(controller.state.phase).toBe('planning');
+  });
+
+  it('forwards setAutoFire to the running battle and records it in the state', () => {
+    const { bus, controller } = setup();
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
+    bus.emit('ui:command', { command: { type: 'setAutoFire', on: true } });
+    expect(controller.state.autoFire).toBe(true);
+    for (let i = 0; i < 40; i++) controller.update(100);
+    expect(controller.runner!.world.autoFire).toBe(true);
+    expect(controller.runner!.world.interventionsUsed).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('RunController', () => {
   it('valid play emits run:state with played true', () => {
     const { bus, controller, states } = setup();
@@ -31,9 +93,11 @@ describe('RunController', () => {
         command: { type: 'play', handIndex: 0, target: { kind: 'plot', plot } },
       });
     }
-    expect(states).toHaveLength(1);
+    // with autoStart (G1) the play is followed by the battle starting
+    expect(states).toHaveLength(2);
     expect(states[0]!.played).toBe(true);
-    expect(controller.state).toBe(states[0]);
+    expect(states[1]!.phase).toBe('battle');
+    expect(controller.state).toBe(states[1]);
   });
 
   it('illegal command emits run:illegal and keeps state', () => {
@@ -51,8 +115,7 @@ describe('RunController', () => {
     const { bus, controller } = setup();
     const years: number[] = [];
     bus.on('battle:started', (p) => years.push(p.setup.year));
-    bus.emit('ui:command', { command: { type: 'skip' } });
-    bus.emit('ui:command', { command: { type: 'startBattle' } });
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
     expect(years).toEqual([1]);
     expect(controller.runner).not.toBeNull();
     expect(controller.state.phase).toBe('battle');
@@ -60,8 +123,7 @@ describe('RunController', () => {
 
   it('runs a battle to the end and applies the result', () => {
     const { bus, controller, states } = setup();
-    bus.emit('ui:command', { command: { type: 'skip' } });
-    bus.emit('ui:command', { command: { type: 'startBattle' } });
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
     expect(runBattle(bus, controller)).toBe(1);
     expect(['reward', 'yearEnd', 'ended']).toContain(states[states.length - 1]!.phase);
     expect(controller.runner).toBeNull();
@@ -78,8 +140,7 @@ describe('RunController', () => {
       order.push('ended');
       ended.push(p);
     });
-    bus.emit('ui:command', { command: { type: 'skip' } });
-    bus.emit('ui:command', { command: { type: 'startBattle' } });
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
     runBattle(bus, controller);
     expect(controller.state.phase).toBe('ended');
     expect(order.slice(-2)).toEqual(['state', 'ended']);
@@ -92,7 +153,7 @@ describe('RunController', () => {
     const emitted: string[] = [];
     bus.on('run:illegal', () => emitted.push('illegal'));
     controller.dispose();
-    bus.emit('ui:command', { command: { type: 'skip' } });
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
     expect(states).toHaveLength(0);
     expect(emitted).toEqual([]);
     expect(controller.state).toBe(before);
@@ -102,13 +163,11 @@ describe('RunController', () => {
     const { bus, controller, states } = setup();
     let result: BattleResult | null = null;
     bus.on('battle:ended', (p) => (result = p.result));
-    bus.emit('ui:command', { command: { type: 'skip' } });
-    bus.emit('ui:command', { command: { type: 'startBattle' } });
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
     runBattle(bus, controller);
     // thu một kết quả thật rồi dựng lại ván đang đánh
     const { bus: bus2, controller: c2, states: s2 } = setup();
-    bus2.emit('ui:command', { command: { type: 'skip' } });
-    bus2.emit('ui:command', { command: { type: 'startBattle' } });
+    bus2.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
     const runner = c2.runner!;
     const before = c2.state;
     const n = s2.length;

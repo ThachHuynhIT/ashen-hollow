@@ -2,7 +2,7 @@
 import type { CardId, KingId, Level } from '../../data/types';
 import type { ArmyPlan, BattleResult } from '../battle/types';
 
-export const RUN_SAVE_VERSION = 1;
+export const RUN_SAVE_VERSION = 2;
 
 export interface BuildingState {
   uid: number;
@@ -39,8 +39,13 @@ export interface RunState {
   lives: number;
   plots: PlotState[];
   throneLevel: Level;
+  /** Mọi thẻ đang sở hữu; `hand ∪ drawPile ∪ discardPile` luôn bằng `deck` (spec §3.4). */
   deck: CardId[];
   hand: CardId[];
+  drawPile: CardId[];
+  discardPile: CardId[];
+  /** Đá Tảng tự bắn (spec §7.4); giữ qua các trận và các năm. */
+  autoFire: boolean;
   played: boolean;
   army: ArmyPlan | null;
   offers: OfferState | null;
@@ -69,7 +74,9 @@ export type PlayTarget =
 
 export type RunCommand =
   | { type: 'play'; handIndex: number; target: PlayTarget }
-  | { type: 'skip' }
+  /** Bán/bỏ đúng một thẻ thay cho việc chơi thẻ. */
+  | { type: 'discard'; handIndex: number }
+  | { type: 'setAutoFire'; on: boolean }
   | { type: 'startBattle' }
   | { type: 'battleResult'; result: BattleResult }
   | { type: 'pickOffer'; index: number | null }

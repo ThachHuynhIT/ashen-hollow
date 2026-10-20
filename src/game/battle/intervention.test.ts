@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { BATTLE, INTERVENTION } from '../../data/battle';
 import { battleSetup, structure, throneSetup, unitStats } from '../testing/fixtures';
-import { boulderPhase, tryIntervene } from './intervention';
+import {
+  autoFirePhase,
+  boulderPhase,
+  pickAutoTarget,
+  setAutoFire,
+  tryIntervene,
+} from './intervention';
 import { stepBattle } from './step';
-import type { BattleEvent, BattleInput } from './types';
+import type { AutoFireInput, BattleEvent, BattleInput } from './types';
 import {
   TEAM_ALLY,
   TEAM_FOE,
@@ -200,5 +206,178 @@ describe('boulder impact', () => {
     expect(w.boulders).toEqual([]);
     expect(w.damageQueue.map((q) => q.victim)).toEqual([A]);
     expect(w.damageQueue[0]!.sourceUid).toBe(-2);
+  });
+});
+
+/** Thế giới với các địch đứng yên (tốc 0, nhiều máu) đặt tại `points`, id 1..n. */
+const worldWithFoes = (points: readonly [number, number][], autoFire = true): BattleWorld => {
+  const foe = unitStats({ unit: 'dummy', hp: 5000, speed: 0 });
+  const w = createBattle(
+    battleSetup({
+      autoFire,
+      waves: [{ spawnTick: 0, spawns: points.map(() => ({ stats: foe, edge: 'N' as const })) }],
+    }),
+  );
+  spawnWave(w, 0);
+  points.forEach(([x, y], i) => {
+    w.x[i + 1] = x;
+    w.y[i + 1] = y;
+  });
+  drainEvents(w);
+  return w;
+};
+
+const auto = (w: BattleWorld, tick: number, on: boolean): AutoFireInput => {
+  w.tick = tick;
+  return { tick, auto: on };
+};
+
+describe('pickAutoTarget', () => {
+  it('picks the centre of the densest cluster within the boulder radius', () => {
+    const w = worldWithFoes([
+      [50, 50],
+      [300, 300],
+      [310, 300],
+    ]);
+    expect(pickAutoTarget(w)).toEqual({ x: 300, y: 300 });
+  });
+
+  it('breaks ties by the lowest enemy id', () => {
+    const w = worldWithFoes([
+      [100, 100],
+      [105, 100],
+      [300, 300],
+      [305, 300],
+    ]);
+    expect(pickAutoTarget(w)).toEqual({ x: 100, y: 100 });
+  });
+
+  it('returns null when no foe is alive', () => {
+    const w = worldWithFoes([[100, 100]]);
+    w.alive[1] = 0;
+    expect(pickAutoTarget(w)).toBeNull();
+  });
+
+  it('ignores allied entities', () => {
+    const w = createBattle(battleSetup({ structures: [structure(6)] }));
+    expect(pickAutoTarget(w)).toBeNull();
+  });
+
+  it('clamps the aim point into the field', () => {
+    const w = worldWithFoes([[-20, 500]]);
+    expect(pickAutoTarget(w)).toEqual({ x: 0, y: BATTLE.field });
+  });
+
+  it('uses world.boulderRadius for both the cluster count and the blast', () => {
+    const pts: [number, number][] = [
+      [100, 100],
+      [135, 100],
+    ];
+    const narrow = worldWithFoes(pts);
+    expect(pickAutoTarget(narrow)).toEqual({ x: 100, y: 100 });
+    const chain: [number, number][] = [...pts, [170, 100]];
+    expect(pickAutoTarget(worldWithFoes(chain))).toEqual({ x: 100, y: 100 }); // default radius 24: all tie at 1
+    const wide = worldWithFoes(chain);
+    wide.boulderRadius = 40;
+    expect(pickAutoTarget(wide)).toEqual({ x: 135, y: 100 }); // the middle foe has both others within 40
+
+    const hit = worldWithFoes([[100, 100], [135, 100]], false);
+    hit.boulderRadius = 40;
+    hit.tick = 30;
+    expect(tryIntervene(hit, { tick: 30, x: 100, y: 100 })).toBe(true);
+    hit.tick = 36;
+    boulderPhase(hit);
+    expect(hit.damageQueue.map((q) => q.victim)).toEqual([1, 2]);
+  });
+});
+
+describe('setAutoFire', () => {
+  it('toggles the flag, records the input and rejects a wrong tick or an ended battle', () => {
+    const w = worldWithFoes([[100, 100]], false);
+    expect(setAutoFire(w, { tick: 5, auto: true })).toBe(false);
+    expect(w.autoFire).toBe(false);
+    expect(setAutoFire(w, auto(w, 5, true))).toBe(true);
+    expect(w.autoFire).toBe(true);
+    expect(w.inputs).toEqual([{ tick: 5, auto: true }]);
+    w.ended = true;
+    expect(setAutoFire(w, auto(w, 6, false))).toBe(false);
+    expect(w.autoFire).toBe(true);
+  });
+});
+
+describe('autoFirePhase', () => {
+  it('does nothing while auto-fire is off', () => {
+    const w = worldWithFoes([[100, 100]], false);
+    w.tick = INTERVENTION.firstReadyTick;
+    autoFirePhase(w);
+    expect(w.boulders).toEqual([]);
+    expect(w.interventionsUsed).toBe(0);
+  });
+
+  it('is not ready before firstReadyTick and fires exactly on it', () => {
+    const w = worldWithFoes([[100, 100]]);
+    w.tick = INTERVENTION.firstReadyTick - 1;
+    autoFirePhase(w);
+    expect(w.interventionsUsed).toBe(0);
+    w.tick = INTERVENTION.firstReadyTick;
+    autoFirePhase(w);
+    expect(w.interventionsUsed).toBe(1);
+    expect(w.readyTick).toBe(INTERVENTION.firstReadyTick + INTERVENTION.cooldownTicks);
+    expect(w.boulders).toEqual([
+      { x: 100, y: 100, dropTick: 30, impactTick: 30 + INTERVENTION.delayTicks },
+    ]);
+    expect(drainEvents(w)).toContainEqual({ type: 'boulder', phase: 'drop', x: 100, y: 100 });
+    expect(w.inputs).toEqual([]); // automatic drops are re-derived on replay, never recorded
+  });
+
+  it('shares the cooldown with manual drops in both directions', () => {
+    const w = worldWithFoes([[100, 100]]);
+    expect(tryIntervene(w, at(w, 30, 100, 100))).toBe(true);
+    w.tick = 31;
+    autoFirePhase(w);
+    expect(w.interventionsUsed).toBe(1);
+    w.tick = 30 + INTERVENTION.cooldownTicks;
+    autoFirePhase(w);
+    expect(w.interventionsUsed).toBe(2);
+    expect(tryIntervene(w, at(w, 30 + INTERVENTION.cooldownTicks + 1, 100, 100))).toBe(false);
+  });
+
+  it('does not drop and does not spend the cooldown when no foe is alive', () => {
+    const w = worldWithFoes([[100, 100]]);
+    w.alive[1] = 0;
+    w.tick = 40;
+    autoFirePhase(w);
+    expect(w.interventionsUsed).toBe(0);
+    expect(w.readyTick).toBe(INTERVENTION.firstReadyTick);
+  });
+});
+
+describe('auto-fire inside stepBattle', () => {
+  it('lets a manual drop on the ready tick win, then auto-fires after the cooldown', () => {
+    const w = worldWithFoes([[100, 100]]);
+    const run = (until: number, inputs: readonly (BattleInput | AutoFireInput)[] = []): void => {
+      while (w.tick < until) {
+        const tick = w.tick;
+        stepBattle(
+          w,
+          inputs.filter((i) => i.tick === tick),
+        );
+        drainEvents(w);
+      }
+    };
+    run(31, [{ tick: 30, x: 100, y: 100 }]);
+    expect(w.interventionsUsed).toBe(1);
+    expect(w.inputs).toEqual([{ tick: 30, x: 100, y: 100 }]);
+    run(30 + INTERVENTION.cooldownTicks + 1);
+    expect(w.interventionsUsed).toBe(2);
+    expect(w.inputs).toHaveLength(1);
+  });
+
+  it('records a mid-battle toggle in the result inputs', () => {
+    const w = worldWithFoes([[100, 100]], false);
+    while (w.tick < 20) stepBattle(w, []);
+    stepBattle(w, [{ tick: 20, auto: true }]);
+    expect(w.autoFire).toBe(true);
+    expect(w.inputs).toEqual([{ tick: 20, auto: true }]);
   });
 });

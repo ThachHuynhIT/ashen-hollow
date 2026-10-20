@@ -3,8 +3,10 @@ import type { EventBus } from '../../core/events';
 import { BattleRunner } from '../battle/BattleRunner';
 import type { Content } from '../cards/registry';
 import type { GameEvents } from '../events';
+import { RULES_G1 } from '../../data/run';
 import { buildBattleSetup } from './battleSetup';
 import { applyCommand } from './commands';
+import { hasPlayableCard } from './playable';
 import type { RunCommand, RunState } from './state';
 
 export class RunController {
@@ -16,6 +18,7 @@ export class RunController {
     private readonly bus: EventBus<GameEvents>,
     private readonly content: Content,
     initial: RunState,
+    private readonly rules: { readonly autoStart: boolean } = RULES_G1,
   ) {
     this.current = initial;
     this.unsubscribe = [
@@ -35,6 +38,14 @@ export class RunController {
 
   get runner(): BattleRunner | null {
     return this.active;
+  }
+
+  /**
+   * Kiểm tra tự vào trận cho trạng thái hiện tại (ví dụ đầu ván, khi không lá nào có mục tiêu).
+   * Gọi sau khi scene đã đăng ký xong các sự kiện bus.
+   */
+  kickoff(): void {
+    if (this.active === null && this.shouldAutoStart()) this.handle({ type: 'startBattle' });
   }
 
   update(deltaMs: number): void {
@@ -62,10 +73,23 @@ export class RunController {
         this.bus.emit('run:ended', { won: event.won, crownPoints: 0, unlocks: [] });
       }
     }
+    if (command.type === 'setAutoFire') this.active?.setAutoFire(command.on);
     if (command.type === 'startBattle') {
       const setup = buildBattleSetup(this.current, this.content);
       this.active = new BattleRunner(setup, this.bus);
       this.bus.emit('battle:started', { setup });
+    } else if (this.shouldAutoStart()) {
+      this.handle({ type: 'startBattle' });
     }
+  }
+
+  /** Luật G1 (`autoStart`): đã chơi/bán thẻ, hoặc không lá nào trên tay có mục tiêu. */
+  private shouldAutoStart(): boolean {
+    const s = this.current;
+    return (
+      this.rules.autoStart &&
+      s.phase === 'planning' &&
+      (s.played || !hasPlayableCard(s, this.content))
+    );
   }
 }

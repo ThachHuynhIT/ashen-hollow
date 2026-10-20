@@ -76,7 +76,7 @@ export const RUN = {
   startGold: 5,
   taxPerYear: 3,            // thu nhập cố định đầu mỗi năm
   handSize: 3,
-  skipPlayGold: 2,          // bỏ lượt không chơi thẻ
+  skipPlayGold: 2,          // bán/bỏ một thẻ thay cho việc chơi thẻ
   skipRewardGold: 3,        // bỏ qua thẻ thưởng
   conquestGold: 5,
   bossGoldMult: 2,
@@ -108,7 +108,7 @@ Ví dụ kiểm tra (dùng trong test): `battleGold(1) = 3`, `battleGold(10) = 6
 ```
 
 1. **Đầu năm** (`RunPhase = 'yearStart'`, tự chạy, thứ tự chính xác ở §5.5): năm += 1, phí duy trì, tăng trưởng tự động, thu nhập, có thể đề nghị nhiệm vụ (§7.2), rút bài.
-2. **Lập kế hoạch** (`'planning'`): người chơi xem lịch + xem trước quân địch (§3.5), có thể: đổi bài (§3.4), mở ô bằng vàng (§3.11), dùng hành động miễn phí của Ngai nếu có (Vua Du Mục), rồi **chơi đúng 1 thẻ** hoặc **bỏ lượt** (+`RUN.skipPlayGold` vàng). Sau đó bấm "Ra trận".
+2. **Lập kế hoạch** (`'planning'`): người chơi xem lịch + xem trước quân địch (§3.5), có thể: đổi bài (§3.4), mở ô bằng vàng (§3.11), dùng hành động miễn phí của Ngai nếu có (Vua Du Mục), rồi **chơi đúng 1 thẻ** hoặc **bán/bỏ 1 thẻ** (`discard`, +`RUN.skipPlayGold` vàng từ G2). Sau đó bấm "Ra trận". **G1** (`RULES_G1.autoStart = true`): không có nút "Ra trận" — trận tự bắt đầu ngay sau khi chơi hoặc bỏ thẻ, hoặc ngay đầu năm nếu không lá nào trên tay có mục tiêu hợp lệ; từ G2 (`autoStart = false`) nút "Ra trận" hiện lại vì pha này còn đổi bài, mua ô, dời miễn phí.
 3. **Trận** (`'battle'`): mô phỏng §8.
 4. **Sau trận**: áp dụng kết quả (§3.10), tăng bộ đếm tấn công của kẻ địch, kiểm tra chinh phục (§3.7), kiểm tra nhiệm vụ.
 5. **Thưởng** (`'reward'`, chỉ khi thắng): chọn 1 trong 3 thẻ hoặc bỏ qua (§3.8).
@@ -119,17 +119,17 @@ Ví dụ kiểm tra (dùng trong test): `battleGold(1) = 3`, `battleGold(10) = 6
 ### 3.3 Vàng
 
 - Khởi đầu `RUN.startGold`. Vàng là số nguyên ≥ 0, không giới hạn trên.
-- **Thu vào:** thuế `RUN.taxPerYear` mỗi đầu năm; hiệu ứng thẻ kinh tế/Ngai/sắc lệnh/perk (đầu năm); thắng trận `battleGold(year)` (× `RUN.bossGoldMult` nếu năm boss); chinh phục `RUN.conquestGold`; bỏ lượt `RUN.skipPlayGold`; bỏ qua thưởng `RUN.skipRewardGold`; hiệu ứng trong trận (ví dụ cướp biển) cộng ở bước Sau trận.
+- **Thu vào:** thuế `RUN.taxPerYear` mỗi đầu năm; hiệu ứng thẻ kinh tế/Ngai/sắc lệnh/perk (đầu năm); thắng trận `battleGold(year)` (× `RUN.bossGoldMult` nếu năm boss); chinh phục `RUN.conquestGold`; bán/bỏ thẻ `RUN.skipPlayGold`; bỏ qua thưởng `RUN.skipRewardGold`; hiệu ứng trong trận (ví dụ cướp biển) cộng ở bước Sau trận.
 - **Chi ra:** đổi bài, mở ô, thẻ có chi phí vàng ghi rõ trong hiệu ứng (ví dụ `tide_privateers`), phí duy trì (`neutral_mercenary_camp`), cờ hiệu "Cướp Bóc" của Vua Thuỷ Triều (§6.7).
 - Chơi thẻ không tốn vàng.
 
 ### 3.4 Bộ bài, tay bài và đổi bài
 
 - **Bộ bài (deck)** là danh sách `CardId` có thể trùng (mỗi phần tử là một "bản"). Bộ khởi đầu của vua = mỗi thẻ thường (`common`) ×2 + mỗi thẻ vừa (`uncommon`) ×1 = 11 bản; thẻ hiếm (`rare`) chỉ có qua thưởng. Thẻ Ngai không nằm trong bộ bài.
-- **Rút bài:** đầu năm rút `RUN.handSize` bản **không hoàn lại** từ toàn bộ bộ bài (không có chồng bài bỏ; mỗi năm rút lại từ đầu). Bộ bài ít hơn số cần rút thì rút hết. Tay bài lưu trong save (đổi bài không gian lận được bằng cách tải lại).
-- **Đổi bài:** bỏ cả tay, rút lại `RUN.handSize` bản mới theo cùng luật, trả `rerollCost(n)` với `n` = số lần đã đổi trong năm + 1. Bộ đếm về 0 mỗi đầu năm.
-- **Bỏ lượt:** không chơi thẻ nào, nhận `RUN.skipPlayGold`.
-- Thẻ không được chơi không mất khỏi bộ bài.
+- **Rút bài:** `RunState` có chồng rút `drawPile` và chồng bỏ `discardPile`; `hand ∪ drawPile ∪ discardPile` luôn bằng `deck` (theo từng bản). Tay bài **giữ** giữa các năm: đầu năm chỉ rút thêm từ `drawPile` cho đủ `RUN.handSize`; `drawPile` hết thì xáo `discardPile` (bằng `Rng(stream 'draw')`) làm chồng rút mới. Thẻ đã chơi, thẻ bỏ và thẻ thưởng/chinh phục nhận được vào `discardPile`. Bộ bài ít hơn số cần rút thì rút hết, không lỗi. Tay bài và hai chồng lưu trong save (đổi bài không gian lận được bằng cách tải lại).
+- **Đổi bài:** bỏ cả tay vào `discardPile`, rút lại `RUN.handSize` bản mới theo cùng luật, trả `rerollCost(n)` với `n` = số lần đã đổi trong năm + 1. Bộ đếm về 0 mỗi đầu năm.
+- **Bán/bỏ thẻ (`discard`):** bỏ đúng một thẻ đã chọn vào `discardPile` thay cho việc chơi thẻ (tay còn lại giữ nguyên), nhận `RUN.skipPlayGold` (G2+; G1 chưa có vàng).
+- Thẻ không được chơi không mất khỏi bộ bài (ở lại tay hoặc vào `discardPile`).
 - Loại thẻ khỏi bộ bài chỉ bằng sắc lệnh "Thanh Lọc" (§7.1).
 
 ### 3.5 Lịch và kẻ địch
@@ -265,7 +265,7 @@ Ví dụ: năm 1 Thổ Phỉ `round(12 × 0.8) = 10` EP; năm 30 boss 3 `round(6
 
 **Không hợp lệ** (UI hiện ô đỏ + lý do trong tooltip, `IllegalReason`):
 - `locked` — ô chưa mở. `throne` — ô Ngai (chỉ Bùa và thẻ ghi rõ Ngai được nhắm Ngai). `occupied` — ô có công trình khác `CardId`. `maxLevel` — đã cấp 5. `noBuilding` — Bùa/sách phép cần công trình mà ô trống. `wrongKind` — loại công trình không thuộc `targets`. `stacksFull` — hết chỗ stack. `noTarget` — sách phép không còn mục tiêu nào trên bàn cờ. `notEnoughGold` — thiếu vàng. `lastLife` — thẻ cần mất mạng khi còn 1 mạng.
-- Thẻ trên tay không có mục tiêu hợp lệ nào hiện mờ; người chơi vẫn có thể đổi bài hoặc bỏ lượt.
+- Thẻ trên tay không có mục tiêu hợp lệ nào hiện mờ; người chơi vẫn có thể đổi bài hoặc bán/bỏ thẻ.
 - Không có "huỷ nước đi": UI luôn có bước xác nhận ✓/✕ trước khi chơi (§10.3).
 
 ### 4.5 Dời, hiến tế, nhân bản
@@ -462,7 +462,7 @@ export interface RunState {
   year: number; phase: RunPhase; gold: number; lives: number;
   plots: { unlocked: boolean; building: BuildingState | null }[]; // 25, Ngai ở 12 (building = Ngai)
   throneLevel: Level;
-  deck: CardId[]; hand: CardId[]; rerollsThisYear: number; purchasedPlots: number;
+  deck: CardId[]; hand: CardId[]; drawPile: CardId[]; discardPile: CardId[]; autoFire: boolean; rerollsThisYear: number; purchasedPlots: number;
   freeMovesLeft: number;
   enemyKings: KingId[];           // K1..K6
   enemies: Record<KingId, { attacks: number; status: 'pending' | 'conquered' | 'fled' }>;
@@ -482,7 +482,8 @@ export type RunPhase = 'yearStart' | 'planning' | 'battle' | 'reward' | 'conques
 export type RunCommand =
   | { type: 'reroll' }
   | { type: 'play'; handIndex: number; target: PlayTarget }
-  | { type: 'skip' }
+  | { type: 'discard'; handIndex: number }          // bán/bỏ đúng một thẻ thay cho việc chơi thẻ
+  | { type: 'setAutoFire'; on: boolean }           // bật/tắt Đá Tảng tự bắn (mọi pha trừ 'ended')
   | { type: 'unlockPlot'; plot: number }
   | { type: 'freeMove'; from: number; to: number }
   | { type: 'startBattle' }
@@ -547,8 +548,8 @@ Mọi bước "duyệt nguồn" dùng thứ tự: **Ngai → `plot` 0..24 (bỏ 
 3. Tăng trưởng: hook `onYearStart` loại tăng trưởng (Cây Mầm lên cấp, Bùa Rễ Sâu cộng %).
 4. Thu nhập: `RUN.taxPerYear`, rồi hook `onYearStart` loại vàng.
 5. Nhiệm vụ: nếu `year ∈ RUN.questYears` và số nhiệm vụ đang nhận < `RUN.maxActiveQuests` → `phase = 'quest'` (chấp nhận/từ chối).
-6. Rút bài → `phase = 'planning'`.
-7. (người chơi) đổi bài / mở ô / dời miễn phí / chơi thẻ (`onPlay`, `onSacrifice`, `onMove`) / bỏ lượt.
+6. Rút thêm cho đủ tay (§3.4) → `phase = 'planning'`.
+7. (người chơi) đổi bài / mở ô / dời miễn phí / chơi thẻ (`onPlay`, `onSacrifice`, `onMove`) / bán-bỏ thẻ (`discard`). G1: sau bước này trận tự bắt đầu (§3.2).
 8. `startBattle` → `buildBattleSetup` → `phase = 'battle'`.
 9. `battleResult`: cộng `goldDelta` → thắng: vàng trận / thua: −1 mạng → `enemies[K].attacks += 1` → chinh phục/rút lui → hook `onBattleEnd` → kiểm tra nhiệm vụ (theo thứ tự nhận) → Ngai +1 cấp nếu thắng boss 1/boss 2.
 10. Thưởng → Chinh phục → Hội đồng (bước nào không áp dụng thì bỏ qua).
@@ -586,7 +587,7 @@ Bể trung lập vào thưởng của mọi vua (§3.8). Hai thẻ cuối cần 
 | `neutral_sharpen` | Bùa Sắc Bén | bùa (lính, tháp, Ngai) | T | +15% DMG. | G2 |
 | `neutral_fortify` | Bùa Vững Chãi | bùa (lính, tháp, hỗ trợ, Ngai) | T | +20% HP lính và máu công trình. | G2 |
 | `neutral_promote` | Thăng Cấp | sách (`building`) | T | +1 cấp cho một công trình (không phải Ngai). | G2 |
-| `neutral_clear_land` | Khai Hoang | sách (`lockedPlot`) | T | Mở một ô khoá kề ô đã mở. | G1 |
+| `neutral_clear_land` | Khai Hoang | sách (`lockedPlot`) | T | Mở một ô khoá bất kỳ (mở bằng vàng, §3.11, vẫn phải kề ô đã mở). | G1 |
 | `neutral_move` | Dời Nhà | sách (`buildingThenPlot`) | T | Dời một công trình sang ô đã mở khác (đổi chỗ nếu có). | G1 |
 | `neutral_demolish` | Dỡ Bỏ | sách (`building`), tag `sacrifice` | T | Hiến tế một công trình, nhận 2 vàng × cấp. | G2 |
 | `neutral_duplicate` | Nhân Bản | sách (`buildingThenPlot`) | H | Đặt bản sao một công trình (cùng cấp, không Bùa) lên ô trống đã mở. Meta. | G4 |
@@ -944,6 +945,7 @@ export const INTERVENTION = {
 - Người chơi chọn một điểm trong cánh đồng; sau `delayTicks` tảng đá rơi: mọi **địch** (kể cả bay) trong `radius` nhận sát thương và đẩy lùi ra xa tâm. Không gây hại phe mình.
 - Dùng được khi `tick ≥ firstReadyTick` và hết hồi chiêu; hồi chiêu tính từ lúc thả. Các nguồn giảm hồi chiêu cộng lại, tổng tối đa 60%.
 - Lệnh can thiệp là `BattleInput { tick, x, y }`, ghi vào `BattleResult.inputs` để chạy lại.
+- **Tự bắn (tùy chọn):** `RunState.autoFire` (mặc định tắt) bật/tắt qua lệnh `setAutoFire` (ghi vào `inputs` dạng `{ tick, auto }`). Khi bật, ở bước can thiệp của mỗi tick, nếu `tick ≥ firstReadyTick` và hết hồi chiêu thì Ngai thả đá vào tâm một địch có nhiều địch nhất trong bán kính tảng đá (hòa → id nhỏ nhất); không còn địch sống thì không thả và không tốn hồi. Thả tay và tự thả dùng chung hồi chiêu, lệnh tay cùng tick được xử lý trước. Lần thả tự động không ghi vào `inputs` (suy ra lại từ trạng thái). Bán kính tảng đá là giá trị của thế giới trận (`world.boulderRadius`, khởi tạo từ `INTERVENTION.radius`) để sắc lệnh đổi được.
 
 ## 8. Mô phỏng trận (`src/game/battle/*`)
 
@@ -1095,9 +1097,9 @@ Cuối ván (thắng hay thua):
 ### 9.3 Lưu (IndexedDB)
 
 - Database `crowned-kingdoms`, version 1, object store `run` (khoá `'current'`) và `meta` (khoá `'profile'`).
-- **Ván:** lưu toàn bộ `RunState` (JSON) sau **mọi lệnh thành công ngoài trận** và khi vào/ra pha `battle`. Không lưu giữa trận: tải lại khi đang `battle` → dựng lại `BattleSetup` từ `RunState` và đánh lại từ tick 0 (cùng đạo quân, cùng tay bài). Ván kết thúc → xoá `run`.
+- **Ván:** lưu toàn bộ `RunState` (JSON) sau **mọi lệnh thành công ngoài trận** và khi vào/ra pha `battle`. Không lưu giữa trận: tải lại khi đang `battle` → dựng lại `BattleSetup` từ `RunState` và đánh lại từ tick 0 (cùng đạo quân, cùng tay bài và hai chồng bài). Ván kết thúc → xoá `run`.
 - **Meta:** `{ version, crownPoints, mastery: Record<KingId, number>, unlockedKings, unlockedCards, wins: Record<KingId, number>, highestDifficultyWon, settings: { master, music, sfx } }`, lưu khi kết thúc ván, khi mở khoá, khi đổi cài đặt.
-- **Phiên bản:** `RUN_SAVE_VERSION = 1`, `META_SAVE_VERSION = 1`. Mỗi bản lưu có `version` và `contentHash` (`hashSeed` của danh sách mọi `CardId` + `UnitId` đã sắp). Tải: `version` thấp hơn → chạy chuỗi migrator; không có migrator, version cao hơn, hoặc `contentHash` khác mà có `CardId` không còn tồn tại → bỏ ván, toast "Ván đang chơi không còn tương thích với bản cập nhật này." Meta **luôn** phải có migrator (không bao giờ xoá meta).
+- **Phiên bản:** `RUN_SAVE_VERSION` (tăng khi `RunState` đổi: bản G1-polish thêm `drawPile`, `discardPile`, `autoFire`), `META_SAVE_VERSION = 1`. Mỗi bản lưu có `version` và `contentHash` (`hashSeed` của danh sách mọi `CardId` + `UnitId` đã sắp). Tải: `version` thấp hơn → chạy chuỗi migrator; không có migrator, version cao hơn, hoặc `contentHash` khác mà có `CardId` không còn tồn tại → bỏ ván, toast "Ván đang chơi không còn tương thích với bản cập nhật này." Meta **luôn** phải có migrator (không bao giờ xoá meta).
 - `SaveStore` là interface thuần trong `src/game/save/types.ts` (`loadRun/saveRun/clearRun/loadMeta/saveMeta`); bản IndexedDB ở `src/platform/storage/idbSaveStore.ts`; test dùng `MemorySaveStore`. IndexedDB không dùng được (chế độ riêng tư) → dùng bộ nhớ + toast "Trình duyệt này không lưu được tiến trình."
 
 ## 10. Màn hình & UI (kiểu Stardew)
@@ -1120,7 +1122,7 @@ Theo UI plan Task 9 (trời dither, đồi parallax, đom đóm), đổi: logo "
 
 ### 10.4 Vương quốc / Lập kế hoạch (`RealmScene` + `PlanningHudScene`)
 
-`RealmScene` vẽ cánh đồng + bàn cờ (camera zoom 2 ở cả hai bố cục: ô 64 px màn hình, bàn cờ 320×320). Các phần HUD:
+`RealmScene` vẽ cánh đồng + bàn cờ. Camera **dùng chung** với pha trận: desktop cùng zoom (`z = max(1, floor(min(width, height + 96) / BATTLE.field))`) và Ngai ở giữa màn hình ở cả hai pha; mobile giữ zoom 2 khi chọn bài (ô 64 px, bàn cờ 320×320) rồi trượt về zoom 1 trong ~400 ms khi vào trận. Nền cỏ phủ kín mọi vùng camera nhìn thấy, sân 384×384 vẽ đè ở giữa. Các phần HUD:
 
 | Phần | Desktop 1280×720 | Mobile 375×812 |
 |---|---|---|
@@ -1138,8 +1140,8 @@ Theo UI plan Task 9 (trời dither, đồi parallax, đom đóm), đổi: logo "
 - **Trinh sát:** từng đợt: tick xuất hiện, mép (mũi tên), icon lính × số, cấp; tên và cờ hiệu của kẻ tấn công. `RealmScene` vẽ mũi tên `gold` ở các mép sẽ xuất hiện.
 - **Chơi thẻ:** bấm thẻ (nâng 12 px, frame `cardSelected`) → ô hợp lệ viền `good`, ô không hợp lệ viền `bad` (hover/bấm giữ hiện lý do §4.4) → bấm ô → tooltip xem trước ("Dân Quân → Cấp 2: 6 lính") + nút ✓ Đặt / ✕ Huỷ 48×48 cạnh ô (mobile: phía trên bàn cờ) → ✓ gửi lệnh `play`. Sách phép `none`: thẻ đang chọn có nút "Dùng". Sách hai mục tiêu: chọn lần lượt, có dòng hướng dẫn trong hộp `tooltip`. Desktop có thể kéo thẻ thả vào ô (vẫn cần ✓).
 - Ô khoá kề ô mở hiện giá `unlockCost(k)`; bấm → xác nhận mở (G2+).
-- Sau khi chơi thẻ/bỏ lượt: tay bài thu lại, nút **Ra trận** 200×56 hiện ở chỗ tay bài (cả hai bố cục).
-- **Phím desktop:** 1/2/3 chọn thẻ, R đổi bài, S bỏ lượt, D bộ bài, L lịch, Enter ✓/Ra trận, Esc huỷ.
+- Sau khi chơi thẻ/bán thẻ: **G2+** (`autoStart = false`) nút **Ra trận** 200×56 hiện ở chỗ tay bài (cả hai bố cục) và các thẻ còn lại giữ trên tay; **G1** (`autoStart = true`) trận tự bắt đầu, không có nút Ra trận. Tay bài căn giữa theo số thẻ đang có (1–3).
+- **Phím desktop:** 1/2/3 chọn thẻ, R đổi bài, S bán/bỏ thẻ đang chọn, D bộ bài, L lịch, Enter ✓/Ra trận (khi nút hiện), Esc huỷ.
 - **Thẻ (`CardView`, `src/ui/cards/CardView.ts`):** frame theo độ hiếm (§11.3), băng tên trên, cửa sổ tranh 32×24 px nguồn (× 3 desktop, × 2 mobile), icon loại 16×16 góc trái trên, chấm cấp/biển "Lên cấp N" nếu chơi sẽ nâng cấp, dòng đầu tiên của `describeCard` (tối đa 2 dòng, cắt "…"); tooltip/bấm giữ hiện đầy đủ.
 
 ### 10.5 Bảng phụ
@@ -1157,8 +1159,8 @@ Theo UI plan Task 9 (trời dither, đồi parallax, đom đóm), đổi: logo "
 
 ### 10.7 Trận (`RealmScene` + `BattleHudScene`)
 
-- Camera: zoom `z = max(1, floor(min(width, height + 96) / BATTLE.field))` (desktop 2, mobile 1), tâm ở Ngai; cánh đồng được phép bị cắt tối đa 48 px trên/dưới.
-- **HUD:** giữa trên `panel` 260×52: đồng hồ trận "0:42" + thanh HP Ngai (`bar`). Trái trên: mạng + vàng (như §10.4). Phải trên: "Địch còn: 37" + 3 chấm đợt. Trái dưới: 4 nút tốc độ ❚❚/1×/2×/3× 48×48 cách 2. Phải dưới: nút **Can Thiệp** tròn 72×72 (icon tảng đá, phủ tối từ dưới lên theo hồi chiêu, số giây còn lại). Desktop: Space/B = Can Thiệp, P = tạm dừng, 1–3 = tốc độ.
+- Camera: zoom `z = max(1, floor(min(width, height + 96) / BATTLE.field))` (desktop 2, mobile 1), tâm ở Ngai; cánh đồng được phép bị cắt tối đa 48 px trên/dưới. Nền cỏ phủ kín vùng ngoài sân (không còn dải tối). Camera chung với pha lập kế hoạch (§10.4).
+- **HUD:** giữa trên `panel` 260×52: đồng hồ trận "0:42" + thanh HP Ngai (`bar`). Trái trên: mạng + vàng (như §10.4). Phải trên: "Địch còn: 37" + 3 chấm đợt. Trái dưới: 4 nút tốc độ ❚❚/1×/2×/3× 48×48 cách 2. Phải dưới: nút **Can Thiệp** tròn 72×72 (icon tảng đá, phủ tối từ dưới lên theo hồi chiêu, số giây còn lại). Cạnh Can Thiệp: nút **Tự bắn: Bật/Tắt** (§7.4) và nút **Địch** mở lại bảng Trinh sát đầy đủ của đạo quân năm nay. Bấm nhà hoặc lính (khi không đang ngắm) hiện bảng thông tin (tên, cấp, HP, sát thương, tầm, giáp). Desktop: Space/B = Can Thiệp, P = tạm dừng, 1–3 = tốc độ.
 - **Ngắm:** bấm Can Thiệp → chế độ ngắm (vòng `gold` bán kính 24 theo con trỏ) → bấm cánh đồng = thả; bấm lại nút = huỷ; kéo từ nút thả ra cánh đồng = thả. Ngắm được khi tạm dừng (lệnh ghi ở tick hiện tại).
 - Cuồng Nộ: toast "Quân địch nổi cơn cuồng nộ!".
 - **Kết thúc:** băng "Chiến thắng!" / "Ngai thất thủ!" 1.2 s → bảng tổng kết (vàng, số địch hạ, mạng còn) + **Tiếp tục**.
@@ -1393,7 +1395,7 @@ Mỗi G có plan riêng (`docs/superpowers/plans/`), kết thúc bằng bản ch
 
 - **Luật ván G1:** `RULES_G1 = { years: 10, calendar: 'raiders' }` — cả 10 năm là Thổ Phỉ (`SLOT_MULT.raiders`), không hội đồng, không boss, không nhiệm vụ; thắng khi qua năm 10 còn mạng. Không có vàng, cấp, Bùa, lân cận (đến G2): chơi thẻ công trình lên ô có công trình bất kỳ là `occupied`.
 - **Nội dung:** Vua Lúa Mì (Ngai chỉ có đòn bắn; bị động Mùa Gặt từ G2) với `wheat_militia`, `wheat_reapers`, `wheat_scarecrow`; trung lập `neutral_barracks`, `neutral_archer_tower`, `neutral_clear_land`, `neutral_move`; Thổ Phỉ §6.2. Bộ bài khởi đầu G1 cố định: Dân Quân ×2, Bù Nhìn Gác ×2, Đội Thợ Gặt ×1, Trại Lính ×2, Tháp Cung ×2, Khai Hoang ×1, Dời Nhà ×1 (11 bản). Thưởng: 3 lựa chọn từ 7 thẻ này theo luật §3.8.
-- **Hệ thống:** `RunState` + `applyCommand` (play, skip, startBattle, battleResult, pickOffer, advance), vòng năm §5.5 (bỏ bước không áp dụng), `composeArmy`, trận đầy đủ §8 (trừ boss), can thiệp §7.4, mạng §3.10, `RealmScene` + `PlanningHudScene` + `BattleHudScene` + `RunEndScene` tối giản; "Ván mới" vào thẳng Vua Lúa Mì với seed ngẫu nhiên. Art placeholder cho mọi thứ trên. Headless + bot `random`.
+- **Hệ thống:** `RunState` + `applyCommand` (play, discard, startBattle, battleResult, pickOffer, advance, setAutoFire; tay giữ bài với chồng rút/bỏ; trận tự bắt đầu theo `RULES_G1.autoStart`), vòng năm §5.5 (bỏ bước không áp dụng), `composeArmy`, trận đầy đủ §8 (trừ boss), can thiệp §7.4, mạng §3.10, `RealmScene` + `PlanningHudScene` + `BattleHudScene` + `RunEndScene` tối giản; "Ván mới" vào thẳng Vua Lúa Mì với seed ngẫu nhiên. Art placeholder cho mọi thứ trên. Headless + bot `random`.
 
 **Done khi:** chơi được trọn ván 10 năm trên cả hai bố cục (thắng một ván, thua một ván); test deterministic §13.2 và benchmark pass; headless bot hoàn thành 3 seed; xem trước đạo quân khớp đúng đạo quân xuất hiện.
 

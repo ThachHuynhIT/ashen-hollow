@@ -4,7 +4,15 @@ import { BATTLE } from '../../data/battle';
 import { attackStats, battleSetup, structure, unitStats } from '../testing/fixtures';
 import { hashWorld } from './hash';
 import { battleResult, simulateBattle, stepBattle } from './step';
-import type { BattleInput, BattleSetup, Edge, StructureSetup, UnitStats } from './types';
+import type {
+  AutoFireInput,
+  BattleCommand,
+  BattleInput,
+  BattleSetup,
+  Edge,
+  StructureSetup,
+  UnitStats,
+} from './types';
 import { createBattle, drainEvents, type BattleWorld } from './world';
 
 const militia = unitStats({ unit: 'militia', hp: 32, dmg: 5, speed: 1 });
@@ -51,7 +59,7 @@ const SETUP: BattleSetup = battleSetup({
 
 const INPUTS: readonly BattleInput[] = [{ tick: 30, x: 192, y: 100 }];
 
-const step = (w: BattleWorld, inputs: readonly BattleInput[]): void => {
+const step = (w: BattleWorld, inputs: readonly BattleCommand[]): void => {
   const tick = w.tick;
   stepBattle(
     w,
@@ -61,12 +69,33 @@ const step = (w: BattleWorld, inputs: readonly BattleInput[]): void => {
 };
 
 /** Chạy tới khi có kết quả; trả băm cuối. */
-const finalHash = (setup: BattleSetup, inputs: readonly BattleInput[]): number => {
+const finalHash = (setup: BattleSetup, inputs: readonly BattleCommand[]): number => {
   const w = createBattle(setup);
   for (let i = 0; i <= BATTLE.hardLimitTick && battleResult(w) === null; i++) step(w, inputs);
   expect(battleResult(w)).not.toBeNull();
   return hashWorld(w);
 };
+
+describe('auto-fire determinism', () => {
+  const toggles: readonly (BattleInput | AutoFireInput)[] = [
+    { tick: 10, auto: true },
+    { tick: 200, auto: false },
+    { tick: 260, auto: true },
+  ];
+
+  it('replaying result.inputs reproduces the same hash and the automatic drops', () => {
+    const first = simulateBattle(SETUP, toggles);
+    expect(first.interventionsUsed).toBeGreaterThan(1);
+    expect(first.inputs).toEqual(toggles); // toggles only; automatic drops are not recorded
+    const replay = simulateBattle(SETUP, first.inputs);
+    expect(replay).toEqual(first);
+    expect(finalHash(SETUP, first.inputs)).toBe(finalHash(SETUP, toggles));
+  });
+
+  it('turning auto-fire on changes the outcome hash', () => {
+    expect(finalHash(SETUP, toggles)).not.toBe(finalHash(SETUP, INPUTS));
+  });
+});
 
 describe('battle determinism', () => {
   it('two worlds with the same setup and inputs hash equal at every tick', () => {

@@ -68,8 +68,25 @@ export const battleSetup = (over: Partial<BattleSetup> = {}): BattleSetup => ({
   ...over,
 });
 
-/** Ván mới năm 1 (vua lúa mì, seed 1) với các trường ghi đè. */
-export const runState = (over: Partial<RunState> = {}): RunState => ({
-  ...newRun(1, 'wheat', CONTENT),
-  ...over,
-});
+/** Bỏ từng lá của `hand` khỏi một bản sao của `deck` (theo bản), phần còn lại giữ thứ tự. */
+const withoutHand = (deck: readonly RunState['deck'][number][], hand: readonly string[]) => {
+  const rest = [...deck];
+  for (const id of hand) {
+    const i = rest.indexOf(id as RunState['deck'][number]);
+    if (i >= 0) rest.splice(i, 1);
+  }
+  return rest;
+};
+
+/**
+ * Ván mới năm 1 (vua lúa mì, seed 1) với các trường ghi đè. Ghi đè `hand` mà không ghi đè hai
+ * chồng bài thì phần còn lại của `deck` thành `drawPile`, để bất biến
+ * `hand ∪ drawPile ∪ discardPile = deck` vẫn đúng.
+ */
+export const runState = (over: Partial<RunState> = {}): RunState => {
+  const base = { ...newRun(1, 'wheat', CONTENT), ...over };
+  if (over.hand !== undefined && over.drawPile === undefined && over.discardPile === undefined) {
+    return { ...base, drawPile: withoutHand(base.deck, over.hand), discardPile: [] };
+  }
+  return base;
+};

@@ -13,10 +13,13 @@ import { LONG_PRESS_MS, textContent, type TooltipContent } from '../ui/hud/layou
 import { CLOSE_BUTTON, centredPanel } from '../ui/modals/modalLayout';
 import { createOverlay, fitOverlay } from '../ui/modals/overlay';
 import { RewardModal } from '../ui/modals/RewardModal';
+import { InfoPanel } from '../ui/info/InfoPanel';
+import { buildingInfoLines } from '../ui/info/infoLines';
 import { HandView } from '../ui/planning/HandView';
 import { ScoutPanel } from '../ui/planning/ScoutPanel';
 import { plotIllegalReason } from '../ui/planning/targetHints';
 import {
+  centerHand,
   confirmFor,
   planningLayout,
   plotAtScreen,
@@ -43,8 +46,8 @@ export const ILLEGAL_TEXT: Record<IllegalReason, string> = {
   noTarget: 'Không còn mục tiêu hợp lệ.',
   notAdjacent: 'Ô phải kề một ô đã mở.',
   wrongPhase: 'Lúc này chưa dùng được.',
-  alreadyPlayed: 'Năm nay bạn đã chơi thẻ.',
-  notPlayed: 'Hãy chơi thẻ hoặc bỏ lượt trước.',
+  alreadyPlayed: 'Năm nay bạn đã chơi hoặc bỏ thẻ.',
+  notPlayed: 'Hãy chơi hoặc bỏ một thẻ trước.',
   badTarget: 'Mục tiêu không hợp lệ.',
 };
 
@@ -71,7 +74,7 @@ interface ScoutModal {
 }
 
 /**
- * Planning HUD over RealmScene (§10.4): lives, year, scout report, the hand, Bỏ lượt /
+ * Planning HUD over RealmScene (§10.4): lives, year, scout report, the hand, Bỏ bài /
  * Ra trận, ✓/✕ for the aimed card, the play hint and the reward modal (§10.6). It only
  * reads `controller.state` and sends intents on the bus; board clicks are RealmScene's.
  */
@@ -90,6 +93,11 @@ export class PlanningHudScene extends Phaser.Scene {
   private hand!: HandView;
   private skip!: Button;
   private skipSize = { w: 0, h: 0 };
+  /** Cards currently in hand (1–3 after a play): the row is centred on this many. */
+  private handCount = 0;
+  /** Info box of a tapped building (§10.7), and the plot it describes. */
+  private info!: InfoPanel;
+  private inspected: number | null = null;
   private fight!: Button;
   private confirmBtn!: Button;
   private cancelBtn!: Button;
@@ -112,6 +120,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.offs = [];
     this.reward = null;
     this.scoutModal = null;
+    this.inspected = null;
     this.pending = NO_PENDING;
     this.illegal = null;
     this.illegalTimer = null;
@@ -119,6 +128,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.lay = this.currentLayout();
 
     this.tooltip = new Tooltip(this);
+    this.info = new InfoPanel(this, MODAL_DEPTH - 50);
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
       content: () => textContent(lines),
@@ -176,6 +186,10 @@ export class PlanningHudScene extends Phaser.Scene {
         if (modal === 'scout') this.openScout();
       }),
       bus.on('ui:close-modal', () => this.closeScout()),
+      bus.on('ui:inspect', ({ plot, x, y }) => this.inspect(plot, { x, y })),
+      bus.on('ui:select-card', ({ handIndex }) => {
+        if (handIndex !== null) this.inspect(null, { x: 0, y: 0 });
+      }),
     );
 
     this.input.keyboard?.on(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.onKey, this);
@@ -195,6 +209,11 @@ export class PlanningHudScene extends Phaser.Scene {
     this.livesText.setText(`× ${state.lives}`);
     this.yearText.setText(`Năm ${state.year} / ${RULES_G1.years}`);
     this.scout.setPlan(state.army);
+    if (this.inspected !== null) {
+      const building = state.plots[this.inspected]?.building ?? null;
+      if (building === null || state.phase !== 'planning') this.inspect(null, { x: 0, y: 0 });
+      else this.info.setLines(buildingInfoLines(building, CONTENT));
+    }
 
     const planning = state.phase === 'planning';
     const choosing = planning && !state.played;
@@ -203,7 +222,9 @@ export class PlanningHudScene extends Phaser.Scene {
       state.hand.map((id) => !hasAnyTarget(state.plots, CONTENT.card(id))),
     );
     this.skip.setVisible(choosing);
-    this.fight.setVisible(planning && state.played);
+    this.fight.setVisible(planning && state.played && !RULES_G1.autoStart);
+    this.handCount = state.hand.length;
+    this.hand.layout(centerHand(this.lay.hand, this.handCount));
 
     if (state.phase === 'reward' && state.offers) {
       if (!this.reward) {
@@ -222,6 +243,7 @@ export class PlanningHudScene extends Phaser.Scene {
   private refreshPending(): void {
     const p = this.pending;
     this.hand.setSelected(p.handIndex);
+    this.skip.setEnabled(p.handIndex !== null);
     const last = p.targets.at(-1);
     const show = p.ready && last !== undefined;
     if (show) {
@@ -283,8 +305,15 @@ export class PlanningHudScene extends Phaser.Scene {
     this.bus.emit('ui:select-card', { handIndex: next });
   }
 
-  private command(type: 'skip' | 'startBattle'): void {
+  private command(type: 'startBattle'): void {
     this.bus.emit('ui:command', { command: { type } });
+  }
+
+  /** Bỏ lá đang chọn thay cho việc chơi thẻ (nút Bỏ bài / phím S); không chọn gì thì không làm gì. */
+  private sell(): void {
+    const handIndex = this.pending.handIndex;
+    if (handIndex === null || this.controller.state.hand[handIndex] === undefined) return;
+    this.bus.emit('ui:command', { command: { type: 'discard', handIndex } });
   }
 
   private onKey(event: KeyboardEvent): void {
@@ -307,11 +336,11 @@ export class PlanningHudScene extends Phaser.Scene {
         break;
       case 's':
       case 'S':
-        if (!state.played) this.command('skip');
+        if (!state.played) this.sell();
         break;
       case 'Enter':
         if (this.pending.ready) this.bus.emit('ui:confirm-play', {});
-        else if (state.played) this.command('startBattle');
+        else if (state.played && !RULES_G1.autoStart) this.command('startBattle');
         break;
       case 'Escape':
         if (this.pending.handIndex !== null) this.bus.emit('ui:cancel-play', {});
@@ -367,6 +396,25 @@ export class PlanningHudScene extends Phaser.Scene {
     this.plotTimer = null;
   }
 
+  // ---- building info (§10.7) ---------------------------------------------------------------
+
+  private inspect(plot: number | null, anchor: { x: number; y: number }): void {
+    const building =
+      plot === null || this.reward || this.scoutModal
+        ? null
+        : this.controller.state.plots[plot]?.building ?? null;
+    if (plot === null || building === null) {
+      this.inspected = null;
+      this.info.hide();
+      return;
+    }
+    this.inspected = plot;
+    this.info.show(buildingInfoLines(building, CONTENT), anchor, {
+      w: this.scale.width,
+      h: this.scale.height,
+    });
+  }
+
   // ---- scout modal (mobile) ---------------------------------------------------------------
 
   private openScout(): void {
@@ -416,14 +464,14 @@ export class PlanningHudScene extends Phaser.Scene {
   private createSkip(): Button {
     const { w, h } = this.lay.skip;
     this.skipSize = { w, h };
-    return createButton(this, 0, 0, 'Bỏ lượt', {
+    return createButton(this, 0, 0, 'Bỏ bài', {
       width: w,
       height: h,
       fontSize: 16,
-      onClick: () => this.command('skip'),
+      onClick: () => this.sell(),
       tooltip: {
         host: this.tooltip,
-        content: () => textContent(['Bỏ lượt (S)', 'Không chơi thẻ năm nay.']),
+        content: () => textContent(['Bỏ bài (S)', 'Bỏ lá đang chọn thay cho việc chơi thẻ.']),
       },
     });
   }
@@ -446,7 +494,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.yearText.setFontSize(l.desktop ? 18 : 16);
 
     this.scout.layout(l.scout, l.desktop ? 'full' : 'summary');
-    this.hand.layout(l.hand);
+    this.hand.layout(centerHand(l.hand, this.handCount));
     if (this.skipSize.w !== l.skip.w || this.skipSize.h !== l.skip.h) {
       // 140×52 on desktop, 84×48 on mobile: buttons have a fixed size, so rebuild it.
       const visible = this.skip.container.visible;
@@ -455,12 +503,14 @@ export class PlanningHudScene extends Phaser.Scene {
       this.skip.setVisible(visible);
     }
     this.skip.container.setPosition(l.skip.x + l.skip.w / 2, l.skip.y + l.skip.h / 2);
+    this.skip.setEnabled(this.pending.handIndex !== null);
     this.fight.container.setPosition(l.fight.x + l.fight.w / 2, l.fight.y + l.fight.h / 2);
     this.hint.setMaxWidth(l.hint.w);
     this.hint.refresh();
     this.tooltip.refresh();
     this.reward?.layout();
     this.layoutScout();
+    this.info.layout({ w: this.scale.width, h: this.scale.height });
     this.refreshPending();
   }
 
@@ -475,6 +525,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.illegalTimer?.remove(false);
     this.stopPlotTimer();
     this.closeScout();
+    this.info.destroy();
     this.reward?.destroy();
     this.reward = null;
     this.hand.destroy();

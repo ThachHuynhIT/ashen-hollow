@@ -6,7 +6,8 @@ import type { KingId } from '../../data/types';
 import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
-import { drawHand } from './deck';
+import { refillHand } from './deck';
+import { hasPlayableCard } from './playable';
 import { RUN_SAVE_VERSION } from './state';
 import type { RunState } from './state';
 
@@ -20,13 +21,22 @@ export function startYear(state: RunState, content: Content): RunState {
   }));
   const army = composeArmy(roster, armyBudget(year, SLOT_MULT.raiders), year, state.seed);
   const rng = new Rng(state.rng.draw);
-  const hand = drawHand(state.deck, rng, RUN.handSize);
+  // A hand with no playable card would repeat every year (nothing drawn, battle auto-starts):
+  // send it to the discard pile so other cards can reach the hand.
+  const recycle = state.hand.length > 0 && !hasPlayableCard(state, content);
+  const piles = refillHand(
+    recycle ? [] : state.hand,
+    state.drawPile,
+    recycle ? [...state.discardPile, ...state.hand] : state.discardPile,
+    rng,
+    RUN.handSize,
+  );
   return {
     ...state,
     year,
     phase: 'planning',
     army,
-    hand,
+    ...piles,
     played: false,
     offers: null,
     rng: { ...state.rng, draw: rng.getState() },
@@ -52,6 +62,9 @@ export function newRun(seed: number, kingId: KingId, content: Content): RunState
     throneLevel: 1,
     deck: [...START_DECK_G1],
     hand: [],
+    drawPile: [],
+    discardPile: [...START_DECK_G1],
+    autoFire: false,
     played: false,
     army: null,
     offers: null,

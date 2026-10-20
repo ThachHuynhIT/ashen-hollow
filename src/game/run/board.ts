@@ -33,7 +33,8 @@ export function initialPlots(): PlotState[] {
   return plots;
 }
 
-const adjacentToUnlocked = (plots: readonly PlotState[], plot: number): boolean =>
+/** Ô khoá kề (Bắc/Đông/Nam/Tây) một ô đã mở — luật mua ô bằng vàng (spec §3.11), không áp cho Khai Hoang. */
+export const adjacentToUnlocked = (plots: readonly PlotState[], plot: number): boolean =>
   neighbours(plot).some((n) => plots[n]!.unlocked);
 
 export function hasAnyTarget(plots: readonly PlotState[], card: CardDef): boolean {
@@ -43,7 +44,7 @@ export function hasAnyTarget(plots: readonly PlotState[], card: CardDef): boolea
       return plots.some((p, i) => p.unlocked && p.building === null && i !== THRONE_PLOT);
     case 'tome':
       if (card.target === 'lockedPlot') {
-        return plots.some((p, i) => !p.unlocked && adjacentToUnlocked(plots, i));
+        return plots.some((p) => !p.unlocked);
       }
       return (
         plots.some((p, i) => p.building !== null && i !== THRONE_PLOT) &&
@@ -74,8 +75,7 @@ export function checkPlay(
     const plot = target.plot;
     const p = plots[plot]!;
     if (card.kind === 'tome') {
-      if (p.unlocked) return 'badTarget';
-      return adjacentToUnlocked(plots, plot) ? null : 'notAdjacent';
+      return p.unlocked ? 'badTarget' : null;
     }
     if (!p.unlocked) return 'locked';
     if (plot === THRONE_PLOT) return 'throne';

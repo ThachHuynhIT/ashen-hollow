@@ -30,6 +30,15 @@ export interface BattleInput {
   y: number;
 }
 
+/** Bật/tắt Đá Tảng tự bắn (§7.4). Các lần thả tự động không ghi lại: suy ra lại từ trạng thái. */
+export interface AutoFireInput {
+  tick: number;
+  auto: boolean;
+}
+
+/** Mọi lệnh người chơi lên một trận, theo thứ tự phát lại. */
+export type BattleCommand = BattleInput | AutoFireInput;
+
 export interface BattleResult {
   won: boolean;
   ticks: number;
@@ -39,7 +48,7 @@ export interface BattleResult {
   interventionsUsed: number;
   unitsLost: number;
   capped: number;
-  inputs: BattleInput[];
+  inputs: BattleCommand[];
 }
 
 /** Chỉ số đòn đánh đã giải (cấp, bùa…) dùng trong trận. */
@@ -98,6 +107,8 @@ export interface BattleSetup {
   throne: StructureSetup;
   structures: readonly StructureSetup[];
   waves: readonly WaveSetup[];
+  /** Đá Tảng tự bắn ngay từ đầu trận (mặc định tắt). */
+  autoFire?: boolean;
 }
 
 /** Sự kiện cho render, rút ra bằng drainEvents. */

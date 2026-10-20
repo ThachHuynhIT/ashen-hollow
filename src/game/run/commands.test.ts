@@ -10,8 +10,10 @@ import { runState } from '../testing/fixtures';
 import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
 import type { IllegalReason, PlayTarget, RunCommand, RunState } from './state';
-import { drawHand } from './deck';
+import { refillHand } from './deck';
 import { newRun } from './yearFlow';
+
+const sorted = (arr: readonly CardId[]): CardId[] => [...arr].sort();
 
 const roster = CONTENT.raiderRoster().map((r) => ({
   unit: r.unit.id,
@@ -64,6 +66,9 @@ describe('newRun', () => {
     expect(s.deck).toEqual([...START_DECK_G1]);
     expect(s.hand).toHaveLength(3);
     for (const c of s.hand) expect(s.deck).toContain(c);
+    expect(sorted([...s.hand, ...s.drawPile, ...s.discardPile])).toEqual(sorted(s.deck));
+    expect(s.discardPile).toEqual([]);
+    expect(s.drawPile).toHaveLength(s.deck.length - 3);
     expect(s.played).toBe(false);
     expect(s.nextUid).toBe(1);
     expect(s.won).toBeNull();
@@ -88,10 +93,10 @@ describe('newRun', () => {
   });
 });
 
-describe('play / skip', () => {
+describe('play / discard', () => {
   const hand: CardId[] = ['wheat_militia', 'neutral_barracks', 'neutral_move'];
 
-  it('places a troop and consumes the hand', () => {
+  it('places a troop, keeps the other cards in hand and discards the played one', () => {
     const s = runState({ hand });
     const before = structuredClone(s);
     const r = ok(applyCommand(s, play(0, plot(6)), CONTENT));
@@ -103,10 +108,18 @@ describe('play / skip', () => {
       placedYear: s.year,
     });
     expect(r.state.nextUid).toBe(2);
-    expect(r.state.hand).toEqual([]);
+    expect(r.state.hand).toEqual(['neutral_barracks', 'neutral_move']);
+    expect(r.state.discardPile).toEqual([...s.discardPile, 'wheat_militia']);
     expect(r.state.played).toBe(true);
     expect(r.state.deck).toEqual(s.deck);
     expect(r.events).toContainEqual({ type: 'cardPlayed', cardId: 'wheat_militia' });
+  });
+
+  it('clear land unlocks a locked plot that is not next to an open one', () => {
+    const s = runState({ hand: ['neutral_clear_land'] });
+    expect(s.plots[0]!.unlocked).toBe(false);
+    const r = ok(applyCommand(s, play(0, plot(0)), CONTENT));
+    expect(r.state.plots[0]!.unlocked).toBe(true);
   });
 
   it('clear land unlocks a plot', () => {
@@ -132,10 +145,26 @@ describe('play / skip', () => {
     expect(swapped.state.plots[7]!.building).toEqual(b6);
   });
 
-  it('skip consumes the hand', () => {
-    const r = ok(applyCommand(runState({ hand }), { type: 'skip' }, CONTENT));
+  it('discard sells exactly the chosen card, keeps the others and counts as the action', () => {
+    const s = runState({ hand });
+    const before = structuredClone(s);
+    const r = ok(applyCommand(s, { type: 'discard', handIndex: 1 }, CONTENT));
+    expect(s).toEqual(before);
     expect(r.state.played).toBe(true);
-    expect(r.state.hand).toEqual([]);
+    expect(r.state.hand).toEqual(['wheat_militia', 'neutral_move']);
+    expect(r.state.discardPile).toEqual([...s.discardPile, 'neutral_barracks']);
+    expect(r.state.plots).toEqual(s.plots);
+  });
+
+  it('discard rejects a bad index, a second action and a wrong phase', () => {
+    expect(errorOf(runState({ hand }), { type: 'discard', handIndex: 3 })).toBe('badTarget');
+    expect(errorOf(runState({ hand }), { type: 'discard', handIndex: -1 })).toBe('badTarget');
+    expect(errorOf(runState({ hand, played: true }), { type: 'discard', handIndex: 0 })).toBe(
+      'alreadyPlayed',
+    );
+    expect(errorOf(runState({ hand, phase: 'reward' }), { type: 'discard', handIndex: 0 })).toBe(
+      'wrongPhase',
+    );
   });
 });
 
@@ -151,8 +180,6 @@ describe('errors', () => {
     expect(errorOf(runState({ hand }), { type: 'battleResult', result: result(true) })).toBe(
       'wrongPhase',
     );
-    expect(errorOf(runState({ hand, played: true }), { type: 'skip' })).toBe('alreadyPlayed');
-    expect(errorOf(runState({ hand, phase: 'reward' }), { type: 'skip' })).toBe('wrongPhase');
     expect(errorOf(runState({ hand, phase: 'yearEnd' }), { type: 'startBattle' })).toBe(
       'wrongPhase',
     );
@@ -183,7 +210,86 @@ describe('errors', () => {
     expect(errorOf(occ, play(0, plot(6)))).toBe('occupied');
     expect(errorOf(occ, play(2, two(7, 6)))).toBe('noBuilding');
     const clear = runState({ hand: ['neutral_clear_land'] });
-    expect(errorOf(clear, play(0, plot(0)))).toBe('notAdjacent');
+    expect(errorOf(clear, play(0, plot(6)))).toBe('badTarget');
+  });
+});
+
+describe('startBattle legality and auto-fire setting', () => {
+  const allOpen = (): RunState => {
+    const s = runState({ hand: ['neutral_clear_land'] });
+    return { ...s, plots: s.plots.map((p) => ({ ...p, unlocked: true })) };
+  };
+
+  it('is allowed without an action when no card in hand has a target', () => {
+    const r = ok(applyCommand(allOpen(), { type: 'startBattle' }, CONTENT));
+    expect(r.state.phase).toBe('battle');
+  });
+
+  it('still needs an action while some card in hand is playable', () => {
+    expect(errorOf(runState({ hand: ['wheat_militia'] }), { type: 'startBattle' })).toBe('notPlayed');
+  });
+
+  it('setAutoFire flips the flag in any phase except ended and survives the next year', () => {
+    const s = runState();
+    expect(s.autoFire).toBe(false);
+    const on = ok(applyCommand(s, { type: 'setAutoFire', on: true }, CONTENT)).state;
+    expect(on.autoFire).toBe(true);
+    const inBattle = ok(
+      applyCommand({ ...on, hand: [], played: true, phase: 'battle' }, { type: 'setAutoFire', on: false }, CONTENT),
+    ).state;
+    expect(inBattle.autoFire).toBe(false);
+    expect(errorOf(runState({ phase: 'ended' }), { type: 'setAutoFire', on: true })).toBe('wrongPhase');
+
+    const lost = ok(
+      applyCommand(
+        { ...on, hand: [], played: true, phase: 'battle' },
+        { type: 'battleResult', result: result(false) },
+        CONTENT,
+      ),
+    ).state;
+    const next = ok(applyCommand(lost, { type: 'advance' }, CONTENT)).state;
+    expect(next.autoFire).toBe(true);
+  });
+});
+
+describe('a hand with no playable card', () => {
+  const stuck = (): RunState => {
+    // Every free plot is built on, so the three building cards in hand have no target.
+    const s = runState({
+      phase: 'yearEnd',
+      hand: ['wheat_militia', 'neutral_barracks', 'neutral_archer_tower'],
+      played: true,
+    });
+    const plots = s.plots.map((p, i) =>
+      p.unlocked && i !== 12
+        ? { ...p, building: { uid: i + 10, cardId: 'wheat_militia' as const, level: 1 as const, placedYear: 1 } }
+        : p,
+    );
+    return {
+      ...s,
+      plots,
+      drawPile: ['neutral_clear_land', 'neutral_move', 'wheat_scarecrow'],
+      discardPile: [],
+    };
+  };
+
+  it('is recycled into the discard pile at the next year so other cards can reach the hand', () => {
+    const s = stuck();
+    const next = ok(applyCommand(s, { type: 'advance' }, CONTENT)).state;
+    expect(sorted(next.hand)).toEqual(sorted(['neutral_clear_land', 'neutral_move', 'wheat_scarecrow']));
+    expect(sorted(next.discardPile)).toEqual(
+      sorted(['wheat_militia', 'neutral_barracks', 'neutral_archer_tower']),
+    );
+    expect(sorted([...next.hand, ...next.drawPile, ...next.discardPile])).toEqual(
+      sorted([...s.hand, ...s.drawPile, ...s.discardPile]),
+    );
+  });
+
+  it('keeps a hand in which at least one card is playable', () => {
+    const s = { ...stuck(), hand: ['wheat_militia', 'neutral_clear_land'] as CardId[], drawPile: ['neutral_move', 'wheat_scarecrow'] as CardId[] };
+    const next = ok(applyCommand(s, { type: 'advance' }, CONTENT)).state;
+    expect(next.hand.slice(0, 2)).toEqual(['wheat_militia', 'neutral_clear_land']);
+    expect(next.discardPile).toEqual([]);
   });
 });
 
@@ -191,7 +297,7 @@ describe('battle flow', () => {
   const planned = (over: Partial<RunState> = {}): RunState =>
     runState({ hand: [], played: true, ...over });
 
-  it('startBattle after skip', () => {
+  it('startBattle after the action', () => {
     const r = ok(applyCommand(planned(), { type: 'startBattle' }, CONTENT));
     expect(r.state.phase).toBe('battle');
   });
@@ -271,6 +377,10 @@ describe('rewards', () => {
     const r = ok(applyCommand(s, { type: 'pickOffer', index: 0 }, CONTENT));
     expect(r.state.deck).toHaveLength(12);
     expect(r.state.deck[11]).toBe(s.offers!.cardIds[0]);
+    const picked = s.offers!.cardIds[0]!;
+    expect(
+      [...r.state.hand, ...r.state.drawPile, ...r.state.discardPile].filter((c) => c === picked),
+    ).toHaveLength(r.state.deck.filter((c) => c === picked).length);
     expect(r.state.phase).toBe('planning');
     expect(r.state.year).toBe(4);
     expect(r.state.offers).toBeNull();
@@ -295,7 +405,7 @@ describe('full run', () => {
     };
     for (let guard = 0; guard < 100 && s.phase !== 'ended'; guard++) {
       if (s.phase === 'planning') {
-        step({ type: 'skip' });
+        step({ type: 'discard', handIndex: 0 });
         step({ type: 'startBattle' });
       } else if (s.phase === 'battle') {
         step({ type: 'battleResult', result: result(true) });
@@ -332,11 +442,19 @@ describe('rng persistence', () => {
     expect(s.rng.reward).toBe(hashSeed('7:reward'));
   });
 
-  it('advance and pickOffer persist a new draw state', () => {
+  it('advance persists the draw state: unchanged without a reshuffle, advanced with one', () => {
     const ye = lostBattle();
-    const adv = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
-    expect(adv.rng.draw).not.toBe(ye.rng.draw);
+    expect(ye.drawPile.length).toBeGreaterThanOrEqual(3);
+    const plain = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
+    expect(plain.rng.draw).toBe(ye.rng.draw);
 
+    const dry = { ...ye, hand: [], drawPile: [], discardPile: [...ye.deck] };
+    const shuffled = ok(applyCommand(dry, { type: 'advance' }, CONTENT)).state;
+    expect(shuffled.rng.draw).not.toBe(ye.rng.draw);
+    expect(sorted([...shuffled.hand, ...shuffled.drawPile])).toEqual(sorted(ye.deck));
+  });
+
+  it('a won battle advances the reward stream', () => {
     const won = ok(
       applyCommand(
         runState({ phase: 'battle', hand: [], played: true, year: 3 }),
@@ -345,15 +463,25 @@ describe('rng persistence', () => {
       ),
     ).state;
     expect(won.rng.reward).not.toBe(runState().rng.reward);
-    const picked = ok(applyCommand(won, { type: 'pickOffer', index: null }, CONTENT)).state;
-    expect(picked.rng.draw).not.toBe(won.rng.draw);
   });
 
-  it('next hand equals drawHand from the persisted state', () => {
+  it('next hand equals refillHand from the persisted state', () => {
     const ye = lostBattle();
-    const expected = drawHand(ye.deck, new Rng(ye.rng.draw), 3);
+    const expected = refillHand(ye.hand, ye.drawPile, ye.discardPile, new Rng(ye.rng.draw), 3);
     const adv = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
-    expect(adv.hand).toEqual(expected);
+    expect(adv.hand).toEqual(expected.hand);
+    expect(adv.drawPile).toEqual(expected.drawPile);
+    expect(adv.discardPile).toEqual(expected.discardPile);
+  });
+
+  it('keeps an unplayed card in hand into the next year and only tops the hand up', () => {
+    let s = runState({ hand: ['wheat_militia', 'neutral_barracks', 'neutral_move'] });
+    s = ok(applyCommand(s, play(0, plot(6)), CONTENT)).state;
+    s = ok(applyCommand(s, { type: 'startBattle' }, CONTENT)).state;
+    s = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT)).state;
+    const next = ok(applyCommand(s, { type: 'advance' }, CONTENT)).state;
+    expect(next.hand.slice(0, 2)).toEqual(['neutral_barracks', 'neutral_move']);
+    expect(next.hand).toHaveLength(3);
   });
 });
 
@@ -364,7 +492,7 @@ describe('extra error branches', () => {
       [runState({ phase: 'ended' }), { type: 'advance' }],
       [runState({ phase: 'reward' }), { type: 'advance' }],
       [runState({ phase: 'ended', played: true }), { type: 'startBattle' }],
-      [runState({ phase: 'ended' }), { type: 'skip' }],
+      [runState({ phase: 'ended' }), { type: 'discard', handIndex: 0 }],
     ];
     for (const [s, cmd] of cases) expect(errorOf(s, cmd)).toBe('wrongPhase');
   });

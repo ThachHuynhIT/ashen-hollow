@@ -13,23 +13,27 @@ import { GAP, MARGIN, SPEED_GAP, type Point, type Rect, type Size } from '../hud
 /** §10.1: from 768 px wide the desktop layout is used. */
 export const isDesktop = (width: number): boolean => width >= 768;
 
-/** Planning camera zoom in both layouts: one 32 px plot = 64 screen px. */
+/** Planning zoom on mobile: one 32 px plot = 64 screen px (touch targets stay ≥ 44 px). */
 export const PLANNING_ZOOM = 2;
-const CELL = BATTLE.plot * PLANNING_ZOOM;
 /** The board is 5×5 plots (spec §4.1, `src/game/run/board.ts`). */
 const BOARD_SIDE = 5;
-const BOARD_PX = CELL * BOARD_SIDE;
 
 /** §10.7: the field may be cropped up to 48 px top and bottom. */
 export const battleZoom = (width: number, height: number): number =>
   Math.max(1, Math.floor(Math.min(width, height + 96) / BATTLE.field));
+
+/**
+ * Planning camera zoom (§10.4): on desktop the battle zoom, so both phases share one camera;
+ * on mobile `PLANNING_ZOOM`, and the camera eases to the battle zoom when the battle starts.
+ */
+export const planningZoom = (screen: Size): number =>
+  isDesktop(screen.w) ? battleZoom(screen.w, screen.h) : PLANNING_ZOOM;
 
 const BUTTON = 48;
 const BUTTON_GAP = 8;
 
 const DESK = {
   top: { lives: 120, year: 160, h: 52 },
-  boardCentreY: 340,
   scout: { w: 260, y: 92, bottom: 520 },
   card: { w: 120, h: 168, gap: 12 },
   skip: { w: 140, h: 52 },
@@ -49,6 +53,8 @@ const HAND_BOTTOM = 10;
 
 export interface PlanningLayout {
   desktop: boolean;
+  /** Camera zoom of the planning phase: one plot is `BATTLE.plot × zoom` screen px. */
+  zoom: number;
   lives: Rect;
   year: Rect;
   board: Rect;
@@ -68,6 +74,23 @@ const handRow = (screen: Size, card: { w: number; h: number; gap: number }): Rec
   const x0 = Math.round((screen.w - total) / 2);
   const y = screen.h - card.h - HAND_BOTTOM;
   return [0, 1, 2].map((i) => ({ x: x0 + i * (card.w + card.gap), y, w: card.w, h: card.h }));
+};
+
+/**
+ * Slots for the first `count` cards of a hand that may hold fewer than the row's slots: the
+ * same size, spacing and y, shifted so the cards sit centred on the row.
+ */
+export const centerHand = (slots: readonly Rect[], count: number): Rect[] => {
+  const n = Math.max(0, Math.min(count, slots.length));
+  if (n === 0) return [];
+  const first = slots[0]!;
+  const last = slots[slots.length - 1]!;
+  const rowCentre = (first.x + last.x + last.w) / 2;
+  const used = slots.slice(0, n);
+  const left = used[0]!.x;
+  const right = used[n - 1]!.x + used[n - 1]!.w;
+  const shift = Math.round(rowCentre - (left + right) / 2);
+  return used.map((r) => ({ ...r, x: r.x + shift }));
 };
 
 /** The 200×56 "Ra trận" button, centred on the hand row it replaces. */
@@ -112,6 +135,9 @@ const besidePlot = (cell: Rect, screen: Size): { confirm: Rect; cancel: Rect } =
 
 const desktopLayout = (screen: Size): PlanningLayout => {
   const { w, h } = screen;
+  const zoom = planningZoom(screen);
+  const cell = BATTLE.plot * zoom;
+  const boardPx = cell * BOARD_SIDE;
   const lives = { x: MARGIN, y: MARGIN, w: DESK.top.lives, h: DESK.top.h };
   const year = {
     x: Math.round((w - DESK.top.year) / 2),
@@ -119,11 +145,15 @@ const desktopLayout = (screen: Size): PlanningLayout => {
     w: DESK.top.year,
     h: DESK.top.h,
   };
+  const hand = handRow(screen, DESK.card);
+  const first = hand[0]!;
+  // Centred like the battle camera's throne, lowered no further than the hand allows.
+  const centreY = Math.min(h / 2, first.y - GAP - boardPx / 2);
   const board = {
-    x: Math.round(w / 2 - BOARD_PX / 2),
-    y: Math.round(DESK.boardCentreY - BOARD_PX / 2),
-    w: BOARD_PX,
-    h: BOARD_PX,
+    x: Math.round(w / 2 - boardPx / 2),
+    y: Math.round(centreY - boardPx / 2),
+    w: boardPx,
+    h: boardPx,
   };
   const scout = {
     x: w - MARGIN - DESK.scout.w,
@@ -131,18 +161,17 @@ const desktopLayout = (screen: Size): PlanningLayout => {
     w: DESK.scout.w,
     h: DESK.scout.bottom - DESK.scout.y,
   };
-  const hand = handRow(screen, DESK.card);
-  const first = hand[0]!;
   const skip = {
     x: first.x - DESK.card.gap - DESK.skip.w,
     y: h - HAND_BOTTOM - DESK.skip.h,
     w: DESK.skip.w,
     h: DESK.skip.h,
   };
-  const mid = Math.floor(BOARD_SIDE / 2) * CELL;
-  const centre = { x: board.x + mid, y: board.y + mid, w: CELL, h: CELL };
+  const mid = Math.floor(BOARD_SIDE / 2) * cell;
+  const centre = { x: board.x + mid, y: board.y + mid, w: cell, h: cell };
   return {
     desktop: true,
+    zoom,
     lives,
     year,
     board,
@@ -162,14 +191,15 @@ const desktopLayout = (screen: Size): PlanningLayout => {
 
 const mobileLayout = (screen: Size): PlanningLayout => {
   const { w } = screen;
+  const boardPx = BATTLE.plot * PLANNING_ZOOM * BOARD_SIDE;
   const lives = { x: MARGIN, y: MARGIN, w: PHONE.top.lives, h: PHONE.top.h };
   const yearX = MARGIN + PHONE.top.lives + GAP;
   const year = { x: yearX, y: MARGIN, w: Math.max(0, w - MARGIN - yearX), h: PHONE.top.h };
   const board = {
-    x: Math.round((w - BOARD_PX) / 2),
+    x: Math.round((w - boardPx) / 2),
     y: PHONE.boardY,
-    w: BOARD_PX,
-    h: BOARD_PX,
+    w: boardPx,
+    h: boardPx,
   };
   const scout = {
     x: MARGIN,
@@ -187,6 +217,7 @@ const mobileLayout = (screen: Size): PlanningLayout => {
   };
   return {
     desktop: false,
+    zoom: PLANNING_ZOOM,
     lives,
     year,
     board,
@@ -209,17 +240,21 @@ export const planningLayout = (screen: Size): PlanningLayout =>
   isDesktop(screen.w) ? desktopLayout(screen) : mobileLayout(screen);
 
 /** Screen cell of `plot` (row-major 5×5, plot 0 = top-left of the board). */
-export const plotScreenRect = (layout: PlanningLayout, plot: number): Rect => ({
-  x: layout.board.x + plotCol(plot) * CELL,
-  y: layout.board.y + plotRow(plot) * CELL,
-  w: CELL,
-  h: CELL,
-});
+export const plotScreenRect = (layout: PlanningLayout, plot: number): Rect => {
+  const cell = layout.board.w / BOARD_SIDE;
+  return {
+    x: layout.board.x + plotCol(plot) * cell,
+    y: layout.board.y + plotRow(plot) * cell,
+    w: cell,
+    h: cell,
+  };
+};
 
 /** Plot under a screen point (the inverse of plotScreenRect), null off the board. */
 export const plotAtScreen = (layout: PlanningLayout, p: Point): number | null => {
-  const col = Math.floor((p.x - layout.board.x) / CELL);
-  const row = Math.floor((p.y - layout.board.y) / CELL);
+  const cell = layout.board.w / BOARD_SIDE;
+  const col = Math.floor((p.x - layout.board.x) / cell);
+  const row = Math.floor((p.y - layout.board.y) / cell);
   if (col < 0 || col >= BOARD_SIDE || row < 0 || row >= BOARD_SIDE) return null;
   return row * BOARD_SIDE + col;
 };
@@ -240,11 +275,17 @@ export interface BattleLayout {
   foes: Rect;
   speed: readonly Rect[];
   intervene: Rect;
+  /** "Tự bắn: Bật/Tắt" (§7.4): right-aligned just above the Can Thiệp button. */
+  auto: Rect;
+  /** "Địch": opens the full scout report of this year's army; just below the foes panel. */
+  waves: Rect;
 }
 
 const CLOCK = { w: 260, h: 52 } as const;
 const FOES = { w: 140, h: 52 } as const;
 const INTERVENE = 72;
+const AUTO = { w: 104, h: 48 } as const;
+const WAVES = { w: 44, h: 44 } as const;
 
 /** §10.7. On mobile the clock drops to a second row (the top row holds lives and foes). */
 export const battleLayout = (screen: Size): BattleLayout => {
@@ -270,7 +311,19 @@ export const battleLayout = (screen: Size): BattleLayout => {
     w: INTERVENE,
     h: INTERVENE,
   };
-  return { clock, lives, foes, speed, intervene };
+  const auto = {
+    x: intervene.x + intervene.w - AUTO.w,
+    y: intervene.y - GAP - AUTO.h,
+    w: AUTO.w,
+    h: AUTO.h,
+  };
+  const waves = {
+    x: foes.x + foes.w - WAVES.w,
+    y: foes.y + foes.h + GAP,
+    w: WAVES.w,
+    h: WAVES.h,
+  };
+  return { clock, lives, foes, speed, intervene, auto, waves };
 };
 
 /**
@@ -317,4 +370,48 @@ export const battleWorldAt = (p: Point, screen: Size): Point | null => {
   const w = screenToWorld(p, scroll, screen, zoom);
   if (w.x < 0 || w.x > BATTLE.field || w.y < 0 || w.y > BATTLE.field) return null;
   return w;
+};
+
+/** Centre of the 5×5 board in world px: the throne's plot centre (the board spans boardOrigin … +5 plots). */
+const BOARD_CENTRE = plotCenter(THRONE_PLOT);
+
+/**
+ * The one camera of the realm (§10.4, §10.7). Planning puts the board centre where
+ * `planningLayout` drew the board; battle centres the throne. On desktop both are the same
+ * camera, on mobile they differ in zoom (the scene eases between them).
+ */
+export type RealmPhase = 'planning' | 'battle';
+
+/** Zoom and the screen point where the throne/board centre sits in `phase`. */
+const anchorOf = (screen: Size, phase: RealmPhase): { zoom: number; point: Point } => {
+  if (phase === 'battle') {
+    return { zoom: battleZoom(screen.w, screen.h), point: { x: screen.w / 2, y: screen.h / 2 } };
+  }
+  const board = planningLayout(screen).board;
+  return {
+    zoom: planningZoom(screen),
+    point: { x: board.x + board.w / 2, y: board.y + board.h / 2 },
+  };
+};
+
+export const realmCamera = (screen: Size, phase: RealmPhase): { zoom: number; scroll: Point } => {
+  const a = anchorOf(screen, phase);
+  return { zoom: a.zoom, scroll: cameraScroll(BOARD_CENTRE, a.point, screen, a.zoom) };
+};
+
+/** The camera `k` (0..1) of the way from `from` to `to`: zoom and the throne's screen point ease linearly. */
+export const realmCameraMix = (
+  screen: Size,
+  from: RealmPhase,
+  to: RealmPhase,
+  k: number,
+): { zoom: number; scroll: Point } => {
+  const a = anchorOf(screen, from);
+  const b = anchorOf(screen, to);
+  const zoom = a.zoom + (b.zoom - a.zoom) * k;
+  const point = {
+    x: a.point.x + (b.point.x - a.point.x) * k,
+    y: a.point.y + (b.point.y - a.point.y) * k,
+  };
+  return { zoom, scroll: cameraScroll(BOARD_CENTRE, point, screen, zoom) };
 };

@@ -4,7 +4,13 @@ import { UI_COLORS } from '../data/uiPalette';
 import { CONTENT } from '../game/cards/registry';
 import { BUILDING_SIZE, THRONE_SIZE, paintBuilding, paintThrone } from './buildingArt';
 import { CARD_ART, paintCardArt } from './cardArt';
-import { FIELD_TERRAINS, generateField, paintField, paintFieldTile } from './fieldArt';
+import {
+  FIELD_TERRAINS,
+  generateField,
+  paintField,
+  paintFieldTile,
+  paintGroundTile,
+} from './fieldArt';
 import {
   ARROW_DIRS,
   arrowDir,
@@ -149,6 +155,14 @@ describe('field art', () => {
         expect([tile.width, tile.height]).toEqual([16, 16]);
         expect(foreign(tile, WORLD), `${t}/${mask}`).toEqual([]);
       }
+  });
+
+  it('paints the plain grass ground tile fully opaque in PALETTE colours', () => {
+    const t = paintGroundTile();
+    expect([t.width, t.height]).toEqual([16, 16]);
+    expect(foreign(t, WORLD)).toEqual([]);
+    for (let i = 3; i < t.data.length; i += 4) if (t.data[i] !== 255) throw new Error(`hole at ${i}`);
+    expect(same(t, paintGroundTile())).toBe(true);
   });
 
   it('paints the whole field opaque at 384x384, deterministically', () => {

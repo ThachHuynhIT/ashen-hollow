@@ -4,7 +4,7 @@ import type { CardDef, CardId, UnitId } from '../data/types';
 import type { Content } from '../game/cards/registry';
 import { paintBuilding, paintThrone } from './buildingArt';
 import { paintCardArt } from './cardArt';
-import { paintField } from './fieldArt';
+import { paintField, paintGroundTile } from './fieldArt';
 import { ARROW_DIRS, paintArrow, paintBoulder, paintBoulderShadow, paintSpark } from './fxArt';
 import { ICON_IDS, paintIcon, type IconId } from './iconArt';
 import { PixelCanvas } from './pixel';
@@ -152,6 +152,14 @@ export const buildSpritesTexture = (
   const texture = textures.addCanvas(SPRITES_KEY, toCanvas(sheet));
   if (!texture) throw new Error('Failed to create sprites texture');
   for (const p of placed) texture.add(p.name, 0, p.x, p.y, p.art.width, p.art.height);
+};
+
+export const GROUND_KEY = 'field-ground';
+
+/** The tiling grass ground texture under every field (painted once, never removed). */
+export const ensureGroundTexture = (textures: Phaser.Textures.TextureManager): string => {
+  if (!textures.exists(GROUND_KEY)) addPixelTexture(textures, GROUND_KEY, paintGroundTile());
+  return GROUND_KEY;
 };
 
 /**

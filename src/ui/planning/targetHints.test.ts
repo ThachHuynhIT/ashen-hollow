@@ -6,6 +6,7 @@ import { plotHighlights, plotIllegalReason } from './targetHints';
 
 const troop = CONTENT.card('neutral_barracks');
 const move = CONTENT.card('neutral_move');
+const clearLand = CONTENT.card('neutral_clear_land');
 
 const bld = (uid: number, cardId: BuildingState['cardId'] = 'neutral_barracks'): BuildingState => ({
   uid,
@@ -21,6 +22,15 @@ const board = (): PlotState[] =>
     7,
     bld(1),
   );
+
+describe('plotHighlights for Khai Hoang', () => {
+  it('marks every locked plot good and every open plot bad', () => {
+    const plots = board();
+    const map = plotHighlights(plots, clearLand, []);
+    plots.forEach((p, i) => expect(map.get(i)).toBe(p.unlocked ? 'bad' : 'good'));
+    expect(map.get(0)).toBe('good'); // corner, not next to an open plot
+  });
+});
 
 describe('plotHighlights', () => {
   it('outlines legal and illegal plots before any pick', () => {
