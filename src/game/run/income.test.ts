@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BuildingCardDef, CardDef, Level } from '../../data/types';
 import type { IncomeHandler } from '../cards/custom/types';
-import { contentWith, runState } from '../testing/fixtures';
+import { contentWith, fakeKing, runState } from '../testing/fixtures';
 import { yearIncome } from './income';
 import type { BuildingState, RunState } from './state';
 
@@ -120,6 +120,21 @@ describe('yearIncome', () => {
     const s = at(runState(), [[6, 'neutral_well', 2]]);
     s.plots[6]!.building!.enchants = [{ cardId: 'wheat_manure', stacks: 3 }];
     expect(yearIncome(s, content, 0).delta).toBe(2 + 3);
+  });
+
+  it('uses the throne level (not the building level) for throne income', () => {
+    const stone = fakeKing('stone');
+    const c = contentWith({
+      kings: [
+        {
+          ...stone,
+          throne: { ...stone.throne, passive: [{ type: 'gold', amount: [1, 2, 3, 4, 5] }] },
+        },
+      ],
+    });
+    const s = runState({ throneLevel: 3 });
+    s.plots[12]!.building = { ...s.plots[12]!.building!, cardId: 'stone_throne' };
+    expect(yearIncome(s, c, 0).delta).toBe(3);
   });
 
   it('never mutates the state', () => {

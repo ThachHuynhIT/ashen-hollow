@@ -44,12 +44,13 @@ export function yearIncome(
     const building = state.plots[plot]!.building;
     if (building === null) continue;
     const card = content.card(building.cardId);
+    const level = plot === THRONE_PLOT ? state.throneLevel : building.level;
     const effects: readonly EffectDef[] =
       card.kind === 'throne' ? card.passive : card.kind === 'tome' || card.kind === 'enchantment' ? [] : card.effects;
     const ctx: StatCtx = {
       state,
       content,
-      source: { plot, level: building.level, stacks: 0 },
+      source: { plot, level, stacks: 0 },
       target: { plot, building },
     };
 
@@ -67,12 +68,12 @@ export function yearIncome(
 
     let gained = upkeep + customs.filter((v) => v > 0).reduce((sum, v) => sum + v, 0);
     for (const e of effects) {
-      if (e.type === 'gold') gained += resolve(e.amount, building.level);
+      if (e.type === 'gold') gained += resolve(e.amount, level);
       else if (e.type === 'goldPerNeighbour') {
         const count = neighbours(plot).filter(
           (n) => state.plots[n]!.building?.cardId === e.cardId,
         ).length;
-        gained += resolve(e.amount, building.level) * count;
+        gained += resolve(e.amount, level) * count;
       }
     }
     gained += collectStatSheet(state, content, plot).gold.flat; // Bùa Phân Bón, v.v.
