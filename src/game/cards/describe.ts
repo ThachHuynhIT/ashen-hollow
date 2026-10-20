@@ -1,4 +1,4 @@
-import type { AttackSpec, CardDef, EffectDef, Level } from '../../data/types';
+import type { AttackSpec, CardDef, EffectDef, Level, Scalar } from '../../data/types';
 
 /** Nội dung mô tả thẻ; cùng hình dạng với TooltipContent nhưng game không import ui. */
 export interface CardDescription {
@@ -22,10 +22,14 @@ function attackValues(attack: AttackSpec): Record<string, number> {
   return out;
 }
 
+const scalarAt = (value: Scalar, level: Level): number =>
+  typeof value === 'number' ? value : (value[level - 1] ?? 0);
+
 function effectValues(effects: readonly EffectDef[], level: Level): Record<string, number> {
   const out: Record<string, number> = {};
   for (const e of effects) {
     if (e.type === 'spawn') out.count = e.count[level - 1] ?? 0;
+    else if (e.type === 'gold') out.gold = scalarAt(e.amount, level);
     else if (e.type === 'tower' || e.type === 'pulse') Object.assign(out, attackValues(e.attack));
   }
   return out;
@@ -37,5 +41,13 @@ export function describeCard(def: CardDef, level: Level = 1): CardDescription {
     values = effectValues(def.effects, level);
   }
   else if (def.kind === 'throne') values = { ...attackValues(def.attack), ...effectValues(def.passive, level) };
+  else if (def.kind === 'enchantment') {
+    // `{pct}` = the percentage of the first percentage modifier the enchantment gives per stack.
+    const pct = def.perStack.find((e) => e.type === 'stat' && e.mode === 'pct');
+    if (pct && pct.type === 'stat') values = { pct: scalarAt(pct.value, level) };
+  } else if (def.kind === 'tome') {
+    const sacrifice = def.actions.find((a) => a.type === 'sacrifice');
+    if (sacrifice && sacrifice.type === 'sacrifice') values = { gold: sacrifice.goldPerLevel };
+  }
   return { title: def.nameVi, lines: [resolvePlaceholders(def.textVi, values)] };
 }
