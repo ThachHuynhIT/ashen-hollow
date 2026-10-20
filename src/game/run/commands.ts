@@ -3,8 +3,20 @@ import { Rng } from '../../core/random';
 import { RULES_G1 } from '../../data/rules';
 import { RUN, battleGold, rerollCost, unlockCost } from '../../data/run';
 import type { CardId } from '../../data/types';
+import { CUSTOM_TOME_HANDLERS } from '../cards/custom';
 import type { Content } from '../cards/registry';
-import { adjacentToUnlocked, checkPlay, moveBuilding, placeBuilding, unlockPlot } from './board';
+import {
+  adjacentToUnlocked,
+  attachEnchant,
+  checkPlay,
+  levelUpBuilding,
+  moveBuilding,
+  placeBuilding,
+  plotCol,
+  plotRow,
+  sacrificeBuilding,
+  unlockPlot,
+} from './board';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
 import { rollOffers } from './rewards';
@@ -20,6 +32,9 @@ export type RunEvent =
 export type CommandResult = { state: RunState; events: RunEvent[] } | { error: IllegalReason };
 
 const fail = (error: IllegalReason): CommandResult => ({ error });
+
+const manhattan = (a: number, b: number): number =>
+  Math.abs(plotCol(a) - plotCol(b)) + Math.abs(plotRow(a) - plotRow(b));
 
 function begin(state: RunState, content: Content, events: RunEvent[]): RunState {
   const next = startYear(state, content);
@@ -38,29 +53,68 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       const cardId = state.hand[cmd.handIndex];
       if (!Number.isInteger(cmd.handIndex) || cardId === undefined) return fail('badTarget');
       const card = content.card(cardId);
-      const illegal = checkPlay(state.plots, card, cmd.target);
+      const illegal = checkPlay(state.plots, card, cmd.target, content);
       if (illegal !== null) return fail(illegal);
 
+      const target = cmd.target;
       if (card.kind === 'tome') {
-        if (cmd.target.kind === 'plot' && card.id === 'neutral_clear_land') {
-          state.plots = unlockPlot(state.plots, cmd.target.plot);
-        } else if (cmd.target.kind === 'two' && card.id === 'neutral_move') {
-          state.plots = moveBuilding(state.plots, cmd.target.first, cmd.target.second);
-        } else {
-          return fail('badTarget');
+        for (const action of card.actions) {
+          switch (action.type) {
+            case 'unlockPlot':
+              if (target.kind !== 'plot') return fail('badTarget');
+              state.plots = unlockPlot(state.plots, target.plot);
+              break;
+            case 'levelUp':
+              if (target.kind !== 'plot') return fail('badTarget');
+              state.plots = levelUpBuilding(state.plots, target.plot, action.amount);
+              break;
+            case 'move': {
+              if (target.kind !== 'two') return fail('badTarget');
+              state.plots = moveBuilding(state.plots, target.first, target.second);
+              const far = manhattan(target.first, target.second) >= 2;
+              if (far && action.levelIfFar > 0) {
+                state.plots = levelUpBuilding(state.plots, target.second, action.levelIfFar);
+              }
+              break;
+            }
+            case 'sacrifice': {
+              if (target.kind !== 'plot') return fail('badTarget');
+              const level = state.plots[target.plot]!.building!.level;
+              state.plots = sacrificeBuilding(state.plots, target.plot);
+              const prize = action.goldPerLevel * level;
+              state.gold += prize;
+              state.stats.goldEarned += prize;
+              break;
+            }
+            case 'custom': {
+              const handler = CUSTOM_TOME_HANDLERS[action.id];
+              if (!handler) return fail('badTarget');
+              const out = handler(state, content, action.params ?? {}, target);
+              if (typeof out === 'string') return fail(out);
+              Object.assign(state, out);
+              break;
+            }
+          }
         }
-      } else if (cmd.target.kind === 'plot') {
-        state.plots = placeBuilding(state.plots, cmd.target.plot, {
-          uid: state.nextUid,
-          cardId,
-          level: 1,
-          enchants: [],
-          placedYear: state.year,
-          permanent: {},
-        });
-        state.nextUid += 1;
-      } else {
+      } else if (target.kind !== 'plot') {
         return fail('badTarget');
+      } else if (card.kind === 'enchantment') {
+        state.plots = attachEnchant(state.plots, target.plot, card.id, RUN.maxEnchantStacks);
+      } else {
+        const here = state.plots[target.plot]!.building;
+        if (here === null) {
+          state.plots = placeBuilding(state.plots, target.plot, {
+            uid: state.nextUid,
+            cardId,
+            level: 1,
+            enchants: [],
+            placedYear: state.year,
+            permanent: {},
+          });
+          state.nextUid += 1;
+        } else {
+          state.plots = levelUpBuilding(state.plots, target.plot, 1);
+        }
       }
       state.hand.splice(cmd.handIndex, 1);
       state.discardPile.push(cardId);

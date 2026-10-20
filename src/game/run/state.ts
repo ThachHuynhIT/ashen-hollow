@@ -89,6 +89,9 @@ export type IllegalReason =
   | 'alreadyPlayed'
   | 'notPlayed'
   | 'notEnoughGold'
+  | 'maxLevel'
+  | 'wrongKind'
+  | 'stacksFull'
   | 'badTarget';
 
 export type PlayTarget =

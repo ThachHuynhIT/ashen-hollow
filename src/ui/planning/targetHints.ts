@@ -12,7 +12,7 @@ export const plotHighlights = (
   card: CardDef,
   targets: readonly number[],
 ): Map<number, PlotHighlight> => {
-  const chosen = targets.slice(0, targetCount(card) - 1);
+  const chosen = targets.slice(0, Math.max(0, targetCount(card) - 1));
   const map = new Map<number, PlotHighlight>();
   for (let plot = 0; plot < plots.length; plot++) {
     map.set(plot, checkTargetStep(plots, card, chosen, plot) === null ? 'good' : 'bad');
@@ -29,6 +29,6 @@ export const plotIllegalReason = (
   plot: number,
 ): IllegalReason | null => {
   if (targets.includes(plot)) return null;
-  const chosen = targets.slice(0, targetCount(card) - 1);
+  const chosen = targets.slice(0, Math.max(0, targetCount(card) - 1));
   return checkTargetStep(plots, card, chosen, plot);
 };

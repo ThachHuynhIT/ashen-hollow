@@ -24,7 +24,7 @@ describe('hasPlayableCard', () => {
       ...s,
       plots: s.plots.map((p, i) =>
         p.unlocked && i !== 12
-          ? { ...p, building: { uid: i + 10, cardId: 'wheat_militia' as const, level: 1 as const, enchants: [], placedYear: 1, permanent: {} } }
+          ? { ...p, building: { uid: i + 10, cardId: 'wheat_scarecrow' as const, level: 1 as const, enchants: [], placedYear: 1, permanent: {} } }
           : p,
       ),
     };

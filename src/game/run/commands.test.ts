@@ -246,7 +246,7 @@ describe('errors', () => {
     expect(errorOf(s, play(0, { kind: 'none' }))).toBe('badTarget');
     expect(errorOf(s, play(2, two(7, 6)))).toBe('noTarget');
     const occ = runState({ hand });
-    occ.plots[6]!.building = { uid: 1, cardId: 'wheat_militia', level: 1, enchants: [], placedYear: 1, permanent: {} };
+    occ.plots[6]!.building = { uid: 1, cardId: 'wheat_scarecrow', level: 1, enchants: [], placedYear: 1, permanent: {} };
     expect(errorOf(occ, play(0, plot(6)))).toBe('occupied');
     expect(errorOf(occ, play(2, two(7, 6)))).toBe('noBuilding');
     const clear = runState({ hand: ['neutral_clear_land'] });
@@ -410,7 +410,7 @@ describe('a hand with no playable card', () => {
     });
     const plots = s.plots.map((p, i) =>
       p.unlocked && i !== 12
-        ? { ...p, building: { uid: i + 10, cardId: 'wheat_militia' as const, level: 1 as const, enchants: [], placedYear: 1, permanent: {} } }
+        ? { ...p, building: { uid: i + 10, cardId: 'wheat_scarecrow' as const, level: 1 as const, enchants: [], placedYear: 1, permanent: {} } }
         : p,
     );
     return {
