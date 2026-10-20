@@ -26,14 +26,16 @@ function effectValues(effects: readonly EffectDef[], level: Level): Record<strin
   const out: Record<string, number> = {};
   for (const e of effects) {
     if (e.type === 'spawn') out.count = e.count[level - 1] ?? 0;
-    else Object.assign(out, attackValues(e.attack));
+    else if (e.type === 'tower' || e.type === 'pulse') Object.assign(out, attackValues(e.attack));
   }
   return out;
 }
 
 export function describeCard(def: CardDef, level: Level = 1): CardDescription {
   let values: Record<string, number> = {};
-  if (def.kind === 'troop' || def.kind === 'tower') values = effectValues(def.effects, level);
+  if (def.kind === 'troop' || def.kind === 'tower' || def.kind === 'economy' || def.kind === 'support') {
+    values = effectValues(def.effects, level);
+  }
   else if (def.kind === 'throne') values = { ...attackValues(def.attack), ...effectValues(def.passive, level) };
   return { title: def.nameVi, lines: [resolvePlaceholders(def.textVi, values)] };
 }

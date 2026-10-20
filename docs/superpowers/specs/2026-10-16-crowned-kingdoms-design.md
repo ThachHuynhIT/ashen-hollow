@@ -442,6 +442,8 @@ export interface KingDef {
 
 `PerkEffect` và `BannerEffect` là union cùng cách viết: `{ type: 'stat'; … }` (dùng lại dạng `stat` của `EffectDef`, scope `'board'`), `{ type: 'startGold'; amount }`, `{ type: 'startBuilding'; card; plot }`, `{ type: 'startUnlocked'; plots }`, `{ type: 'startLives'; lives }`, `{ type: 'freeReroll' }`, `{ type: 'interventionCooldownPct'; pct }`, `{ type: 'maxEnchantStacks'; value }`, `{ type: 'custom'; id }`. Danh sách `id` custom đóng (`CustomEffectId`, union chuỗi) để TS bắt lỗi chính tả.
 
+**Mở rộng ở G2** (kế hoạch G2a): `EffectDef` thêm `{ type: 'goldPerNeighbour'; cardId; amount: Scalar }` (vàng đầu năm cho mỗi công trình `cardId` lân cận); `StatKey` thêm `'gold'`; `stat.mode` thêm `'flatPost'` (cộng sau mọi %, dùng cho Bùa Tia Lửa); `OnHitDef` thêm `{ type: 'stun'; ticks }` và `{ type: 'rampSameTarget'; pctPerHit; cap }`; `BannerEffect` gồm `enemyCostPct`, `enemyStat` (hp/speed), `enemyShieldPct`; `Rules = { years; calendar; autoStart }` nằm trong `RunState.rules`.
+
 **Trạng thái ván** (`src/game/run/state.ts`) là dữ liệu JSON thuần (lưu được bằng `structuredClone`):
 
 ```ts

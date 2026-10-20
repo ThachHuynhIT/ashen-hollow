@@ -3,7 +3,7 @@ import type { EventBus } from '../../core/events';
 import { BattleRunner } from '../battle/BattleRunner';
 import type { Content } from '../cards/registry';
 import type { GameEvents } from '../events';
-import { RULES_G1 } from '../../data/run';
+import { RULES_G1 } from '../../data/rules';
 import { buildBattleSetup } from './battleSetup';
 import { applyCommand } from './commands';
 import { hasPlayableCard } from './playable';

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
-import { RULES_G1 } from '../data/run';
+import { RULES_G1 } from '../data/rules';
 import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';

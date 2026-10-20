@@ -1,6 +1,6 @@
 /** Lệnh người chơi lên RunState (spec §5.1, §5.5). Thuần: làm việc trên bản sao, không sửa đầu vào. */
 import { Rng } from '../../core/random';
-import { RULES_G1 } from '../../data/run';
+import { RULES_G1 } from '../../data/rules';
 import type { CardId } from '../../data/types';
 import type { Content } from '../cards/registry';
 import { checkPlay, moveBuilding, placeBuilding, unlockPlot } from './board';

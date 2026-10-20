@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, hashSeed } from '../../core/random';
-import { RULES_G1, START_DECK_G1 } from '../../data/run';
+import { RULES_G1 } from '../../data/rules';
+import { START_DECK_G1 } from '../../data/run';
 import { SLOT_MULT } from '../../data/battle';
 import { armyBudget, composeArmy } from '../battle/compose';
 import type { CardId } from '../../data/types';
