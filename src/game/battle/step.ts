@@ -5,10 +5,10 @@
  */
 import { BATTLE } from '../../data/battle';
 import { applyDamagePhase, attackPhase, deathPhase, projectilePhase, statusPhase } from './combat';
-import { boulderPhase, tryIntervene } from './intervention';
+import { autoFirePhase, boulderPhase, setAutoFire, tryIntervene } from './intervention';
 import { moveEntities } from './movement';
 import { retarget } from './targeting';
-import type { BattleInput, BattleResult, BattleSetup } from './types';
+import type { BattleCommand, BattleResult, BattleSetup } from './types';
 import { TEAM_FOE, createBattle, spawnWave, type BattleWorld } from './world';
 
 /** Bước 1: xuất các đợt đến hạn, theo thứ tự (đợt 0 ở tick 0). */
@@ -40,15 +40,18 @@ const checkEnd = (world: BattleWorld): void => {
 };
 
 /** Chạy một tick (§8.9). `inputs` là lệnh can thiệp của tick này. Trận đã kết thúc → không làm gì. */
-export const stepBattle = (world: BattleWorld, inputs: readonly BattleInput[]): void => {
+export const stepBattle = (world: BattleWorld, inputs: readonly BattleCommand[]): void => {
   if (world.ended) return;
   // (1) xuất đợt
   spawnDueWaves(world);
   if (world.tick === BATTLE.rageTick) world.events.push({ type: 'rage' });
   // (2) can thiệp: lệnh của tick này theo thứ tự nhận (lệnh tick khác bị bỏ), rồi tảng đá đến hạn rơi.
   for (const input of inputs) {
-    if (input.tick === world.tick) tryIntervene(world, input);
+    if (input.tick !== world.tick) continue;
+    if ('auto' in input) setAutoFire(world, input);
+    else tryIntervene(world, input);
   }
+  autoFirePhase(world);
   boulderPhase(world);
   // (3) hook onBattleTick — chưa có ở G1.
   retarget(world); // (4)
@@ -86,7 +89,7 @@ export const battleResult = (world: BattleWorld): BattleResult | null => {
  */
 export const simulateBattle = (
   setup: BattleSetup,
-  inputs: readonly BattleInput[] = [],
+  inputs: readonly BattleCommand[] = [],
 ): BattleResult => {
   const world = createBattle(setup);
   const maxSteps = BATTLE.hardLimitTick + 1;

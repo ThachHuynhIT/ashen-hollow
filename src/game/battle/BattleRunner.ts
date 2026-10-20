@@ -3,14 +3,14 @@ import type { EventBus } from '../../core/events';
 import { SimClock, TICKS_PER_SECOND } from '../../core/SimClock';
 import type { GameEvents } from '../events';
 import { battleResult, stepBattle } from './step';
-import type { BattleInput, BattleResult, BattleSetup } from './types';
+import type { BattleCommand, BattleResult, BattleSetup } from './types';
 import { createBattle, type BattleWorld } from './world';
 
 export class BattleRunner {
   readonly world: BattleWorld;
   readonly clock: SimClock;
   private readonly bus: EventBus<GameEvents>;
-  private queue: BattleInput[] = [];
+  private queue: BattleCommand[] = [];
   private finished: BattleResult | null = null;
   private disposed = false;
   private readonly unsubscribe: (() => void)[];
@@ -40,6 +40,12 @@ export class BattleRunner {
   intervene(x: number, y: number): void {
     if (this.finished !== null || this.disposed) return;
     this.queue.push({ tick: this.world.tick, x, y });
+  }
+
+  /** Xếp lệnh bật/tắt tự bắn cho tick kế tiếp được chạy. */
+  setAutoFire(on: boolean): void {
+    if (this.finished !== null || this.disposed) return;
+    this.queue.push({ tick: this.world.tick, auto: on });
   }
 
   update(deltaMs: number): void {

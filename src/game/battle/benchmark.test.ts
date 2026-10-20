@@ -31,6 +31,7 @@ const EDGES: readonly Edge[] = ['N', 'E', 'S', 'W'];
 const standardSetup = (): BattleSetup =>
   battleSetup({
     year: 5,
+    autoFire: true,
     structures: [
       ...[6, 7, 8, 11, 13, 16, 17, 18].map((plot) =>
         structure(plot, { cardId: 'wheat_militia', spawn: { stats: militia, count: 20 } }),

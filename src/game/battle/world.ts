@@ -8,7 +8,7 @@ import type { DamageType, TargetMode } from '../../data/types';
 import type {
   AttackStats,
   BattleEvent,
-  BattleInput,
+  BattleCommand,
   BattleSetup,
   Edge,
   StructureSetup,
@@ -149,7 +149,7 @@ export class BattleWorld {
   capped = 0;
   interventionsUsed = 0;
   killsBySource: Record<number, number> = {};
-  inputs: BattleInput[] = [];
+  inputs: BattleCommand[] = [];
 
   /** Số đợt địch đã xuất hiện. */
   spawnedWaves = 0;
@@ -159,6 +159,10 @@ export class BattleWorld {
   /** Tick sớm nhất can thiệp được (§7.4). */
   readyTick: number = INTERVENTION.firstReadyTick;
   boulders: Boulder[] = [];
+  /** Đá Tảng tự bắn đang bật (§7.4). */
+  autoFire: boolean;
+  /** Bán kính tảng đá (§7.4); khởi tạo từ INTERVENTION.radius để sắc lệnh đổi được. */
+  boulderRadius: number = INTERVENTION.radius;
 
   /** Trận đã kết thúc (§8.8); khi đó stepBattle không làm gì nữa. */
   ended = false;
@@ -168,6 +172,7 @@ export class BattleWorld {
 
   constructor(setup: BattleSetup) {
     this.setup = setup;
+    this.autoFire = setup.autoFire ?? false;
   }
 
   /** Cấp id mới với giá trị mặc định (alive 1, target −1); −1 nếu đã đầy entityCap. */
