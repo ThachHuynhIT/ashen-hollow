@@ -1,6 +1,6 @@
 /** Hiệu ứng `custom` của Vua Phép Thuật (spec §6.5). */
 import { RUN } from '../../../data/run';
-import type { BuildingKind, Level, Scalar } from '../../../data/types';
+import type { BuildingKind, CardId, Level, Scalar } from '../../../data/types';
 import { copyEnchants, neighbours } from '../../run/board';
 import type { BuildingState } from '../../run/state';
 import type { Modifier, StatHandler, TomeHandler } from './types';
@@ -54,7 +54,17 @@ export const arcaneHarmony: StatHandler = (ctx, params) => {
 };
 
 /** Gương Chép Bùa: công trình thứ hai nhận bản sao mọi stack Bùa của công trình thứ nhất. */
-export const mirrorEnchants: TomeHandler = (state, _content, _params, target) => {
+export const mirrorEnchants: TomeHandler = (state, content, _params, target) => {
   if (target.kind !== 'two') return 'badTarget';
-  return { ...state, plots: copyEnchants(state.plots, target.first, target.second, RUN.maxEnchantStacks) };
+  const dest = state.plots[target.second]?.building;
+  if (!dest) return 'badTarget';
+  const kind = content.card(dest.cardId).kind as BuildingKind;
+  const accepts = (cardId: CardId): boolean => {
+    const card = content.card(cardId);
+    return card.kind === 'enchantment' && card.targets.includes(kind);
+  };
+  return {
+    ...state,
+    plots: copyEnchants(state.plots, target.first, target.second, RUN.maxEnchantStacks, accepts),
+  };
 };

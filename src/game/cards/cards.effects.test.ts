@@ -514,6 +514,25 @@ describe('Arcane King (spec §6.5)', () => {
     expect(next.plots[6]!.building!.enchants).toEqual(src);
   });
 
+  it('Gương Chép Bùa skips enchants whose targets exclude the destination building kind (§4.3)', () => {
+    const src = [
+      { cardId: 'neutral_sharpen' as CardId, stacks: 2 },
+      { cardId: 'neutral_fortify' as CardId, stacks: 1 },
+    ];
+    const next = playOn(
+      [[6, bld(1, 'wheat_militia', 1, src)], [7, bld(2, 'neutral_well')]],
+      ['arcane_mirror'],
+      { kind: 'two', first: 6, second: 7 },
+    );
+    expect(next.plots[7]!.building!.enchants).toEqual([]);
+    const toSupport = playOn(
+      [[6, bld(1, 'wheat_militia', 1, src)], [7, bld(2, 'stone_wall')]],
+      ['arcane_mirror'],
+      { kind: 'two', first: 6, second: 7 },
+    );
+    expect(toSupport.plots[7]!.building!.enchants).toEqual([{ cardId: 'neutral_fortify', stacks: 1 }]);
+  });
+
   it('Vòng Kết Giới pulses a 20..40 shield every 50 ticks in 64 px', () => {
     for (const level of [1, 2, 3, 4, 5] as const) {
       const s = structureAt(setupOf([[6, bld(1, 'arcane_ward', level)]]), 6);
