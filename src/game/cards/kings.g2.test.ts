@@ -1,11 +1,11 @@
 /** Toàn vẹn dữ liệu G2 (spec §13.1): ba vua Lúa Mì, Đá Núi, Phép Thuật và thẻ trung lập. */
 import { describe, expect, it } from 'vitest';
-import { CUSTOM_INCOME_HANDLERS, CUSTOM_STAT_HANDLERS, CUSTOM_TOME_HANDLERS } from '../game/cards/custom';
-import { CONTENT } from '../game/cards/registry';
-import { startDeck } from '../game/run/calendar';
-import { KINGS_G2 } from './kings';
-import { PALETTE } from './palette';
-import type { CardDef, EffectDef, PerLevel, Scalar } from './types';
+import { CUSTOM_INCOME_HANDLERS, CUSTOM_STAT_HANDLERS, CUSTOM_TOME_HANDLERS } from './custom';
+import { CONTENT } from './registry';
+import { startDeck } from '../run/calendar';
+import { KINGS_G2 } from '../../data/kings';
+import { PALETTE } from '../../data/palette';
+import type { CardDef, EffectDef, PerLevel, Scalar } from '../../data/types';
 
 const cards: readonly CardDef[] = CONTENT.allCards();
 const units = CONTENT.allUnits();
