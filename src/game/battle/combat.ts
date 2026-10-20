@@ -12,6 +12,8 @@ import {
   KIND_UNIT,
   TEAM_ALLY,
   TEAM_FOE,
+  addUnit,
+  spawnOffset,
   type BattleWorld,
   type QueuedDamage,
 } from './world';
@@ -358,9 +360,11 @@ export const statusPhase = (world: BattleWorld): void => {
  * lính phe mình chết → `unitsLost`.
  */
 export const deathPhase = (world: BattleWorld): void => {
+  const parents: number[] = [];
   for (let i = 0; i < world.count; i++) {
     if (world.alive[i] === 0 || world.hp[i]! > 0) continue;
     world.alive[i] = 0;
+    if (world.deathSpawn[i]) parents.push(i);
     world.events.push({ type: 'death', id: i });
     if (world.team[i] === TEAM_FOE) {
       world.kills += 1;
@@ -368,6 +372,34 @@ export const deathPhase = (world: BattleWorld): void => {
       if (uid >= 0) world.killsBySource[uid] = (world.killsBySource[uid] ?? 0) + 1;
     } else if (world.team[i] === TEAM_ALLY && world.kind[i] === KIND_UNIT) {
       world.unitsLost += 1;
+    }
+  }
+  // Đẻ khi chết (§8.9 bước 10): sau khi xử lý hết các ca chết, theo id cha tăng dần, nên con
+  // không chết trong cùng tick. Phe mình bị trần playerUnitCap; hết entityCap thì bỏ phần thiếu.
+  for (const i of parents) {
+    const spawn = world.deathSpawn[i]!;
+    const team = world.team[i]!;
+    for (let k = 0; k < spawn.count; k++) {
+      if (team === TEAM_ALLY && world.playerUnits >= BATTLE.playerUnitCap) {
+        world.capped += 1;
+        continue;
+      }
+      const o = spawnOffset(k);
+      const id = addUnit(
+        world,
+        spawn.stats,
+        team,
+        world.x[i]! + o.dx,
+        world.y[i]! + o.dy,
+        world.homeX[i]!,
+        world.homeY[i]!,
+        world.sourceUid[i]!,
+      );
+      if (id < 0) {
+        if (team === TEAM_ALLY) world.capped += 1;
+        break;
+      }
+      if (team === TEAM_ALLY) world.playerUnits += 1;
     }
   }
 };

@@ -10,7 +10,7 @@ import {
   TROOP_STD,
   levelMult,
 } from '../../data/scaling';
-import type { AttackSpec, Level, UnitDef } from '../../data/types';
+import type { AttackSpec, BannerEffect, Level, Scalar, UnitDef } from '../../data/types';
 import type { Content } from '../cards/registry';
 import type {
   AttackStats,
@@ -54,18 +54,39 @@ const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatShe
   };
 };
 
-const unitStats = (u: UnitDef, mult: number, siege: boolean): UnitStats => ({
-  ...attackStats(u.attack, mult),
-  unit: u.id,
-  hp: u.hp * mult,
-  speed: u.speed,
-  radius: u.radius,
-  armor: u.armor,
-  siege,
-  sprite: { w: u.sprite.w, h: u.sprite.h },
-  shield: 0,
-  deathSpawn: null,
-});
+const scalarAt = (value: Scalar, level: number): number =>
+  typeof value === 'number' ? value : value[level - 1]!;
+
+const pctOf = (effects: readonly BannerEffect[], match: (e: BannerEffect) => boolean): number =>
+  effects.reduce((sum, e) => (match(e) && 'pct' in e ? sum + e.pct : sum), 0);
+
+/** Lính địch: HP/DMG theo cấp địch, cờ hiệu của vua tấn công (HP, tốc độ, khiên lúc xuất hiện). */
+const unitStats = (
+  u: UnitDef,
+  mult: number,
+  siege: boolean,
+  content: Content,
+  banner: readonly BannerEffect[] = [],
+): UnitStats => {
+  const hpMult = 1 + pctOf(banner, (e) => e.type === 'enemyStat' && e.stat === 'hp') / 100;
+  const speedMult = 1 + pctOf(banner, (e) => e.type === 'enemyStat' && e.stat === 'speed') / 100;
+  const hp = u.hp * mult * hpMult;
+  const death = u.behaviours?.find((b) => b.type === 'deathSpawn');
+  return {
+    ...attackStats(u.attack, mult),
+    unit: u.id,
+    hp,
+    speed: u.speed * speedMult,
+    radius: u.radius,
+    armor: u.armor,
+    siege,
+    sprite: { w: u.sprite.w, h: u.sprite.h },
+    shield: (hp * pctOf(banner, (e) => e.type === 'enemyShieldPct')) / 100,
+    deathSpawn: death
+      ? { stats: unitStats(content.unit(death.unit), mult, false, content, banner), count: death.count }
+      : null,
+  };
+};
 
 /** Lính của công trình lính ở cấp `level`: HP/DMG theo TROOP_STD rồi modifier, kèm các giới hạn §5.3. */
 const spawnedStats = (
@@ -129,8 +150,31 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
     const unitSheet = collectStatSheet(state, content, plot, unit);
     const raw = Math.floor(finalStat(spawnFx.count[level - 1]!, unitSheet.unitCount));
     const count = state.idleUids.includes(b.uid) ? 0 : clamp(raw, 0, MAX_UNITS_PER_BUILDING);
-    spawn = { stats: spawnedStats(unit, level, unitSheet), count };
+    const stats = spawnedStats(unit, level, unitSheet);
+    const death = unit.behaviours?.find((b) => b.type === 'deathSpawn');
+    if (death) {
+      const child = content.unit(death.unit);
+      stats.deathSpawn = {
+        stats: spawnedStats(child, level, collectStatSheet(state, content, plot, child)),
+        count: death.count,
+      };
+    }
+    spawn = { stats, count };
   }
+  const pulseFx = card.effects.find((e) => e.type === 'pulse');
+  const tauntFx = card.effects.find((e) => e.type === 'taunt');
+  const shieldFx = card.effects.find((e) => e.type === 'shieldPulse');
+  const pulse =
+    pulseFx && pulseFx.type === 'pulse'
+      ? {
+          everyTicks: pulseFx.everyTicks,
+          radius: scalarAt(pulseFx.radius, level) + TOWER_RANGE[level - 1]!,
+          dmg: finalStat(pulseFx.attack.dmg * levelMult(TOWER_STD, level), sheet.dmg),
+          dmgType: pulseFx.attack.type,
+          stunTicks:
+            pulseFx.attack.onHit?.reduce((m, h) => (h.type === 'stun' ? Math.max(m, h.ticks) : m), 0) ?? 0,
+        }
+      : null;
   return {
     ...base,
     kind: card.kind as StructureSetup['kind'],
@@ -142,9 +186,16 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
         : null,
     targeting: towerFx && towerFx.type === 'tower' ? towerFx.targeting : 'closestToThrone',
     spawn,
-    pulse: null,
-    taunt: 0,
-    shieldPulse: null,
+    pulse,
+    taunt: tauntFx && tauntFx.type === 'taunt' ? tauntFx.radius : 0,
+    shieldPulse:
+      shieldFx && shieldFx.type === 'shieldPulse'
+        ? {
+            everyTicks: shieldFx.everyTicks,
+            radius: shieldFx.radius,
+            amount: scalarAt(shieldFx.amount, level),
+          }
+        : null,
   };
 };
 
@@ -162,11 +213,12 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
   });
 
   const mult = ENEMY_LEVEL_STAT[army.level - 1]! * army.statMult;
+  const banner = army.attacker === 'raiders' ? [] : content.king(army.attacker).banner.effects;
   const waves: WaveSetup[] = army.waves.map((w) => ({
     spawnTick: w.spawnTick,
     spawns: w.units.map((s) => {
       const def = content.unit(s.unit);
-      return { stats: unitStats(def, mult, def.tags.includes('siege')), edge: s.edge };
+      return { stats: unitStats(def, mult, def.tags.includes('siege'), content, banner), edge: s.edge };
     }),
   }));
 

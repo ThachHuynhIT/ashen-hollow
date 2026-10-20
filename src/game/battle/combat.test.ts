@@ -612,3 +612,75 @@ describe('stun', () => {
     expect(hits).toEqual([5]); // the first strike lands the tick the stun is gone
   });
 });
+
+describe('death spawns', () => {
+  const rubble = unitStats({ unit: 'rubble', hp: 40 });
+  const miner = (count = 1) => ({ deathSpawn: { stats: rubble, count } });
+
+  it('a dying unit leaves its spawn on the same team near where it fell, after all deaths', () => {
+    const w = world();
+    const m = unit(w, TEAM_FOE, 100, 100, { hp: 10, ...miner() });
+    const before = w.count;
+    w.hp[m] = 0;
+    deathPhase(w);
+    expect(w.alive[m]).toBe(0);
+    expect(w.count).toBe(before + 1);
+    const child = before;
+    expect(w.team[child]).toBe(TEAM_FOE);
+    expect(w.label[child]).toBe('rubble');
+    expect(w.alive[child]).toBe(1);
+    expect(Math.abs(w.x[child]! - 100)).toBeLessThanOrEqual(14);
+    expect(Math.abs(w.y[child]! - 100)).toBeLessThanOrEqual(14);
+    expect(w.kills).toBe(1); // only the miner counted
+    deathPhase(w); // the child does not die in the same tick it was born
+    expect(w.alive[child]).toBe(1);
+  });
+
+  it('spawns `count` children on distinct offsets and inherits the parent source uid and home', () => {
+    const w = world();
+    const m = addUnit(w, unitStats({ hp: 10, ...miner(3) }), TEAM_ALLY, 120, 120, 90, 90, 7);
+    const before = w.count;
+    w.playerUnits = 1;
+    w.hp[m] = 0;
+    deathPhase(w);
+    expect(w.count).toBe(before + 3);
+    const spots = new Set<string>();
+    for (let c = before; c < before + 3; c++) {
+      spots.add(`${w.x[c]},${w.y[c]}`);
+      expect(w.sourceUid[c]).toBe(7);
+      expect(w.homeX[c]).toBe(90);
+      expect(w.homeY[c]).toBe(90);
+    }
+    expect(spots.size).toBe(3);
+    expect(w.playerUnits).toBe(4);
+  });
+
+  it('allied spawns respect playerUnitCap and count what was refused in capped', () => {
+    const w = world();
+    const m = unit(w, TEAM_ALLY, 100, 100, { hp: 10, ...miner(2) });
+    w.playerUnits = BATTLE.playerUnitCap;
+    const before = w.count;
+    w.hp[m] = 0;
+    deathPhase(w);
+    expect(w.count).toBe(before);
+    expect(w.capped).toBe(2);
+  });
+
+  it('never overflows the entity arrays', () => {
+    const w = world();
+    const m = unit(w, TEAM_FOE, 100, 100, { hp: 10, ...miner(5) });
+    while (w.count < BATTLE.entityCap - 1) unit(w, TEAM_FOE, 300, 300, { hp: 1000 });
+    w.hp[m] = 0;
+    expect(() => deathPhase(w)).not.toThrow();
+    expect(w.count).toBe(BATTLE.entityCap);
+  });
+
+  it('does nothing for a unit without a death spawn', () => {
+    const w = world();
+    const f = unit(w, TEAM_FOE, 100, 100, { hp: 10 });
+    const before = w.count;
+    w.hp[f] = 0;
+    deathPhase(w);
+    expect(w.count).toBe(before);
+  });
+});

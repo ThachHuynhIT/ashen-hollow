@@ -359,7 +359,7 @@ export const addUnit = (
 };
 
 /** Vị trí lính thứ k quanh tâm (§8.7): SPAWN_OFFSETS[k % 16], vòng thứ hai trở đi × 1.5 làm tròn. */
-const spawnOffset = (k: number): { dx: number; dy: number } => {
+export const spawnOffset = (k: number): { dx: number; dy: number } => {
   const [ox, oy] = SPAWN_OFFSETS[k % SPAWN_OFFSETS.length]!;
   if (k < SPAWN_OFFSETS.length) return { dx: ox, dy: oy };
   return { dx: Math.round(ox * 1.5), dy: Math.round(oy * 1.5) };

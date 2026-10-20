@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { CardDef, CardId, EnchantCardDef, Level } from '../../data/types';
+import type { CardDef, CardId, EnchantCardDef, Level, UnitDef } from '../../data/types';
 import { CONTENT } from '../cards/registry';
-import { contentWith, runState } from '../testing/fixtures';
+import { contentWith, fakeKing, runState } from '../testing/fixtures';
 import { buildBattleSetup } from './battleSetup';
 import type { BuildingState, RunState } from './state';
 
@@ -282,5 +282,134 @@ describe('attack specs map to the battle setup', () => {
   it('leaves them at zero for plain attacks', () => {
     const s = setupOf([[6, bld(1, 'neutral_archer_tower')]]);
     expect(at(s, 6).attack).toMatchObject({ splash: 0, chain: null, stunTicks: 0, rampPctPerHit: 0, rampCapPct: 0 });
+  });
+});
+
+describe('structure effects map to the battle setup', () => {
+  const heart: CardDef = {
+    ...base,
+    id: 'stone_heart',
+    nameVi: 'Tim Núi',
+    kind: 'tower',
+    structureHp: [600, 750, 900, 1050, 1200],
+    effects: [
+      {
+        type: 'pulse',
+        everyTicks: 40,
+        radius: 48,
+        attack: { dmg: 30, type: 'physical', range: 0, interval: 40, onHit: [{ type: 'stun', ticks: 10 }] },
+      },
+    ],
+  };
+  const wallCard: CardDef = {
+    ...base,
+    id: 'stone_wall2',
+    nameVi: 'Tường',
+    kind: 'support',
+    effects: [{ type: 'taunt', radius: 40 }],
+  };
+  const ward: CardDef = {
+    ...base,
+    id: 'arcane_ward',
+    nameVi: 'Vòng',
+    kind: 'support',
+    effects: [{ type: 'shieldPulse', radius: 64, amount: [20, 25, 30, 35, 40], everyTicks: 50 }],
+  };
+  const miners: CardDef = {
+    ...base,
+    id: 'stone_miners',
+    nameVi: 'Thợ mỏ',
+    kind: 'troop',
+    effects: [{ type: 'spawn', unit: 'test_miner', count: [3, 4, 5, 6, 7] }],
+  };
+  const unitDef = (id: string, extra: Partial<UnitDef> = {}): UnitDef => ({
+    id,
+    nameVi: id,
+    hp: 70,
+    attack: { dmg: 8, type: 'physical', range: 2, interval: 12 },
+    speed: 0.8,
+    radius: 5,
+    armor: 0.2,
+    tags: ['melee', 'human'],
+    enemyCost: 2,
+    sprite: { w: 16, h: 16 },
+    ...extra,
+  });
+  const c2 = contentWith({
+    cards: [heart, wallCard, ward, miners],
+    units: [
+      unitDef('test_rubble', { hp: 40, enemyCost: 0 }),
+      unitDef('test_miner', { behaviours: [{ type: 'deathSpawn', unit: 'test_rubble', count: 1 }] }),
+    ],
+  });
+  const setup2 = (built: [number, BuildingState][]) => buildBattleSetup(board(built), c2);
+
+  it('maps a pulse with TOWER_STD damage, TOWER_RANGE radius and the stun', () => {
+    const l1 = setup2([[6, bld(1, 'stone_heart', 1)]]).structures[0]!;
+    expect(l1.pulse).toEqual({ everyTicks: 40, radius: 48, dmg: 30, dmgType: 'physical', stunTicks: 10 });
+    const l3 = setup2([[6, bld(1, 'stone_heart', 3)]]).structures[0]!;
+    expect(l3.pulse!.dmg).toBeCloseTo(30 * 1.7, 9);
+    expect(l3.pulse!.radius).toBe(48 + 8);
+    expect(l3.hp).toBe(900); // the card's own HP table
+  });
+
+  it('maps taunt and the per-level shield pulse', () => {
+    const s = setup2([[6, bld(1, 'stone_wall2')], [7, bld(2, 'arcane_ward', 3)]]);
+    expect(s.structures[0]!.taunt).toBe(40);
+    expect(s.structures[1]!.shieldPulse).toEqual({ everyTicks: 50, radius: 64, amount: 30 });
+    expect(s.structures[0]!.pulse).toBeNull();
+  });
+
+  it('gives a spawned unit its death spawn, scaled like any unit of that building', () => {
+    const spawn = setup2([[6, bld(1, 'stone_miners', 3)]]).structures[0]!.spawn!;
+    expect(spawn.stats.deathSpawn).not.toBeNull();
+    expect(spawn.stats.deathSpawn!.count).toBe(1);
+    expect(spawn.stats.deathSpawn!.stats.unit).toBe('test_rubble');
+    expect(spawn.stats.deathSpawn!.stats.hp).toBeCloseTo(40 * 1.5, 9);
+  });
+
+  it('plain buildings carry no pulse, taunt, shield pulse or death spawn', () => {
+    const s = setupOf([[6, bld(1, 'wheat_militia')]]);
+    expect(at(s, 6)).toMatchObject({ pulse: null, taunt: 0, shieldPulse: null });
+    expect(at(s, 6).spawn!.stats.deathSpawn).toBeNull();
+  });
+});
+
+describe('enemy banners', () => {
+  const stone = fakeKing('stone', {
+    banner: {
+      id: 'stone_banner',
+      nameVi: 'Da Đá',
+      textVi: 'Da Đá',
+      effects: [
+        { type: 'enemyStat', stat: 'hp', pct: 20 },
+        { type: 'enemyStat', stat: 'speed', pct: -10 },
+        { type: 'enemyShieldPct', pct: 15 },
+      ],
+    },
+  });
+  const cB = contentWith({ kings: [stone] });
+  const army = (attacker: 'stone' | 'raiders') => ({
+    attacker,
+    budget: 10,
+    level: 1 as const,
+    statMult: 1,
+    waves: [{ spawnTick: 0, units: [{ unit: attacker === 'stone' ? 'stone_grunt' : 'bandit', edge: 'N' as const }] }],
+  });
+  const foe = (attacker: 'stone' | 'raiders') =>
+    buildBattleSetup({ ...board([]), army: army(attacker) }, cB).waves[0]!.spawns[0]!.stats;
+
+  it('raises HP, slows speed and shields every enemy of that king by the percentages', () => {
+    const plain = cB.unit('stone_grunt');
+    const s = foe('stone');
+    expect(s.hp).toBeCloseTo(plain.hp * 1.2, 9);
+    expect(s.speed).toBeCloseTo(plain.speed * 0.9, 9);
+    expect(s.shield).toBeCloseTo(s.hp * 0.15, 9);
+  });
+
+  it('leaves raiders untouched', () => {
+    const s = foe('raiders');
+    expect(s.hp).toBe(30);
+    expect(s.shield).toBe(0);
   });
 });
