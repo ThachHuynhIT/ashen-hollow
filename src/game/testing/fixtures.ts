@@ -1,5 +1,6 @@
 /** Dựng setup trận nhỏ cho test (không dùng trong mã chạy thật). */
-import { CONTENT } from '../cards/registry';
+import type { BannerDef, CardDef, KingDef, KingId, UnitDef } from '../../data/types';
+import { CONTENT, type Content } from '../cards/registry';
 import { newRun } from '../run/yearFlow';
 import type { RunState } from '../run/state';
 import type { AttackStats, BattleSetup, StructureSetup, UnitStats } from '../battle/types';
@@ -89,4 +90,69 @@ export const runState = (over: Partial<RunState> = {}): RunState => {
     return { ...base, drawPile: withoutHand(base.deck, over.hand), discardPile: [] };
   }
   return base;
+};
+
+/** Vua giả cho test: Ngai của Lúa Mì, một đơn vị `<id>_grunt` (EP `cost`), roster chỉ có đơn vị đó. */
+export const fakeKing = (
+  id: KingId,
+  over: { cost?: number; banner?: BannerDef; cards?: readonly CardDef[] } = {},
+): KingDef => {
+  const wheat = CONTENT.king('wheat');
+  const unit: UnitDef = {
+    id: `${id}_grunt`,
+    nameVi: `Lính ${id}`,
+    hp: 30,
+    attack: { dmg: 5, type: 'physical', range: 2, interval: 10 },
+    speed: 1,
+    radius: 4,
+    armor: 0,
+    tags: ['melee', 'human'],
+    enemyCost: over.cost ?? 2,
+    sprite: { w: 16, h: 16 },
+  };
+  return {
+    ...wheat,
+    id,
+    nameVi: `Vua ${id}`,
+    name: id,
+    throne: { ...wheat.throne, id: `${id}_throne`, owner: id },
+    cards: over.cards ?? [],
+    units: [unit],
+    enemyRoster: [{ unit: unit.id, weight: 1 }],
+    banner: over.banner ?? { id: `${id}_banner`, nameVi: 'Cờ', textVi: 'Cờ hiệu thử.', effects: [] },
+  };
+};
+
+/** `CONTENT` cộng thêm các vua (và thẻ/đơn vị của họ) cho test; tra cứu ưu tiên phần thêm. */
+export const contentWith = (extra: {
+  kings?: readonly KingDef[];
+  cards?: readonly CardDef[];
+  units?: readonly UnitDef[];
+}): Content => {
+  const kings = extra.kings ?? [];
+  const cards = new Map<string, CardDef>();
+  for (const k of kings) for (const c of [k.throne, ...k.cards]) cards.set(c.id, c);
+  for (const c of extra.cards ?? []) cards.set(c.id, c);
+  const units = new Map<string, UnitDef>();
+  for (const k of kings) for (const u of k.units) units.set(u.id, u);
+  for (const u of extra.units ?? []) units.set(u.id, u);
+  const kingMap = new Map(kings.map((k) => [k.id, k] as const));
+  const sortById = <T extends { id: string }>(items: T[]): T[] =>
+    items.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return {
+    ...CONTENT,
+    card: (id) => cards.get(id) ?? CONTENT.card(id),
+    unit: (id) => units.get(id) ?? CONTENT.unit(id),
+    king: (id) => kingMap.get(id) ?? CONTENT.king(id),
+    enemyRoster: (id) => {
+      const king = kingMap.get(id);
+      if (!king) return CONTENT.enemyRoster(id);
+      return king.enemyRoster.map((r) => ({
+        unit: units.get(r.unit) ?? CONTENT.unit(r.unit),
+        weight: r.weight,
+      }));
+    },
+    allCards: () => sortById([...CONTENT.allCards(), ...cards.values()]),
+    allUnits: () => sortById([...CONTENT.allUnits(), ...units.values()]),
+  };
 };

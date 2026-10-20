@@ -9,7 +9,8 @@ import type { Rect } from '../hud/layout';
 import { addUiText, bindPress, createPanel, frameBorder, type UiBox } from '../theme';
 
 /** Display name of each attacker (§10.4 Trinh sát: "tên … của kẻ tấn công"). */
-const ATTACKER_NAME: Record<ArmyPlan['attacker'], string> = { raiders: 'Thổ Phỉ' };
+const attackerName = (plan: ArmyPlan, content: Content): string =>
+  plan.attacker === 'raiders' ? 'Thổ Phỉ' : content.king(plan.attacker).nameVi;
 
 /** Edge name and an arrow pointing into the field from that edge. */
 const EDGE_TEXT: Record<Edge, string> = { N: '↓ Bắc', E: '← Đông', S: '↑ Nam', W: '→ Tây' };
@@ -99,7 +100,7 @@ export class ScoutPanel {
     const plan = this.plan;
     const full = this.mode === 'full';
     let cy = inset;
-    const name = plan ? ATTACKER_NAME[plan.attacker] : '';
+    const name = plan ? attackerName(plan, this.content) : '';
 
     if (full) {
       cy += this.text(inset, cy, 'Trinh sát', 16, true).height + LINE_GAP;

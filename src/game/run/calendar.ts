@@ -1,5 +1,6 @@
 /** Lịch kẻ địch và bộ bài khởi đầu (spec §3.4, §3.5, §14 G2). Thuần, deterministic. */
 import { Rng, hashSeed } from '../../core/random';
+import { SLOT_MULT } from '../../data/battle';
 import type { Rules } from '../../data/rules';
 import type { CardId, KingDef, KingId } from '../../data/types';
 
@@ -29,6 +30,11 @@ const SHORT: readonly CalendarSlot[] = [
   N,
   N,
 ];
+
+/** Hệ số ngân sách của một năm: Thổ Phỉ `raiders`, vua theo lần tấn công 1..3 (spec §3.6). */
+export function slotMultFor(slot: CalendarSlot): number {
+  return slot.kind === 'raiders' ? SLOT_MULT.raiders : SLOT_MULT.kingAttack[slot.attack - 1]!;
+}
 
 /** Kẻ tấn công từng năm 1..`rules.years`. */
 export function calendarFor(rules: Rules): readonly CalendarSlot[] {

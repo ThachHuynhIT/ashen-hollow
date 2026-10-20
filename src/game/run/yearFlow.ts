@@ -1,13 +1,12 @@
 /** Khởi tạo ván và bước sang năm mới (spec §3.2, §5.5 bước 1, 6). Thuần, không sửa đầu vào. */
 import { Rng, hashSeed } from '../../core/random';
-import { SLOT_MULT } from '../../data/battle';
 import { RULES_G1, PLAYABLE_KINGS_G2, type Rules } from '../../data/rules';
 import { RUN, START_DECK_G1 } from '../../data/run';
 import type { KingId } from '../../data/types';
 import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
-import { pickEnemyKings, startDeck } from './calendar';
+import { calendarFor, pickEnemyKings, slotMultFor, startDeck } from './calendar';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
 import { RUN_SAVE_VERSION } from './state';
@@ -16,12 +15,27 @@ import type { RunState } from './state';
 /** Sang năm kế: bốc đạo quân và rút tay mới, về pha lập kế hoạch. */
 export function startYear(state: RunState, content: Content): RunState {
   const year = state.year + 1;
-  const roster = content.raiderRoster().map((r) => ({
+  const slot = calendarFor(state.rules)[year - 1] ?? { kind: 'raiders' as const };
+  const kingId = slot.kind === 'king' ? state.enemyKings[slot.king - 1] : undefined;
+  const king = kingId === undefined ? null : content.king(kingId);
+  // Cờ hiệu `enemyCostPct` làm đổi giá đơn vị khi tính ngân sách (spec §3.6).
+  const costMult =
+    1 +
+    (king?.banner.effects.reduce((sum, e) => (e.type === 'enemyCostPct' ? sum + e.pct : sum), 0) ?? 0) / 100;
+  const entries = (kingId === undefined ? content.raiderRoster() : content.enemyRoster(kingId)).map((r) => ({
     unit: r.unit.id,
     weight: r.weight,
-    enemyCost: r.unit.enemyCost,
+    enemyCost: r.unit.enemyCost * costMult,
   }));
-  const army = composeArmy(roster, armyBudget(year, SLOT_MULT.raiders), year, state.seed);
+  const army = composeArmy(
+    entries,
+    armyBudget(year, slotMultFor(slot)),
+    year,
+    state.seed,
+    slot.kind === 'king' && king !== null && kingId !== undefined
+      ? { attacker: kingId, attackNo: slot.attack, banner: king.banner.id }
+      : {},
+  );
   const rng = new Rng(state.rng.draw);
   // A hand with no playable card would repeat every year (nothing drawn, battle auto-starts):
   // send it to the discard pile so other cards can reach the hand.

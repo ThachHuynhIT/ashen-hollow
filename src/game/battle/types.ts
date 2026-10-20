@@ -1,4 +1,4 @@
-import type { CardId, DamageType, TargetMode, UnitId } from '../../data/types';
+import type { CardId, DamageType, KingId, TargetMode, UnitId } from '../../data/types';
 
 /** Mép sân nơi quân địch xuất hiện. */
 export type Edge = 'N' | 'E' | 'S' | 'W';
@@ -15,7 +15,12 @@ export interface ArmyWave {
 
 /** Đạo quân địch đã bốc sẵn ở đầu năm (spec §3.6). */
 export interface ArmyPlan {
-  attacker: 'raiders';
+  /** Thổ Phỉ hoặc id vua địch (G2). */
+  attacker: 'raiders' | KingId;
+  /** Lần tấn công thứ mấy (1..3) của vua địch; không có với Thổ Phỉ. */
+  attackNo?: 1 | 2 | 3;
+  /** id cờ hiệu của vua địch, nếu có. */
+  banner?: string;
   budget: number;
   level: 1 | 2 | 3 | 4 | 5;
   /** Nhân HP & DMG khi chạm ENEMY_CAP mà còn ngân sách (√surplus), mặc định 1. */
