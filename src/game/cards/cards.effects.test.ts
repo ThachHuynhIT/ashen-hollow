@@ -248,3 +248,158 @@ describe('Wheat King (spec §6.3)', () => {
     expect(incomeOf([[6, bld(1, 'wheat_field')]]).delta).toBe(1);
   });
 });
+
+describe('Stone King (spec §6.4)', () => {
+  const stone = CONTENT.king('stone');
+  const ids = (r: string) => stone.cards.filter((c) => c.rarity === r).map((c) => c.id).sort();
+  const asStone = { kingId: 'stone' as const };
+
+  it('has the throne and nine cards: 4 common, 3 uncommon, 2 rare, all with the stone prefix', () => {
+    expect(stone.cards).toHaveLength(9);
+    expect(ids('common')).toEqual(
+      ['stone_catapult', 'stone_golem_forge', 'stone_quarry', 'stone_stoneskin'].sort(),
+    );
+    expect(ids('uncommon')).toEqual(['stone_wall', 'stone_crystal', 'stone_miners'].sort());
+    expect(ids('rare')).toEqual(['stone_rune_carving', 'stone_mountain_heart'].sort());
+    for (const c of stone.cards) expect(c.id.startsWith('stone_')).toBe(true);
+    expect(stone.throne).toMatchObject({ id: 'stone_throne', hp: 450, armor: 0.2 });
+    expect(stone.throne.attack).toMatchObject({ dmg: 12, type: 'physical', range: 56, interval: 14, projectileSpeed: 6 });
+  });
+
+  it('has the Da Đá banner, the 50/35/15 roster and the four units', () => {
+    expect(stone.banner.effects).toEqual([
+      { type: 'enemyStat', stat: 'hp', pct: 20 },
+      { type: 'enemyStat', stat: 'speed', pct: -10 },
+    ]);
+    expect(stone.enemyRoster).toEqual([
+      { unit: 'miner', weight: 50 },
+      { unit: 'slinger', weight: 35 },
+      { unit: 'golem', weight: 15 },
+    ]);
+    expect(CONTENT.unit('golem')).toMatchObject({ hp: 220, speed: 0.6, radius: 7, armor: 0.3, enemyCost: 6 });
+    expect(CONTENT.unit('golem').attack).toMatchObject({ dmg: 14, range: 3, interval: 15 });
+    expect(CONTENT.unit('miner')).toMatchObject({ hp: 70, speed: 0.8, radius: 5, armor: 0.2, enemyCost: 2.2 });
+    expect(CONTENT.unit('miner').behaviours).toEqual([{ type: 'deathSpawn', unit: 'rubble', count: 1 }]);
+    expect(CONTENT.unit('rubble')).toMatchObject({ hp: 40, speed: 0.7, radius: 4, armor: 0.2, enemyCost: 0 });
+    expect(CONTENT.unit('slinger')).toMatchObject({ hp: 30, speed: 0.8, enemyCost: 1.5 });
+    expect(CONTENT.unit('slinger').attack).toMatchObject({ dmg: 7, range: 64, interval: 16, projectileSpeed: 6 });
+  });
+
+  it('the throne gives every tower +10/12/15/18/20% damage by throne level', () => {
+    const plain = structureAt(setupOf([[6, bld(1, 'wheat_scarecrow')]]), 6).attack!.dmg;
+    const pct = [10, 12, 15, 18, 20];
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const s = setupOf([[12, bld(0, 'stone_throne')], [6, bld(1, 'wheat_scarecrow')]], { ...asStone, throneLevel: level });
+      expect(structureAt(s, 6).attack!.dmg).toBeCloseTo(plain * (1 + pct[level - 1]! / 100), 9);
+    }
+    const troop = setupOf([[12, bld(0, 'stone_throne')], [6, bld(1, 'wheat_militia')]], asStone);
+    const troopPlain = setupOf([[6, bld(1, 'wheat_militia')]]);
+    expect(structureAt(troop, 6).spawn!.stats.dmg).toBe(structureAt(troopPlain, 6).spawn!.stats.dmg);
+  });
+
+  it('Tháp Ném Đá throws splash shells with a minimum range', () => {
+    const a = structureAt(setupOf([[6, bld(1, 'stone_catapult')]]), 6).attack!;
+    expect(a).toMatchObject({ dmg: 14, range: 96, minRange: 24, interval: 25, projectileSpeed: 5, splash: 16 });
+    const l5 = structureAt(setupOf([[6, bld(1, 'stone_catapult', 5)]]), 6).attack!;
+    expect(l5.dmg).toBeCloseTo(14 * 2.4, 9);
+    expect(l5.range).toBe(96 + 16);
+  });
+
+  it('Xưởng Người Đá spawns 1/1/2/2/3 golems', () => {
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const sp = structureAt(setupOf([[6, bld(1, 'stone_golem_forge', level)]]), 6).spawn!;
+      expect(sp.count).toBe([1, 1, 2, 2, 3][level - 1]);
+      expect(sp.stats.unit).toBe('golem');
+    }
+  });
+
+  it('Mỏ Đá pays 1/2/2/3/3 gold and adds 10..30% damage to neighbouring towers', () => {
+    const gold = [1, 2, 2, 3, 3];
+    const pct = [10, 15, 20, 25, 30];
+    const plain = structureAt(setupOf([[7, bld(2, 'wheat_scarecrow')]]), 7).attack!.dmg;
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      expect(incomeOf([[6, bld(1, 'stone_quarry', level)]]).delta).toBe(gold[level - 1]);
+      const s = setupOf([[6, bld(1, 'stone_quarry', level)], [7, bld(2, 'wheat_scarecrow')]]);
+      expect(structureAt(s, 7).attack!.dmg).toBeCloseTo(plain * (1 + pct[level - 1]! / 100), 9);
+    }
+  });
+
+  it('Bùa Da Đá gives +20% unit and structure HP and +0.05 armor per stack', () => {
+    const skin = [{ cardId: 'stone_stoneskin' as CardId, stacks: 2 }];
+    const plain = structureAt(setupOf([[6, bld(1, 'wheat_militia')]]), 6);
+    const two = structureAt(setupOf([[6, bld(1, 'wheat_militia', 1, skin)]]), 6);
+    expect(two.hp).toBeCloseTo(plain.hp * 1.4, 9);
+    expect(two.spawn!.stats.hp).toBeCloseTo(plain.spawn!.stats.hp * 1.4, 9);
+    expect(two.spawn!.stats.armor).toBeCloseTo(plain.spawn!.stats.armor + 0.1, 9);
+  });
+
+  it('Tường Thành: own HP table, armor 0.3, taunt, +20% HP to neighbouring buildings', () => {
+    const hp = [400, 550, 700, 850, 1000];
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const w = structureAt(setupOf([[6, bld(1, 'stone_wall', level)]]), 6);
+      expect(w.hp).toBe(hp[level - 1]);
+      expect(w.armor).toBeCloseTo(0.3, 9);
+      expect(w.taunt).toBe(40);
+    }
+    const plain = structureAt(setupOf([[7, bld(2, 'wheat_militia')]]), 7).hp;
+    const near = structureAt(setupOf([[6, bld(1, 'stone_wall')], [7, bld(2, 'wheat_militia')]]), 7).hp;
+    expect(near).toBeCloseTo(plain * 1.2, 9);
+  });
+
+  it('Tháp Pha Lê: 4 magic, range 64, interval 3, instant, +20% per consecutive hit up to +200%', () => {
+    const a = structureAt(setupOf([[6, bld(1, 'stone_crystal')]]), 6).attack!;
+    expect(a).toMatchObject({
+      dmg: 4,
+      dmgType: 'magic',
+      range: 64,
+      interval: 3,
+      projectileSpeed: 0,
+      rampPctPerHit: 20,
+      rampCapPct: 200,
+    });
+  });
+
+  it('Đội Thợ Mỏ spawns 3/4/5/6/7 miners that leave rubble when they die', () => {
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const sp = structureAt(setupOf([[6, bld(1, 'stone_miners', level)]]), 6).spawn!;
+      expect(sp.count).toBe([3, 4, 5, 6, 7][level - 1]);
+      expect(sp.stats.unit).toBe('miner');
+      expect(sp.stats.deathSpawn).toMatchObject({ count: 1 });
+      expect(sp.stats.deathSpawn!.stats.unit).toBe('rubble');
+    }
+  });
+
+  it('Khắc Ấn Núi gives every tower a permanent +8% damage, stacking when played twice', () => {
+    const once = playOn(
+      [[6, bld(1, 'wheat_scarecrow')], [7, bld(2, 'wheat_militia')]],
+      ['stone_rune_carving'],
+      { kind: 'none' },
+    );
+    expect(once.plots[6]!.building!.permanent).toEqual({ dmg: 8 });
+    expect(once.plots[7]!.building!.permanent).toEqual({});
+    const twice = playOn(
+      once.plots.flatMap((p, i) => (p.building && i !== 12 ? [[i, p.building] as [number, BuildingState]] : [])),
+      ['stone_rune_carving'],
+      { kind: 'none' },
+    );
+    expect(twice.plots[6]!.building!.permanent).toEqual({ dmg: 16 });
+    const plain = structureAt(setupOf([[6, bld(1, 'wheat_scarecrow')]]), 6).attack!.dmg;
+    const buffed = structureAt(setupOf([[6, twice.plots[6]!.building!]]), 6).attack!.dmg;
+    expect(buffed).toBeCloseTo(plain * 1.16, 9);
+  });
+
+  it('Tim Núi: HP table, a 40-tick pulse of 30 damage and 10-tick stun, +30% HP to neighbouring golems', () => {
+    const hp = [600, 750, 900, 1050, 1200];
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      expect(structureAt(setupOf([[6, bld(1, 'stone_mountain_heart', level)]]), 6).hp).toBe(hp[level - 1]);
+    }
+    const heart = structureAt(setupOf([[6, bld(1, 'stone_mountain_heart')]]), 6);
+    expect(heart.pulse).toEqual({ everyTicks: 40, radius: 48, dmg: 30, dmgType: 'physical', stunTicks: 10 });
+    expect(heart.attack).toBeNull();
+    const plain = structureAt(setupOf([[7, bld(2, 'stone_golem_forge')]]), 7).spawn!.stats.hp;
+    const near = structureAt(setupOf([[6, bld(1, 'stone_mountain_heart')], [7, bld(2, 'stone_golem_forge')]]), 7).spawn!.stats.hp;
+    expect(near).toBeCloseTo(plain * 1.3, 9);
+    const miners = structureAt(setupOf([[6, bld(1, 'stone_mountain_heart')], [7, bld(2, 'stone_miners')]]), 7).spawn!.stats.hp;
+    expect(miners).toBe(structureAt(setupOf([[7, bld(2, 'stone_miners')]]), 7).spawn!.stats.hp);
+  });
+});

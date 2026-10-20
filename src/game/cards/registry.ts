@@ -1,4 +1,4 @@
-import { KINGS_G1 } from '../../data/kings';
+import { KINGS_G2 } from '../../data/kings';
 import { NEUTRAL_CARDS, NEUTRAL_UNITS } from '../../data/neutral';
 import { RAIDER_ROSTER, RAIDER_UNITS } from '../../data/raiders';
 import type { CardDef, CardId, KingDef, KingId, UnitDef, UnitId } from '../../data/types';
@@ -22,13 +22,13 @@ const byId = <T extends { readonly id: string }>(items: readonly T[]): T[] =>
 
 function buildContent(): Content {
   const cards = byId([
-    ...KINGS_G1.flatMap((k) => [k.throne, ...k.cards]),
+    ...KINGS_G2.flatMap((k) => [k.throne, ...k.cards]),
     ...NEUTRAL_CARDS,
   ]);
-  const units = byId([...KINGS_G1.flatMap((k) => k.units), ...NEUTRAL_UNITS, ...RAIDER_UNITS]);
+  const units = byId([...KINGS_G2.flatMap((k) => k.units), ...NEUTRAL_UNITS, ...RAIDER_UNITS]);
   const cardMap = new Map<string, CardDef>(cards.map((c) => [c.id, c]));
   const unitMap = new Map<string, UnitDef>(units.map((u) => [u.id, u]));
-  const kingMap = new Map<string, KingDef>(KINGS_G1.map((k) => [k.id, k]));
+  const kingMap = new Map<string, KingDef>(KINGS_G2.map((k) => [k.id, k]));
 
   const need = <T>(map: Map<string, T>, id: string, what: string): T => {
     const v = map.get(id);
