@@ -72,6 +72,15 @@ export interface AttackStats {
   /** chậm gây ra khi trúng (%), 0 = không */
   slowPct: number;
   slowTicks: number;
+  /** bán kính nổ; địch khác trong bán kính quanh mục tiêu nhận 50%; 0 = không */
+  splash: number;
+  /** nảy sang `count` địch kế tiếp trong `radius` quanh mục tiêu trước, mỗi lần × `falloff` */
+  chain: { count: number; radius: number; falloff: number } | null;
+  /** choáng gây ra khi trúng (tick); 0 = không */
+  stunTicks: number;
+  /** mỗi đòn liên tiếp vào cùng mục tiêu cộng thêm % sát thương, tối đa `rampCapPct`; 0 = không */
+  rampPctPerHit: number;
+  rampCapPct: number;
 }
 
 /** Chỉ số một đơn vị lúc xuất quân. */
@@ -84,6 +93,10 @@ export interface UnitStats extends AttackStats {
   armor: number;
   siege: boolean;
   sprite: { w: number; h: number };
+  /** khiên lúc xuất hiện (HP ảo hấp thụ trước máu) */
+  shield: number;
+  /** khi chết sinh `count` đơn vị `stats` cùng phe tại chỗ */
+  deathSpawn: { stats: UnitStats; count: number } | null;
 }
 
 /** Một công trình (hoặc Ngai) trên bàn cờ lúc vào trận. */
@@ -99,6 +112,18 @@ export interface StructureSetup {
   attack: AttackStats | null;
   targeting: TargetMode;
   spawn: { stats: UnitStats; count: number } | null;
+  /** xung vòng tròn: mỗi `everyTicks` tick gây `dmg` cho mọi địch trong `radius`, kèm choáng */
+  pulse: {
+    everyTicks: number;
+    radius: number;
+    dmg: number;
+    dmgType: DamageType;
+    stunTicks: number;
+  } | null;
+  /** bán kính khiêu khích: địch trong vòng này phải đánh công trình này trước; 0 = không */
+  taunt: number;
+  /** xung khiên: mỗi `everyTicks` tick lính mình trong `radius` nhận `amount` khiên (tối đa 2×) */
+  shieldPulse: { everyTicks: number; radius: number; amount: number } | null;
 }
 
 export interface WaveSetup {
@@ -124,4 +149,6 @@ export type BattleEvent =
   | { type: 'boulder'; phase: 'drop' | 'impact'; x: number; y: number }
   | { type: 'waveSpawned'; index: number; edges: readonly Edge[] }
   | { type: 'rage' }
+  | { type: 'pulse'; id: number }
+  | { type: 'shield'; id: number }
   | { type: 'ended'; won: boolean };

@@ -44,6 +44,11 @@ const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatShe
     cleave: a.cleave ?? 1,
     slowPct: slow ? slow.pct : 0,
     slowTicks: slow ? slow.ticks : 0,
+    splash: 0,
+    chain: null,
+    stunTicks: 0,
+    rampPctPerHit: 0,
+    rampCapPct: 0,
   };
 };
 
@@ -56,6 +61,8 @@ const unitStats = (u: UnitDef, mult: number, siege: boolean): UnitStats => ({
   armor: u.armor,
   siege,
   sprite: { w: u.sprite.w, h: u.sprite.h },
+  shield: 0,
+  deathSpawn: null,
 });
 
 /** Lính của công trình lính ở cấp `level`: HP/DMG theo TROOP_STD rồi modifier, kèm các giới hạn §5.3. */
@@ -76,6 +83,8 @@ const spawnedStats = (
     armor: clamp(finalStat(u.armor, sheet.armor), 0, 0.75),
     siege: false,
     sprite: { w: u.sprite.w, h: u.sprite.h },
+    shield: 0,
+    deathSpawn: null,
   };
 };
 
@@ -94,6 +103,9 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
       attack: attackStats(card.attack, mult, 0, sheet),
       targeting: 'nearest',
       spawn: null,
+      pulse: null,
+      taunt: 0,
+      shieldPulse: null,
     };
   }
   if (card.kind === 'tome' || card.kind === 'enchantment') {
@@ -128,6 +140,9 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
         : null,
     targeting: towerFx && towerFx.type === 'tower' ? towerFx.targeting : 'closestToThrone',
     spawn,
+    pulse: null,
+    taunt: 0,
+    shieldPulse: null,
   };
 };
 

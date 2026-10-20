@@ -107,6 +107,19 @@ export class BattleWorld {
   readonly cleave = new Float64Array(BATTLE.entityCap);
   /** Chậm gây ra khi trúng (%). */
   readonly onHitSlowPct = new Float64Array(BATTLE.entityCap);
+  /** Khiên hiện có (HP ảo hấp thụ trước máu). */
+  readonly shield = new Float64Array(BATTLE.entityCap);
+  readonly splash = new Float64Array(BATTLE.entityCap);
+  readonly chainRadius = new Float64Array(BATTLE.entityCap);
+  readonly chainFalloff = new Float64Array(BATTLE.entityCap);
+  readonly rampPct = new Float64Array(BATTLE.entityCap);
+  readonly rampCap = new Float64Array(BATTLE.entityCap);
+  /** Bán kính khiêu khích của công trình (0 = không). */
+  readonly taunt = new Float64Array(BATTLE.entityCap);
+  readonly pulseRadius = new Float64Array(BATTLE.entityCap);
+  readonly pulseDmg = new Float64Array(BATTLE.entityCap);
+  readonly shieldRadius = new Float64Array(BATTLE.entityCap);
+  readonly shieldAmount = new Float64Array(BATTLE.entityCap);
   /** Điểm về khi rảnh (tâm ô công trình sinh ra; công trình = chính nó). */
   readonly homeX = new Float64Array(BATTLE.entityCap);
   readonly homeY = new Float64Array(BATTLE.entityCap);
@@ -123,6 +136,17 @@ export class BattleWorld {
   readonly target = new Int32Array(BATTLE.entityCap);
   readonly slowTicks = new Int32Array(BATTLE.entityCap);
   readonly onHitSlowTicks = new Int32Array(BATTLE.entityCap);
+  /** Choáng đang chịu (tick) và choáng gây ra khi trúng. */
+  readonly stunTicks = new Int32Array(BATTLE.entityCap);
+  readonly onHitStunTicks = new Int32Array(BATTLE.entityCap);
+  /** Mục tiêu và số đòn liên tiếp của đòn tăng dần (`rampPct`), −1 = chưa có. */
+  readonly rampTarget = new Int32Array(BATTLE.entityCap).fill(-1);
+  readonly rampStacks = new Int32Array(BATTLE.entityCap);
+  readonly chainCount = new Int32Array(BATTLE.entityCap);
+  /** Xung vòng tròn và xung khiên của công trình. */
+  readonly pulseEvery = new Int32Array(BATTLE.entityCap);
+  readonly pulseStun = new Int32Array(BATTLE.entityCap);
+  readonly shieldEvery = new Int32Array(BATTLE.entityCap);
   /** uid công trình (công trình: uid của chính nó; địch: −1). */
   readonly sourceUid = new Int32Array(BATTLE.entityCap);
   readonly kbTicks = new Int32Array(BATTLE.entityCap);
@@ -133,6 +157,10 @@ export class BattleWorld {
 
   /** DMG_* (0 physical, 1 fire, 2 magic). */
   readonly dmgType = new Uint8Array(BATTLE.entityCap);
+  /** DMG_* của xung vòng tròn. */
+  readonly pulseDmgType = new Uint8Array(BATTLE.entityCap);
+  /** Đơn vị sinh ra khi chết, theo id thực thể (không băm: suy ra từ setup). */
+  readonly deathSpawn: ({ stats: UnitStats; count: number } | null)[] = new Array(BATTLE.entityCap).fill(null);
   /** Id đơn vị hoặc cardId — render chọn frame. */
   readonly label: string[] = new Array<string>(BATTLE.entityCap).fill('');
 
@@ -243,6 +271,13 @@ const setAttack = (w: BattleWorld, id: number, a: AttackStats | null): void => {
   w.cleave[id] = a.cleave;
   w.onHitSlowPct[id] = a.slowPct;
   w.onHitSlowTicks[id] = a.slowTicks;
+  w.splash[id] = a.splash;
+  w.chainCount[id] = a.chain?.count ?? 0;
+  w.chainRadius[id] = a.chain?.radius ?? 0;
+  w.chainFalloff[id] = a.chain?.falloff ?? 0;
+  w.onHitStunTicks[id] = a.stunTicks;
+  w.rampPct[id] = a.rampPctPerHit;
+  w.rampCap[id] = a.rampCapPct;
 };
 
 const place = (w: BattleWorld, id: number, x: number, y: number): void => {
@@ -270,6 +305,19 @@ const addStructure = (w: BattleWorld, s: StructureSetup, isThrone: boolean): num
   w.targeting[id] = TARGET_CODE[s.targeting];
   w.label[id] = s.cardId;
   setAttack(w, id, s.attack);
+  w.taunt[id] = s.taunt;
+  if (s.pulse) {
+    w.pulseEvery[id] = s.pulse.everyTicks;
+    w.pulseRadius[id] = s.pulse.radius;
+    w.pulseDmg[id] = s.pulse.dmg;
+    w.pulseDmgType[id] = dmgTypeCode(s.pulse.dmgType);
+    w.pulseStun[id] = s.pulse.stunTicks;
+  }
+  if (s.shieldPulse) {
+    w.shieldEvery[id] = s.shieldPulse.everyTicks;
+    w.shieldRadius[id] = s.shieldPulse.radius;
+    w.shieldAmount[id] = s.shieldPulse.amount;
+  }
   w.events.push({ type: 'spawn', id });
   return id;
 };
@@ -302,6 +350,8 @@ export const addUnit = (
   w.targeting[id] = TARGET_NEAREST;
   w.label[id] = stats.unit;
   setAttack(w, id, stats);
+  w.shield[id] = stats.shield;
+  w.deathSpawn[id] = stats.deathSpawn;
   w.events.push({ type: 'spawn', id });
   return id;
 };

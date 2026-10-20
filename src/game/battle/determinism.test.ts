@@ -132,3 +132,27 @@ describe('battle determinism', () => {
     expect(simulateBattle(reversed, INPUTS)).toEqual(simulateBattle(SETUP, INPUTS));
   });
 });
+
+describe('hash covers the G2 mechanics', () => {
+  it('differs when a pulse, taunt, shield or splash value differs', () => {
+    const plain = hashWorld(createBattle(battleSetup({ structures: [structure(6)] })));
+    const variants = [
+      structure(6, { pulse: { everyTicks: 40, radius: 48, dmg: 30, dmgType: 'physical', stunTicks: 10 } }),
+      structure(6, { pulse: { everyTicks: 41, radius: 48, dmg: 30, dmgType: 'physical', stunTicks: 10 } }),
+      structure(6, { taunt: 40 }),
+      structure(6, { shieldPulse: { everyTicks: 50, radius: 64, amount: 20 } }),
+      structure(6, { kind: 'tower', attack: attackStats({ splash: 16 }) }),
+    ];
+    const hashes = variants.map((s) => hashWorld(createBattle(battleSetup({ structures: [s] }))));
+    for (const h of hashes) expect(h).not.toBe(plain);
+    expect(new Set(hashes).size).toBe(hashes.length);
+  });
+
+  it('is equal for identical setups', () => {
+    const make = () =>
+      hashWorld(
+        createBattle(battleSetup({ structures: [structure(6, { taunt: 40 })] })),
+      );
+    expect(make()).toBe(make());
+  });
+});
