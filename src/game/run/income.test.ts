@@ -34,7 +34,19 @@ const camp: CardDef = {
   textVi: 'camp',
   effects: [{ type: 'custom', id: 'mercenary_upkeep', params: { gold: 1 } }],
 };
-const content = contentWith({ cards: [well, field, windmill, camp] });
+const manure: CardDef = {
+  id: 'wheat_manure',
+  owner: 'wheat',
+  nameVi: 'manure',
+  name: 'manure',
+  kind: 'enchantment',
+  rarity: 'common',
+  tags: [],
+  textVi: 'manure',
+  targets: ['economy'],
+  perStack: [{ type: 'stat', scope: 'self', filter: { kinds: ['economy'] }, stat: 'gold', mode: 'flat', value: 1 }],
+};
+const content = contentWith({ cards: [well, field, windmill, camp, manure] });
 
 const at = (
   state: RunState,
@@ -102,6 +114,12 @@ describe('yearIncome', () => {
       [8, 'neutral_mercenary_camp'],
     ]);
     expect(yearIncome(s, content, 0, upkeep)).toEqual({ delta: 2, idleUids: [2] });
+  });
+
+  it('adds gold granted by modifiers such as an enchantment on an economy building', () => {
+    const s = at(runState(), [[6, 'neutral_well', 2]]);
+    s.plots[6]!.building!.enchants = [{ cardId: 'wheat_manure', stacks: 3 }];
+    expect(yearIncome(s, content, 0).delta).toBe(2 + 3);
   });
 
   it('never mutates the state', () => {
