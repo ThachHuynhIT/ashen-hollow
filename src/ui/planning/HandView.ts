@@ -30,9 +30,13 @@ export class HandView {
   }
 
   /** Cards in hand order; missing slots are hidden and ignore input (`[]` hides the hand). */
-  setHand(hand: readonly CardId[], dimmed: readonly boolean[] = []): void {
+  setHand(
+    hand: readonly CardId[],
+    dimmed: readonly boolean[] = [],
+    badges: readonly (string | null)[] = [],
+  ): void {
     this.cards.forEach((card, i) => {
-      card.setCard(hand[i] ?? null);
+      card.setCard(hand[i] ?? null, { badge: badges[i] ?? null });
       card.setDimmed(dimmed[i] ?? false);
     });
   }

@@ -18,6 +18,7 @@ import { createOverlay, fitOverlay } from '../ui/modals/overlay';
 import { RewardModal } from '../ui/modals/RewardModal';
 import { InfoPanel } from '../ui/info/InfoPanel';
 import { buildingInfoLines } from '../ui/info/infoLines';
+import { cardBadge, willLevelUpTo } from '../ui/cards/cardText';
 import { CalendarStrip } from '../ui/planning/CalendarStrip';
 import { HandView } from '../ui/planning/HandView';
 import { ScoutPanel } from '../ui/planning/ScoutPanel';
@@ -240,6 +241,10 @@ export class PlanningHudScene extends Phaser.Scene {
     this.hand.setHand(
       choosing ? state.hand : [],
       state.hand.map((id) => !hasAnyTarget(state.plots, CONTENT.card(id))),
+      state.hand.map((id) => {
+        const card = CONTENT.card(id);
+        return cardBadge(card, willLevelUpTo(state.plots, card));
+      }),
     );
     this.sellBtn.setVisible(choosing);
     this.rerollBtn.setVisible(choosing);

@@ -20,10 +20,11 @@ const ARROW_DEPTH = 100_000;
 const ARROW_GAP = 4;
 const ARROW_HALF = 7;
 /** How a plot is outlined while a card is aimed (§10.4): legal, illegal, or already picked. */
-export type PlotHighlight = 'good' | 'bad' | 'selected';
+export type PlotHighlight = 'good' | 'bad' | 'selected' | 'levelUp';
 
 const HIGHLIGHT_COLOR: Readonly<Record<PlotHighlight, number>> = {
   good: UI_PALETTE.good,
+  levelUp: UI_PALETTE.good,
   bad: UI_PALETTE.bad,
   selected: UI_PALETTE.gold,
 };
@@ -90,6 +91,11 @@ export class BoardRenderer {
       const half = BATTLE.plot / 2;
       g.lineStyle(2, HIGHLIGHT_COLOR[map.get(p) ?? 'bad'], 1);
       g.strokeRect(c.x - half + 1, c.y - half + 1, BATTLE.plot - 2, BATTLE.plot - 2);
+      if (map.get(p) === 'levelUp') {
+        // A second, gold ring inside marks "this plays as a level-up".
+        g.lineStyle(1, UI_PALETTE.gold, 1);
+        g.strokeRect(c.x - half + 4, c.y - half + 4, BATTLE.plot - 8, BATTLE.plot - 8);
+      }
     }
   }
 

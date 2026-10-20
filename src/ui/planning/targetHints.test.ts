@@ -88,3 +88,43 @@ describe('dropOutcome', () => {
     expect(dropOutcome(board(), none, 0)).toEqual({ action: 'play' });
   });
 });
+
+describe('plotHighlights for every card kind', () => {
+  const militia = CONTENT.card('wheat_militia');
+  const sharpen = CONTENT.card('neutral_sharpen');
+  const mirror = CONTENT.card('arcane_mirror');
+
+  const withMilitia = (level: BuildingState['level'], enchants: BuildingState['enchants'] = []): PlotState[] =>
+    placeBuilding(board(), 8, { ...bld(2, 'wheat_militia'), level, enchants });
+
+  it('marks an open empty plot good and a copy of the same card below level 5 levelUp', () => {
+    const map = plotHighlights(withMilitia(2), militia, []);
+    expect(map.get(6)).toBe('good');
+    expect(map.get(8)).toBe('levelUp');
+    expect(map.get(7)).toBe('bad'); // another building
+  });
+
+  it('marks a level 5 copy bad', () => {
+    expect(plotHighlights(withMilitia(5), militia, []).get(8)).toBe('bad');
+  });
+
+  it('marks only buildings an enchantment fits (and with room) good', () => {
+    const map = plotHighlights(withMilitia(1), sharpen, []);
+    expect(map.get(8)).toBe('good');
+    expect(map.get(6)).toBe('bad'); // empty plot
+    expect(map.get(THRONE_PLOT)).toBe('good'); // sharpen targets the throne too
+    const full = plotHighlights(withMilitia(1, [{ cardId: 'neutral_sharpen', stacks: 4 }]), sharpen, []);
+    expect(full.get(8)).toBe('bad');
+  });
+
+  it('highlights the second step of a building-then-building tome', () => {
+    const plots = withMilitia(1, [{ cardId: 'neutral_sharpen', stacks: 1 }]);
+    const first = plotHighlights(plots, mirror, []);
+    expect(first.get(8)).toBe('good');
+    expect(first.get(6)).toBe('bad');
+    const second = plotHighlights(plots, mirror, [8]);
+    expect(second.get(8)).toBe('selected');
+    expect(second.get(7)).toBe('good'); // the other building
+    expect(second.get(6)).toBe('bad');
+  });
+});
