@@ -403,3 +403,152 @@ describe('Stone King (spec §6.4)', () => {
     expect(miners).toBe(structureAt(setupOf([[7, bld(2, 'stone_miners')]]), 7).spawn!.stats.hp);
   });
 });
+
+describe('Arcane King (spec §6.5)', () => {
+  const arcane = CONTENT.king('arcane');
+  const ids = (r: string) => arcane.cards.filter((c) => c.rarity === r).map((c) => c.id).sort();
+  const asArcane = { kingId: 'arcane' as const };
+  const spells = (cardId: string, n: number): BuildingState['enchants'] => [{ cardId: cardId as CardId, stacks: n }];
+
+  it('has the throne and nine cards: 4 common, 3 uncommon, 2 rare, all with the arcane prefix', () => {
+    expect(arcane.cards).toHaveLength(9);
+    expect(ids('common')).toEqual(
+      ['arcane_mage_tower', 'arcane_apprentices', 'arcane_spark_rune', 'arcane_haste_rune'].sort(),
+    );
+    expect(ids('uncommon')).toEqual(['arcane_library', 'arcane_frost_mages', 'arcane_mirror'].sort());
+    expect(ids('rare')).toEqual(['arcane_ward', 'arcane_archmage'].sort());
+    for (const c of arcane.cards) expect(c.id.startsWith('arcane_')).toBe(true);
+    expect(arcane.throne).toMatchObject({ id: 'arcane_throne', hp: 280, armor: 0 });
+    expect(arcane.throne.attack).toMatchObject({ dmg: 10, type: 'magic', range: 80, interval: 12, projectileSpeed: 8 });
+  });
+
+  it('has the Kết Giới banner, the 50/25/25 roster and the four units', () => {
+    expect(arcane.banner.effects).toEqual([{ type: 'enemyShieldPct', pct: 15 }]);
+    expect(arcane.enemyRoster).toEqual([
+      { unit: 'apprentice', weight: 50 },
+      { unit: 'frost_mage', weight: 25 },
+      { unit: 'construct', weight: 25 },
+    ]);
+    expect(CONTENT.unit('apprentice')).toMatchObject({ hp: 24, speed: 0.9, radius: 4, armor: 0, enemyCost: 1.4 });
+    expect(CONTENT.unit('apprentice').attack).toMatchObject({ dmg: 7, type: 'magic', range: 56, interval: 14, projectileSpeed: 7 });
+    expect(CONTENT.unit('frost_mage').attack).toMatchObject({ dmg: 6, range: 64, interval: 14, onHit: [{ type: 'slow', pct: 30, ticks: 20 }] });
+    expect(CONTENT.unit('archmage')).toMatchObject({ hp: 90, speed: 0.7, radius: 5, enemyCost: 8 });
+    expect(CONTENT.unit('archmage').attack).toMatchObject({ dmg: 22, range: 88, interval: 20, splash: 20, projectileSpeed: 6 });
+    expect(CONTENT.unit('construct')).toMatchObject({ hp: 90, speed: 0.8, radius: 6, armor: 0.1, enemyCost: 2.5 });
+    expect(CONTENT.unit('construct').attack).toMatchObject({ dmg: 8, type: 'magic', range: 2, interval: 12 });
+  });
+
+  it('Tháp Pháp Sư bounces once to a foe within 32 px for 60%', () => {
+    const a = structureAt(setupOf([[6, bld(1, 'arcane_mage_tower')]]), 6).attack!;
+    expect(a).toMatchObject({
+      dmg: 9,
+      dmgType: 'magic',
+      range: 80,
+      interval: 14,
+      projectileSpeed: 8,
+      chain: { count: 1, radius: 32, falloff: 0.6 },
+    });
+  });
+
+  it('Học Viện spawns 3/4/5/6/7 apprentices and Tháp Băng Sư 2/3/3/4/5 slowing frost mages', () => {
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const ap = structureAt(setupOf([[6, bld(1, 'arcane_apprentices', level)]]), 6).spawn!;
+      expect(ap.count).toBe([3, 4, 5, 6, 7][level - 1]);
+      expect(ap.stats.unit).toBe('apprentice');
+      const fm = structureAt(setupOf([[6, bld(1, 'arcane_frost_mages', level)]]), 6).spawn!;
+      expect(fm.count).toBe([2, 3, 3, 4, 5][level - 1]);
+      expect(fm.stats).toMatchObject({ unit: 'frost_mage', slowPct: 30, slowTicks: 20 });
+    }
+  });
+
+  it('Bùa Tia Lửa adds 2 damage per stack after the percentages; Bùa Tốc Biến speeds attacks by 12% per stack', () => {
+    const both = [
+      { cardId: 'neutral_sharpen' as CardId, stacks: 1 },
+      { cardId: 'arcane_spark_rune' as CardId, stacks: 2 },
+    ];
+    const t = structureAt(setupOf([[6, bld(1, 'arcane_mage_tower', 1, both)]]), 6).attack!;
+    expect(t.dmg).toBeCloseTo(9 * 1.15 + 4, 9);
+    const fast = structureAt(setupOf([[6, bld(1, 'arcane_mage_tower', 1, spells('arcane_haste_rune', 1))]]), 6).attack!;
+    expect(fast.interval).toBeCloseTo(14 / 1.12, 9);
+    const capped = structureAt(setupOf([[6, bld(1, 'arcane_mage_tower', 1, spells('arcane_haste_rune', 4))]]), 6).attack!;
+    expect(capped.interval).toBeCloseTo(14 / 1.48, 9);
+  });
+
+  it('Thư Viện pays 1 gold and lends neighbouring enchanted buildings virtual stacks of their first enchant', () => {
+    expect(incomeOf([[6, bld(1, 'arcane_library')]]).delta).toBe(1);
+    const sharp = spells('neutral_sharpen', 1);
+    const plain = structureAt(setupOf([[7, bld(2, 'arcane_mage_tower', 1, sharp)]]), 7).attack!.dmg;
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const virt = [1, 1, 1, 2, 2][level - 1]!;
+      const s = setupOf([[6, bld(1, 'arcane_library', level)], [7, bld(2, 'arcane_mage_tower', 1, sharp)]]);
+      expect(structureAt(s, 7).attack!.dmg).toBeCloseTo(9 * (1 + (15 + 15 * virt) / 100), 9);
+    }
+    expect(plain).toBeCloseTo(9 * 1.15, 9);
+    const bare = setupOf([[6, bld(1, 'arcane_library')], [7, bld(2, 'arcane_mage_tower')]]);
+    expect(structureAt(bare, 7).attack!.dmg).toBe(9);
+    const far = setupOf([[6, bld(1, 'arcane_library')], [8, bld(2, 'arcane_mage_tower', 1, sharp)]]);
+    expect(structureAt(far, 8).attack!.dmg).toBeCloseTo(9 * 1.15, 9);
+  });
+
+  it('virtual stacks do not count toward the stack limit', () => {
+    const three = spells('neutral_sharpen', 3);
+    const s = board([[6, bld(1, 'arcane_library')], [7, bld(2, 'arcane_mage_tower', 1, three)]], { hand: ['neutral_fortify'] });
+    const r = applyCommand(s, { type: 'play', handIndex: 0, target: plot(7) }, CONTENT);
+    expect('error' in r).toBe(false);
+  });
+
+  it('Gương Chép Bùa copies every stack in order up to the limit and leaves the source alone', () => {
+    const src = [
+      { cardId: 'neutral_sharpen' as CardId, stacks: 3 },
+      { cardId: 'neutral_fortify' as CardId, stacks: 2 },
+    ];
+    const next = playOn(
+      [[6, bld(1, 'wheat_militia', 1, src)], [7, bld(2, 'wheat_scarecrow')]],
+      ['arcane_mirror'],
+      { kind: 'two', first: 6, second: 7 },
+    );
+    expect(next.plots[7]!.building!.enchants).toEqual([
+      { cardId: 'neutral_sharpen', stacks: 3 },
+      { cardId: 'neutral_fortify', stacks: 1 },
+    ]);
+    expect(next.plots[6]!.building!.enchants).toEqual(src);
+  });
+
+  it('Vòng Kết Giới pulses a 20..40 shield every 50 ticks in 64 px', () => {
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const s = structureAt(setupOf([[6, bld(1, 'arcane_ward', level)]]), 6);
+      expect(s.shieldPulse).toEqual({ everyTicks: 50, radius: 64, amount: [20, 25, 30, 35, 40][level - 1] });
+    }
+  });
+
+  it('Tháp Đại Pháp Sư spawns 1/1/1/2/2 archmages, +4% damage per enchant stack on the board (max +100%)', () => {
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const sp = structureAt(setupOf([[7, bld(1, 'arcane_archmage', level)]]), 7).spawn!;
+      expect(sp.count).toBe([1, 1, 1, 2, 2][level - 1]);
+      expect(sp.stats.unit).toBe('archmage');
+    }
+    const base = structureAt(setupOf([[7, bld(1, 'arcane_archmage')]]), 7).spawn!.stats.dmg;
+    const four = spells('neutral_sharpen', 4);
+    const some = setupOf([[7, bld(1, 'arcane_archmage')], [1, bld(2, 'wheat_scarecrow', 1, four)], [3, bld(3, 'wheat_scarecrow', 1, four)]]);
+    expect(structureAt(some, 7).spawn!.stats.dmg).toBeCloseTo(base * (1 + (4 * 8) / 100), 9);
+    const many = setupOf([
+      [7, bld(1, 'arcane_archmage')],
+      ...[0, 1, 2, 3, 4, 5, 9].map((p, i): [number, BuildingState] => [p, bld(10 + i, 'wheat_scarecrow', 1, four)]),
+    ]);
+    expect(structureAt(many, 7).spawn!.stats.dmg).toBeCloseTo(base * 2, 9);
+  });
+
+  it('Hòa Âm gives buildings with 2 or more enchant stacks +10..20% HP and damage by throne level', () => {
+    const pct = [10, 12, 15, 18, 20];
+    const two = spells('neutral_sharpen', 2);
+    const plain = structureAt(setupOf([[6, bld(1, 'arcane_mage_tower', 1, two)]]), 6);
+    for (const level of [1, 2, 3, 4, 5] as const) {
+      const s = setupOf([[12, bld(0, 'arcane_throne')], [6, bld(1, 'arcane_mage_tower', 1, two)]], { ...asArcane, throneLevel: level });
+      expect(structureAt(s, 6).attack!.dmg).toBeCloseTo(9 * (1 + (30 + pct[level - 1]!) / 100), 9); // percentages add
+      expect(structureAt(s, 6).hp).toBeCloseTo(plain.hp * (1 + pct[level - 1]! / 100), 9);
+    }
+    const one = setupOf([[12, bld(0, 'arcane_throne')], [6, bld(1, 'arcane_mage_tower', 1, spells('neutral_sharpen', 1))]], asArcane);
+    const onePlain = setupOf([[6, bld(1, 'arcane_mage_tower', 1, spells('neutral_sharpen', 1))]]);
+    expect(structureAt(one, 6).attack!.dmg).toBeCloseTo(structureAt(onePlain, 6).attack!.dmg, 9);
+  });
+});

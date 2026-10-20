@@ -37,6 +37,10 @@ function effectValues(effects: readonly EffectDef[], level: Level): Record<strin
       else if (e.mode === 'pct') out.pct = scalarAt(e.value, level);
     }
     else if (e.type === 'tower') Object.assign(out, attackValues(e.attack));
+    else if (e.type === 'shieldPulse') {
+      out.amount = scalarAt(e.amount, level);
+      out.radius = e.radius;
+    }
     else if (e.type === 'pulse') {
       Object.assign(out, attackValues(e.attack));
       out.radius = scalarAt(e.radius, level);
