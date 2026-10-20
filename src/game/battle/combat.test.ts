@@ -374,3 +374,159 @@ describe('deaths', () => {
     expect(w.damageQueue.map((d) => d.sourceId)).toEqual([soldier]);
   });
 });
+
+/** HP lost by `id` in each of `ticks` fight ticks. */
+const damageTaken = (w: BattleWorld, id: number, ticks: number): number[] => {
+  const out: number[] = [];
+  for (let t = 0; t < ticks; t++) {
+    const before = w.hp[id]!;
+    fight(w);
+    out.push(before - w.hp[id]!);
+  }
+  return out;
+};
+
+describe('splash', () => {
+  const setup = (over: Partial<UnitStats> = {}) => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 20, range: 60, splash: 16, ...over });
+    const main = unit(w, TEAM_FOE, 130, 100, { hp: 1000 });
+    const near = unit(w, TEAM_FOE, 140, 100, { hp: 1000 }); // 10 px from the main target
+    const far = unit(w, TEAM_FOE, 160, 100, { hp: 1000 }); // 30 px
+    const friend = unit(w, TEAM_ALLY, 131, 100, { hp: 1000 });
+    w.target[a] = main;
+    return { w, a, main, near, far, friend };
+  };
+
+  it('hits the target for 100% and foes within the radius for 50%, nobody else', () => {
+    const { w, main, near, far, friend } = setup();
+    fight(w);
+    expect(w.hp[main]).toBe(980);
+    expect(w.hp[near]).toBe(990);
+    expect(w.hp[far]).toBe(1000);
+    expect(w.hp[friend]).toBe(1000);
+  });
+
+  it('does nothing extra when splash is 0', () => {
+    const { w, near } = setup({ splash: 0 });
+    fight(w);
+    expect(w.hp[near]).toBe(1000);
+  });
+
+  it('splashes where a projectile lands, and still explodes when the target died first', () => {
+    const { w, a, main, near } = setup({ projectileSpeed: 100, interval: 1000 });
+    attackPhase(w); // fires
+    w.hp[main] = 0; // the target dies before the shell arrives
+    w.alive[main] = 0;
+    projectilePhase(w);
+    applyDamagePhase(w);
+    expect(w.hp[main]).toBe(0);
+    // the shell fell where the target had stood; `near` is 10 px away from that spot
+    expect(w.hp[near]).toBe(990);
+    expect(a).toBeGreaterThan(0);
+  });
+});
+
+describe('chain', () => {
+  const setup = (count: number) => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, {
+      dmg: 10,
+      range: 60,
+      chain: { count, radius: 32, falloff: 0.6 },
+    });
+    const first = unit(w, TEAM_FOE, 130, 100, { hp: 1000 });
+    const second = unit(w, TEAM_FOE, 150, 100, { hp: 1000 }); // 20 px from the first
+    const third = unit(w, TEAM_FOE, 175, 100, { hp: 1000 }); // 25 px from the second, 45 from the first
+    const outside = unit(w, TEAM_FOE, 130, 160, { hp: 1000 });
+    w.target[a] = first;
+    return { w, first, second, third, outside };
+  };
+
+  it('jumps once to the nearest other foe in range with the falloff', () => {
+    const { w, first, second, third, outside } = setup(1);
+    fight(w);
+    expect(w.hp[first]).toBe(990);
+    expect(w.hp[second]).toBeCloseTo(1000 - 10 * 0.6, 9);
+    expect(w.hp[third]).toBe(1000);
+    expect(w.hp[outside]).toBe(1000);
+  });
+
+  it('keeps jumping count times, multiplying the falloff each time, never hitting a foe twice', () => {
+    const { w, first, second, third } = setup(2);
+    fight(w);
+    expect(w.hp[first]).toBe(990);
+    expect(w.hp[second]).toBeCloseTo(1000 - 6, 9);
+    expect(w.hp[third]).toBeCloseTo(1000 - 3.6, 9);
+  });
+
+  it('does not jump when there is no other foe in range', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 10, range: 60, chain: { count: 1, radius: 32, falloff: 0.6 } });
+    const only = unit(w, TEAM_FOE, 130, 100, { hp: 1000 });
+    w.target[a] = only;
+    fight(w);
+    expect(w.hp[only]).toBe(990);
+  });
+
+  it('breaks ties by the lowest id', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 10, range: 60, chain: { count: 1, radius: 40, falloff: 0.5 } });
+    const first = unit(w, TEAM_FOE, 130, 100, { hp: 1000 });
+    const up = unit(w, TEAM_FOE, 130, 80, { hp: 1000 }); // 20 px from the first
+    const down = unit(w, TEAM_FOE, 130, 120, { hp: 1000 }); // 20 px from the first
+    w.target[a] = first;
+    fight(w);
+    expect(w.hp[up]).toBe(995);
+    expect(w.hp[down]).toBe(1000);
+  });
+});
+
+describe('same-target ramp', () => {
+  const crystal = () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, {
+      dmg: 4,
+      range: 60,
+      interval: 1,
+      rampPctPerHit: 20,
+      rampCapPct: 200,
+    });
+    const f = unit(w, TEAM_FOE, 130, 100, { hp: 100000 });
+    w.target[a] = f;
+    return { w, a, f };
+  };
+
+  it('adds 20% per consecutive hit on the same target up to +200%', () => {
+    const { w, f } = crystal();
+    const dmg = damageTaken(w, f, 13);
+    const expected = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10].map((n) => 4 * (1 + Math.min(n * 0.2, 2)));
+    dmg.forEach((d, i) => expect(d).toBeCloseTo(expected[i]!, 9));
+  });
+
+  it('starts over when the shooter switches target', () => {
+    const { w, a, f } = crystal();
+    damageTaken(w, f, 4);
+    const g = unit(w, TEAM_FOE, 140, 100, { hp: 100000 });
+    w.target[a] = g;
+    expect(damageTaken(w, g, 2)).toEqual([4, 4 * 1.2].map((d) => expect.closeTo(d, 9)));
+  });
+
+  it('starts over after the target died', () => {
+    const { w, a, f } = crystal();
+    damageTaken(w, f, 3);
+    w.hp[f] = 0;
+    deathPhase(w);
+    const g = unit(w, TEAM_FOE, 140, 100, { hp: 100000 });
+    w.target[a] = g;
+    expect(damageTaken(w, g, 1)[0]).toBeCloseTo(4, 9);
+  });
+
+  it('never ramps when rampPctPerHit is 0', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 4, range: 60, interval: 1 });
+    const f = unit(w, TEAM_FOE, 130, 100, { hp: 100000 });
+    w.target[a] = f;
+    expect(damageTaken(w, f, 4)).toEqual([4, 4, 4, 4]);
+  });
+});

@@ -31,6 +31,8 @@ const clamp = (value: number, min: number, max: number): number => Math.min(Math
  */
 const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatSheet): AttackStats => {
   const slow = a.onHit?.find((h) => h.type === 'slow');
+  const stun = a.onHit?.find((h) => h.type === 'stun');
+  const ramp = a.onHit?.find((h) => h.type === 'rampSameTarget');
   const interval = sheet
     ? Math.max(a.interval / (1 + sheet.attackSpeed.pct / 100), a.interval * 0.5)
     : a.interval;
@@ -44,11 +46,11 @@ const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatShe
     cleave: a.cleave ?? 1,
     slowPct: slow ? slow.pct : 0,
     slowTicks: slow ? slow.ticks : 0,
-    splash: 0,
-    chain: null,
-    stunTicks: 0,
-    rampPctPerHit: 0,
-    rampCapPct: 0,
+    splash: a.splash ?? 0,
+    chain: a.chain ? { ...a.chain } : null,
+    stunTicks: stun ? stun.ticks : 0,
+    rampPctPerHit: ramp ? ramp.pctPerHit : 0,
+    rampCapPct: ramp ? ramp.cap : 0,
   };
 };
 

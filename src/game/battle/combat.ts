@@ -16,8 +16,9 @@ import {
   type QueuedDamage,
 } from './world';
 
-/** Đòn phụ của cleave nhận 50% (§8.5). */
+/** Đòn phụ của cleave và của splash nhận 50% (§8.5). */
 const CLEAVE_SECONDARY = 0.5;
+const SPLASH_SECONDARY = 0.5;
 
 /** Sát thương sau giáp (§8.5): vật lý `raw × (1 − giáp)`, lửa `raw × (1 − giáp/2)`, phép `raw`. */
 export const mitigate = (raw: number, type: DamageType, armor: number): number => {
@@ -68,9 +69,111 @@ const queueHit = (w: BattleWorld, attacker: number, victim: number, raw: number)
   );
 };
 
+/**
+ * Hệ số của đòn tăng dần (`rampPct`, §6.4 Tháp Pha Lê): đòn đầu vào mục tiêu mới nhân 1, mỗi đòn
+ * liên tiếp vào cùng mục tiêu cộng `rampPct`%, tối đa `rampCap`%. Đổi mục tiêu (hoặc mục tiêu
+ * chết, id không tái dùng) thì đếm lại. Ghi nhớ mục tiêu và số đòn vào thế giới.
+ */
+const rampMultiplier = (w: BattleWorld, attacker: number, victim: number): number => {
+  const pct = w.rampPct[attacker]!;
+  if (pct <= 0) return 1;
+  const cap = w.rampCap[attacker]!;
+  const stacks =
+    w.rampTarget[attacker] === victim
+      ? Math.min(w.rampStacks[attacker]! + 1, Math.floor(cap / pct))
+      : 0;
+  w.rampTarget[attacker] = victim;
+  w.rampStacks[attacker] = stacks;
+  return 1 + Math.min(stacks * pct, cap) / 100;
+};
+
+/** Mọi thực thể sống khác phe `attacker` có tâm cách (cx, cy) tối đa `radius`, theo id tăng dần. */
+const foesNear = (
+  w: BattleWorld,
+  attacker: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  skip: readonly number[],
+): number[] => {
+  const out: number[] = [];
+  const r2 = radius * radius;
+  for (let j = 0; j < w.count; j++) {
+    if (w.alive[j] === 0 || w.team[j] === w.team[attacker] || skip.includes(j)) continue;
+    const dx = w.x[j]! - cx;
+    const dy = w.y[j]! - cy;
+    if (dx * dx + dy * dy <= r2) out.push(j);
+  }
+  return out;
+};
+
+/** Splash: địch khác trong `splash` quanh (cx, cy) nhận 50% (không gồm `skip`). */
+const splashAround = (
+  w: BattleWorld,
+  attacker: number,
+  cx: number,
+  cy: number,
+  skip: readonly number[],
+  raw: number,
+): void => {
+  if (w.splash[attacker]! <= 0) return;
+  for (const j of foesNear(w, attacker, cx, cy, w.splash[attacker]!, skip)) {
+    queueDamage(w, j, raw * SPLASH_SECONDARY, w.dmgType[attacker]!, w.sourceUid[attacker]!, undefined, attacker);
+  }
+};
+
+/** Chain: nhảy `count` lần sang địch gần nhất chưa trúng trong `radius`, mỗi lần × falloff (hòa → id nhỏ). */
+const chainFrom = (w: BattleWorld, attacker: number, victim: number, raw: number): void => {
+  const jumps = w.chainCount[attacker]!;
+  if (jumps <= 0) return;
+  const hit = [victim];
+  let from = victim;
+  let dmg = raw;
+  for (let k = 0; k < jumps; k++) {
+    const cx = w.x[from]!;
+    const cy = w.y[from]!;
+    let best = -1;
+    let bestD2 = Infinity;
+    for (const j of foesNear(w, attacker, cx, cy, w.chainRadius[attacker]!, hit)) {
+      const dx = w.x[j]! - cx;
+      const dy = w.y[j]! - cy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) {
+        best = j;
+        bestD2 = d2;
+      }
+    }
+    if (best < 0) return;
+    dmg *= w.chainFalloff[attacker]!;
+    queueDamage(w, best, dmg, w.dmgType[attacker]!, w.sourceUid[attacker]!, undefined, attacker);
+    hit.push(best);
+    from = best;
+  }
+};
+
+/**
+ * Một đòn đã trúng `victim`: sát thương chính (nhân hệ số tăng dần) kèm làm chậm, rồi splash
+ * quanh mục tiêu và chain sang địch kế tiếp.
+ */
+const landStrike = (
+  w: BattleWorld,
+  attacker: number,
+  victim: number,
+  base: number,
+  slow: { pct: number; ticks: number },
+): void => {
+  const raw = base * rampMultiplier(w, attacker, victim);
+  queueDamage(w, victim, raw, w.dmgType[attacker]!, w.sourceUid[attacker]!, slow, attacker);
+  splashAround(w, attacker, w.x[victim]!, w.y[victim]!, [victim], raw);
+  chainFrom(w, attacker, victim, raw);
+};
+
 /** Đòn trúng ngay: mục tiêu chính 100%, rồi `cleave − 1` địch khác trong tầm gần nhất 50%. */
 const strikeInstant = (w: BattleWorld, attacker: number, victim: number): void => {
-  queueHit(w, attacker, victim, w.dmg[attacker]!);
+  landStrike(w, attacker, victim, w.dmg[attacker]!, {
+    pct: w.onHitSlowPct[attacker]!,
+    ticks: w.onHitSlowTicks[attacker]!,
+  });
   const extra = w.cleave[attacker]! - 1;
   if (extra < 1) return;
   const team = w.team[attacker]!;
@@ -146,6 +249,8 @@ export const projectilePhase = (world: BattleWorld): void => {
     if (p.alive[k] === 0) continue;
     const t = p.targetId[k]!;
     if (world.alive[t] === 0) {
+      // Mục tiêu chết trước khi trúng: đạn rơi tại chỗ nó đứng, splash vẫn nổ (§8.5).
+      splashAround(world, p.sourceId[k]!, world.x[t]!, world.y[t]!, [t], p.dmg[k]!);
       p.alive[k] = 0;
       continue;
     }
@@ -157,15 +262,7 @@ export const projectilePhase = (world: BattleWorld): void => {
       p.px[k] = world.x[t]!;
       p.py[k] = world.y[t]!;
       p.alive[k] = 0;
-      queueDamage(
-        world,
-        t,
-        p.dmg[k]!,
-        p.dmgType[k]!,
-        p.sourceUid[k]!,
-        { pct: p.slowPct[k]!, ticks: p.slowTicks[k]! },
-        p.sourceId[k]!,
-      );
+      landStrike(world, p.sourceId[k]!, t, p.dmg[k]!, { pct: p.slowPct[k]!, ticks: p.slowTicks[k]! });
       continue;
     }
     p.px[k] = p.px[k]! + (dx / d) * s;

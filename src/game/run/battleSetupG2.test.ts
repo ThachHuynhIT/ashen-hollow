@@ -240,3 +240,47 @@ describe('G1 behaviour is unchanged for level-1 plain buildings', () => {
     expect(s.throne.hp).toBe(300);
   });
 });
+
+describe('attack specs map to the battle setup', () => {
+  const special: CardDef = {
+    ...base,
+    id: 'stone_crystal',
+    nameVi: 'Pha lê',
+    kind: 'tower',
+    effects: [
+      {
+        type: 'tower',
+        attack: {
+          dmg: 4,
+          type: 'magic',
+          range: 64,
+          interval: 3,
+          splash: 16,
+          chain: { count: 1, radius: 32, falloff: 0.6 },
+          onHit: [
+            { type: 'stun', ticks: 10 },
+            { type: 'rampSameTarget', pctPerHit: 20, cap: 200 },
+          ],
+        },
+        targeting: 'closestToThrone',
+      },
+    ],
+  };
+  const c = contentWith({ cards: [special] });
+
+  it('carries splash, chain, stun and ramp from the AttackSpec', () => {
+    const s = buildBattleSetup(board([[6, bld(1, 'stone_crystal')]]), c);
+    expect(s.structures[0]!.attack).toMatchObject({
+      splash: 16,
+      chain: { count: 1, radius: 32, falloff: 0.6 },
+      stunTicks: 10,
+      rampPctPerHit: 20,
+      rampCapPct: 200,
+    });
+  });
+
+  it('leaves them at zero for plain attacks', () => {
+    const s = setupOf([[6, bld(1, 'neutral_archer_tower')]]);
+    expect(at(s, 6).attack).toMatchObject({ splash: 0, chain: null, stunTicks: 0, rampPctPerHit: 0, rampCapPct: 0 });
+  });
+});
