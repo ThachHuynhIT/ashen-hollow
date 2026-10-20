@@ -185,6 +185,30 @@ describe('RunController', () => {
     expect(states.length).toBeGreaterThan(0);
   });
 
+  it('keeps the speed chosen in one battle for the next battle and for a fresh controller', () => {
+    const { bus, controller } = setup();
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
+    bus.emit('ui:set-speed', { speed: 3 });
+    expect(controller.runner!.clock.speed).toBe(3);
+    runBattle(bus, controller);
+    const { bus: bus2, controller: c2 } = setup();
+    bus2.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
+    expect(c2.runner!.clock.speed).toBe(3);
+    bus2.emit('ui:set-speed', { speed: 1 });
+  });
+
+  it('does not carry a pause into the next battle', () => {
+    const { bus, controller } = setup();
+    bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
+    bus.emit('ui:set-speed', { speed: 2 });
+    bus.emit('ui:toggle-pause', {});
+    expect(controller.runner!.clock.speed).toBe(0);
+    const { bus: bus2, controller: c2 } = setup();
+    bus2.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
+    expect(c2.runner!.clock.speed).toBe(2);
+    bus.emit('ui:set-speed', { speed: 1 });
+  });
+
   it('ignores a stray battle:ended when no battle is active', () => {
     const { bus, controller, states } = setup();
     const before = controller.state;
