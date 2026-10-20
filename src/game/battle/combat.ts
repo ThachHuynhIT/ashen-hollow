@@ -45,6 +45,7 @@ export const queueDamage = (
   sourceUid: number,
   slow?: { pct: number; ticks: number },
   sourceId = -1,
+  stunTicks = 0,
 ): void => {
   world.damageQueue.push({
     victim,
@@ -54,6 +55,7 @@ export const queueDamage = (
     slowPct: slow?.pct ?? 0,
     slowTicks: slow?.ticks ?? 0,
     sourceId,
+    stunTicks,
   });
 };
 
@@ -163,7 +165,16 @@ const landStrike = (
   slow: { pct: number; ticks: number },
 ): void => {
   const raw = base * rampMultiplier(w, attacker, victim);
-  queueDamage(w, victim, raw, w.dmgType[attacker]!, w.sourceUid[attacker]!, slow, attacker);
+  queueDamage(
+    w,
+    victim,
+    raw,
+    w.dmgType[attacker]!,
+    w.sourceUid[attacker]!,
+    slow,
+    attacker,
+    w.onHitStunTicks[attacker]!,
+  );
   splashAround(w, attacker, w.x[victim]!, w.y[victim]!, [victim], raw);
   chainFrom(w, attacker, victim, raw);
 };
@@ -222,7 +233,7 @@ export const attackPhase = (world: BattleWorld): void => {
     if (world.alive[i] === 0 || world.interval[i]! <= 0) continue;
     const cd = Math.max(world.cooldown[i]! - 1, 0);
     world.cooldown[i] = cd;
-    if (cd > 0) continue;
+    if (cd > 0 || world.stunTicks[i]! > 0) continue; // choáng: không đánh, cooldown vẫn giảm (§8.6)
     let t: number;
     if (world.kind[i] === KIND_UNIT) {
       t = world.target[i]!;
@@ -317,17 +328,25 @@ export const applyDamagePhase = (world: BattleWorld): void => {
     const v = q.victim;
     if (world.alive[v] === 0 || world.hp[v]! <= 0) continue;
     const dmg = Math.max(0, mitigateCode(q.raw, q.type, world.armor[v]!));
-    world.hp[v] = world.hp[v]! - dmg;
+    // Khiên hấp thụ trước HP, sau giáp (§8.5).
+    const absorbed = Math.min(world.shield[v]!, dmg);
+    world.shield[v] = world.shield[v]! - absorbed;
+    world.hp[v] = world.hp[v]! - (dmg - absorbed);
     world.events.push({ type: 'hit', id: v, dmg });
     if (world.hp[v]! <= 0) world.killerUid[v] = q.sourceUid;
-    else applySlow(world, v, q.slowPct, q.slowTicks);
+    else {
+      applySlow(world, v, q.slowPct, q.slowTicks);
+      if (q.stunTicks > 0) world.stunTicks[v] = Math.max(world.stunTicks[v]!, q.stunTicks);
+    }
   }
 };
 
 /** Bước 9: chậm hết hạn sau `slowTicks` tick. (Bỏng/độc/hồi máu chưa có ở G1.) */
 export const statusPhase = (world: BattleWorld): void => {
   for (let i = 0; i < world.count; i++) {
-    if (world.alive[i] === 0 || world.slowTicks[i]! <= 0) continue;
+    if (world.alive[i] === 0) continue;
+    if (world.stunTicks[i]! > 0) world.stunTicks[i] = world.stunTicks[i]! - 1;
+    if (world.slowTicks[i]! <= 0) continue;
     world.slowTicks[i] = world.slowTicks[i]! - 1;
     if (world.slowTicks[i] === 0) world.slowPct[i] = 0;
   }

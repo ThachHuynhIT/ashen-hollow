@@ -530,3 +530,85 @@ describe('same-target ramp', () => {
     expect(damageTaken(w, f, 4)).toEqual([4, 4, 4, 4]);
   });
 });
+
+describe('shields', () => {
+  const hitFor = (shield: number, raw: number, armor = 0) => {
+    const w = world();
+    const f = unit(w, TEAM_FOE, 100, 100, { hp: 100, shield, armor });
+    queueDamage(w, f, raw, DMG_PHYSICAL, -1);
+    applyDamagePhase(w);
+    return { w, f };
+  };
+
+  it('absorbs a smaller hit completely, but still reports the hit', () => {
+    const { w, f } = hitFor(30, 20);
+    expect(w.hp[f]).toBe(100);
+    expect(w.shield[f]).toBe(10);
+    expect(drainEvents(w)).toContainEqual({ type: 'hit', id: f, dmg: 20 });
+  });
+
+  it('lets only the excess through a bigger hit', () => {
+    const { w, f } = hitFor(30, 50);
+    expect(w.shield[f]).toBe(0);
+    expect(w.hp[f]).toBe(80);
+  });
+
+  it('applies armor before the shield', () => {
+    const { w, f } = hitFor(30, 40, 0.5); // 40 × 0.5 = 20 absorbed
+    expect(w.shield[f]).toBe(10);
+    expect(w.hp[f]).toBe(100);
+  });
+
+  it('lets a unit with a shield die only after the shield is gone', () => {
+    const w = world();
+    const f = unit(w, TEAM_FOE, 100, 100, { hp: 10, shield: 10 });
+    queueDamage(w, f, 15, DMG_PHYSICAL, -1);
+    applyDamagePhase(w);
+    deathPhase(w);
+    expect(w.alive[f]).toBe(1);
+    queueDamage(w, f, 6, DMG_PHYSICAL, -1);
+    applyDamagePhase(w);
+    deathPhase(w);
+    expect(w.alive[f]).toBe(0);
+  });
+});
+
+describe('stun', () => {
+  it('is applied by a damage event, keeps the longest, and wears off one tick at a time', () => {
+    const w = world();
+    const f = unit(w, TEAM_FOE, 100, 100, { hp: 100 });
+    queueDamage(w, f, 1, DMG_PHYSICAL, -1, undefined, -1, 10);
+    queueDamage(w, f, 1, DMG_PHYSICAL, -1, undefined, -1, 5);
+    applyDamagePhase(w);
+    expect(w.stunTicks[f]).toBe(10);
+    for (let i = 0; i < 10; i++) statusPhase(w);
+    expect(w.stunTicks[f]).toBe(0);
+  });
+
+  it('is gained from the onHit stun of the attacker, on the primary target only', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 5, range: 60, stunTicks: 10, splash: 16 });
+    const main = unit(w, TEAM_FOE, 130, 100, { hp: 100 });
+    const other = unit(w, TEAM_FOE, 140, 100, { hp: 100 });
+    w.target[a] = main;
+    attackPhase(w);
+    applyDamagePhase(w);
+    expect(w.stunTicks[main]).toBe(10);
+    expect(w.stunTicks[other]).toBe(0);
+  });
+
+  it('a stunned unit does not attack, but its cooldown keeps running', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { dmg: 5, interval: 10 });
+    const f = unit(w, TEAM_FOE, 110, 100, { hp: 1000 });
+    w.target[a] = f;
+    w.stunTicks[a] = 5;
+    const hits: number[] = [];
+    for (let t = 0; t < 8; t++) {
+      const before = w.hp[f]!;
+      fight(w);
+      if (w.hp[f]! < before) hits.push(t);
+    }
+    expect(hits).toEqual([5]); // the first strike lands the tick the stun is gone
+  });
+});

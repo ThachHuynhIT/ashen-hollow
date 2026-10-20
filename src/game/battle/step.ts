@@ -7,6 +7,7 @@ import { BATTLE } from '../../data/battle';
 import { applyDamagePhase, attackPhase, deathPhase, projectilePhase, statusPhase } from './combat';
 import { autoFirePhase, boulderPhase, setAutoFire, tryIntervene } from './intervention';
 import { moveEntities } from './movement';
+import { pulsePhase, shieldPulsePhase } from './structures';
 import { retarget } from './targeting';
 import type { BattleCommand, BattleResult, BattleSetup } from './types';
 import { TEAM_FOE, createBattle, spawnWave, type BattleWorld } from './world';
@@ -53,7 +54,9 @@ export const stepBattle = (world: BattleWorld, inputs: readonly BattleCommand[])
   }
   autoFirePhase(world);
   boulderPhase(world);
-  // (3) hook onBattleTick — chưa có ở G1.
+  // (3) hook onBattleTick: xung vòng tròn và xung khiên của công trình.
+  pulsePhase(world);
+  shieldPulsePhase(world);
   retarget(world); // (4)
   moveEntities(world); // (5)
   attackPhase(world); // (6)

@@ -65,6 +65,8 @@ export interface QueuedDamage {
   slowPct: number;
   slowTicks: number;
   sourceId: number;
+  /** Choáng gây ra khi trúng (tick); 0 = không. */
+  stunTicks: number;
 }
 
 /** Tảng đá hoàng gia đang rơi (§7.4), theo thứ tự tạo. */
