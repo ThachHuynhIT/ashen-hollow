@@ -13,14 +13,18 @@ import { SPRITES_KEY, iconFrame } from '../render/atlas';
 import { ToastStack } from '../ui/ToastStack';
 import { Tooltip } from '../ui/Tooltip';
 import { foesRemaining, interventionCooldown, throneHpFraction } from '../ui/battle/battleReadout';
+import { InfoPanel } from '../ui/info/InfoPanel';
+import { entityAt, entityInfoLines } from '../ui/info/infoLines';
 import { DRAG_SLOP, GAP, MARGIN, textContent, type Point, type Rect } from '../ui/hud/layout';
 import { RESULT_BUTTON, centredPanel, resultLayout } from '../ui/modals/modalLayout';
 import { createOverlay, fitOverlay } from '../ui/modals/overlay';
 import { ScoutPanel, tickClock } from '../ui/planning/ScoutPanel';
 import {
   battleLayout,
+  battleCamera,
   battleWorldAt,
   battleZoom,
+  screenToWorld,
   isDesktop,
   type BattleLayout,
 } from '../ui/realm/realmLayout';
@@ -110,6 +114,9 @@ export class BattleHudScene extends Phaser.Scene {
   private dots!: Phaser.GameObjects.Graphics;
   private speedButtons: Button[] = [];
   private intervene!: Button;
+  /** Info box of a tapped building or unit (§10.7), and the entity it describes. */
+  private info!: InfoPanel;
+  private inspected: number | null = null;
   private autoBtn!: Button;
   private wavesBtn!: Button;
   private scoutModal: {
@@ -153,10 +160,12 @@ export class BattleHudScene extends Phaser.Scene {
     this.summary = null;
     this.result = null;
     this.scoutModal = null;
+    this.inspected = null;
     this.lay = this.currentLayout();
 
     this.tooltip = new Tooltip(this);
     this.toasts = new ToastStack(this, TOAST_DEPTH);
+    this.info = new InfoPanel(this, MODAL_DEPTH - 50);
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
       content: () => textContent(lines),
@@ -274,6 +283,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.drawDots(world.setup.waves.length, world.spawnedWaves);
     this.drawCooldown();
     this.drawRing();
+    this.refreshInfo(world);
   }
 
   private drawHp(fraction: number): void {
@@ -344,6 +354,36 @@ export class BattleHudScene extends Phaser.Scene {
 
   private showSpeed(speed: GameSpeed): void {
     this.speedButtons.forEach((b, i) => b.setActive(SPEEDS[i]!.speed === speed));
+  }
+
+  // ---- bảng thông tin nhà / lính (§10.7) ---------------------------------------------------
+
+  /** A tap on the field while not aiming: open the info box of the entity under it, else close it. */
+  private inspectAt(p: Point): void {
+    const world = this.world;
+    if (!world) return;
+    const { zoom, scroll } = battleCamera(this.screen());
+    const at = screenToWorld(p, scroll, this.screen(), zoom);
+    const id = entityAt(world, at.x, at.y);
+    if (id === null) {
+      this.hideInfo();
+      return;
+    }
+    this.inspected = id;
+    this.info.show(entityInfoLines(world, id, CONTENT), p, this.screen());
+  }
+
+  private hideInfo(): void {
+    this.inspected = null;
+    this.info.hide();
+  }
+
+  /** Keep the open info box live (HP ticking down) and close it when its entity dies. */
+  private refreshInfo(world: BattleWorld): void {
+    const id = this.inspected;
+    if (id === null) return;
+    if (world.alive[id] !== 1) this.hideInfo();
+    else this.info.setLines(entityInfoLines(world, id, CONTENT));
   }
 
   // ---- Tự bắn / các đợt địch -----------------------------------------------------------------
@@ -452,8 +492,13 @@ export class BattleHudScene extends Phaser.Scene {
     const press = this.press;
     if (!press || press.id !== pointer.id) return;
     this.press = null;
-    if (!this.aiming || this.ended) return;
+    if (this.ended) return;
     const p = { x: pointer.x, y: pointer.y };
+    if (!this.aiming) {
+      const moved = (p.x - press.x) ** 2 + (p.y - press.y) ** 2 > DRAG_SLOP * DRAG_SLOP;
+      if (!press.fromButton && !moved && over.length === 0) this.inspectAt(p);
+      return;
+    }
     if (press.fromButton) {
       // Released on the button = its own click (toggle); released elsewhere = drag-drop.
       if (!inside(this.lay.intervene, p) && over.length === 0) this.drop(p);
@@ -505,6 +550,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.setAiming(false);
     this.intervene.setEnabled(false);
     this.autoBtn.setEnabled(false);
+    this.hideInfo();
     for (const b of this.speedButtons) b.setEnabled(false);
     const box = createPanel(this, 'panel', 280, 72);
     box.image.setDepth(MODAL_DEPTH);
@@ -622,6 +668,7 @@ export class BattleHudScene extends Phaser.Scene {
     const wv = l.waves;
     this.wavesBtn.container.setPosition(wv.x + wv.w / 2, wv.y + wv.h / 2);
     this.layoutScout();
+    this.info.layout(this.screen());
 
     this.toasts.setAnchor(this.scale.width / 2, c.y + c.h + GAP * 2, this.scale.width - 2 * MARGIN);
     this.tooltip.refresh();
@@ -671,6 +718,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.bannerTimer?.remove(false);
     this.bannerTimer = null;
     this.closeScout();
+    this.info.destroy();
     this.toasts.destroy();
     this.tooltip.destroy();
     this.world = null;

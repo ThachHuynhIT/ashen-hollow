@@ -13,6 +13,8 @@ import { LONG_PRESS_MS, textContent, type TooltipContent } from '../ui/hud/layou
 import { CLOSE_BUTTON, centredPanel } from '../ui/modals/modalLayout';
 import { createOverlay, fitOverlay } from '../ui/modals/overlay';
 import { RewardModal } from '../ui/modals/RewardModal';
+import { InfoPanel } from '../ui/info/InfoPanel';
+import { buildingInfoLines } from '../ui/info/infoLines';
 import { HandView } from '../ui/planning/HandView';
 import { ScoutPanel } from '../ui/planning/ScoutPanel';
 import { plotIllegalReason } from '../ui/planning/targetHints';
@@ -93,6 +95,9 @@ export class PlanningHudScene extends Phaser.Scene {
   private skipSize = { w: 0, h: 0 };
   /** Cards currently in hand (1–3 after a play): the row is centred on this many. */
   private handCount = 0;
+  /** Info box of a tapped building (§10.7), and the plot it describes. */
+  private info!: InfoPanel;
+  private inspected: number | null = null;
   private fight!: Button;
   private confirmBtn!: Button;
   private cancelBtn!: Button;
@@ -115,6 +120,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.offs = [];
     this.reward = null;
     this.scoutModal = null;
+    this.inspected = null;
     this.pending = NO_PENDING;
     this.illegal = null;
     this.illegalTimer = null;
@@ -122,6 +128,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.lay = this.currentLayout();
 
     this.tooltip = new Tooltip(this);
+    this.info = new InfoPanel(this, MODAL_DEPTH - 50);
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
       content: () => textContent(lines),
@@ -179,6 +186,10 @@ export class PlanningHudScene extends Phaser.Scene {
         if (modal === 'scout') this.openScout();
       }),
       bus.on('ui:close-modal', () => this.closeScout()),
+      bus.on('ui:inspect', ({ plot, x, y }) => this.inspect(plot, { x, y })),
+      bus.on('ui:select-card', ({ handIndex }) => {
+        if (handIndex !== null) this.inspect(null, { x: 0, y: 0 });
+      }),
     );
 
     this.input.keyboard?.on(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.onKey, this);
@@ -198,6 +209,11 @@ export class PlanningHudScene extends Phaser.Scene {
     this.livesText.setText(`× ${state.lives}`);
     this.yearText.setText(`Năm ${state.year} / ${RULES_G1.years}`);
     this.scout.setPlan(state.army);
+    if (this.inspected !== null) {
+      const building = state.plots[this.inspected]?.building ?? null;
+      if (building === null || state.phase !== 'planning') this.inspect(null, { x: 0, y: 0 });
+      else this.info.setLines(buildingInfoLines(building, CONTENT));
+    }
 
     const planning = state.phase === 'planning';
     const choosing = planning && !state.played;
@@ -380,6 +396,25 @@ export class PlanningHudScene extends Phaser.Scene {
     this.plotTimer = null;
   }
 
+  // ---- building info (§10.7) ---------------------------------------------------------------
+
+  private inspect(plot: number | null, anchor: { x: number; y: number }): void {
+    const building =
+      plot === null || this.reward || this.scoutModal
+        ? null
+        : this.controller.state.plots[plot]?.building ?? null;
+    if (plot === null || building === null) {
+      this.inspected = null;
+      this.info.hide();
+      return;
+    }
+    this.inspected = plot;
+    this.info.show(buildingInfoLines(building, CONTENT), anchor, {
+      w: this.scale.width,
+      h: this.scale.height,
+    });
+  }
+
   // ---- scout modal (mobile) ---------------------------------------------------------------
 
   private openScout(): void {
@@ -475,6 +510,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.tooltip.refresh();
     this.reward?.layout();
     this.layoutScout();
+    this.info.layout({ w: this.scale.width, h: this.scale.height });
     this.refreshPending();
   }
 
@@ -489,6 +525,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.illegalTimer?.remove(false);
     this.stopPlotTimer();
     this.closeScout();
+    this.info.destroy();
     this.reward?.destroy();
     this.reward = null;
     this.hand.destroy();

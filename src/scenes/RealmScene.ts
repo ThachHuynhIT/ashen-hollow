@@ -254,13 +254,19 @@ export class RealmScene extends Phaser.Scene {
     const down = this.down;
     if (!down || down.id !== pointer.id) return;
     this.down = null;
-    if (this.inBattle || !this.pending || !this.board) return;
+    if (this.inBattle || !this.board) return;
     const dx = pointer.x - down.x;
     const dy = pointer.y - down.y;
     if (dx * dx + dy * dy > DRAG_SLOP * DRAG_SLOP) return;
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const plot = this.board.plotAt(world.x, world.y);
-    if (plot !== null) this.pick(plot);
+    if (this.pending) {
+      if (plot !== null) this.pick(plot);
+      return;
+    }
+    // Not aiming a card: a tap on a building asks the HUD for its info box, any other tap closes it.
+    const built = plot !== null && this.controller.state.plots[plot]?.building ? plot : null;
+    this.bus.emit('ui:inspect', { plot: built, x: pointer.x, y: pointer.y });
   }
 
   // ---- camera ----------------------------------------------------------------------------
