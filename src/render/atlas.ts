@@ -142,7 +142,7 @@ const cardAccent = (content: Content, def: CardDef): number => {
 };
 
 /** Every named sprite of the `sprites` atlas. */
-const spriteList = (content: Content): { name: string; art: PixelCanvas }[] => {
+export const spriteList = (content: Content): { name: string; art: PixelCanvas }[] => {
   const out: { name: string; art: PixelCanvas }[] = [];
   const teams: UnitTeam[] = ['ally', 'foe'];
   const anims: UnitAnim[] = ['idle', 'walk', 'attack'];
@@ -159,7 +159,12 @@ const spriteList = (content: Content): { name: string; art: PixelCanvas }[] => {
   for (const def of content.allCards()) {
     const accent = cardAccent(content, def);
     if (def.kind === 'throne') out.push({ name: buildingFrame(def.id), art: paintThrone(accent) });
-    else if (def.kind === 'troop' || def.kind === 'tower')
+    else if (
+      def.kind === 'troop' ||
+      def.kind === 'tower' ||
+      def.kind === 'economy' ||
+      def.kind === 'support'
+    )
       out.push({ name: buildingFrame(def.id), art: paintBuilding(def.kind, accent) });
     out.push({ name: cardArtFrame(def.id), art: paintCardArt(def, accent) });
   }

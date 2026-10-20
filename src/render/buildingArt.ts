@@ -22,12 +22,44 @@ const wall = (c: PixelCanvas, x: number, y: number, w: number, h: number, seed: 
 const groundShadow = (c: PixelCanvas, w: number, h: number): void =>
   c.fillEllipse(w / 2, h - 3, w * 0.42, 2.5, PALETTE.shadow, 128);
 
-/** Troop: small house with an accent-coloured roof. Tower: stone column with an accent cap. */
-export const paintBuilding = (kind: 'troop' | 'tower', accent: number): PixelCanvas => {
+/**
+ * Troop: small house with an accent-coloured roof. Tower: stone column with an accent cap.
+ * Economy: market stall with an accent awning. Support: low stone wall with an accent pennant.
+ */
+export const paintBuilding = (
+  kind: 'troop' | 'tower' | 'economy' | 'support',
+  accent: number,
+): PixelCanvas => {
   const { w, h } = BUILDING_SIZE;
   const c = new PixelCanvas(w, h);
   groundShadow(c, w, h);
-  if (kind === 'troop') {
+  if (kind === 'economy') {
+    // Counter with crates, two posts and a striped awning.
+    c.fillRect(4, 27, 24, 9, O);
+    c.fillRect(5, 28, 22, 7, PALETTE.soil);
+    c.fillRect(5, 28, 22, 1, PALETTE.path);
+    c.fillRect(7, 22, 4, 6, O);
+    c.fillRect(8, 23, 2, 5, PALETTE.wheat);
+    c.fillRect(21, 22, 4, 6, O);
+    c.fillRect(22, 23, 2, 5, PALETTE.wheatLight);
+    c.fillRect(4, 10, 2, 18, O);
+    c.fillRect(26, 10, 2, 18, O);
+    c.fillRect(2, 9, 28, 9, O);
+    for (let x = 3; x < 29; x += 4) {
+      c.fillRect(x, 10, 2, 7, accent);
+      c.fillRect(x + 2, 10, 2, 7, PALETTE.white);
+    }
+    c.fillRect(14, 30, 4, 3, PALETTE.gold);
+  } else if (kind === 'support') {
+    wall(c, 3, 20, 26, 16, 11);
+    for (const x of [3, 10, 17, 24]) wall(c, x, 15, 5, 6, 12);
+    // Pennant on a pole.
+    c.fillRect(15, 4, 2, 16, O);
+    c.fillRect(15, 5, 1, 14, PALETTE.soilDark);
+    c.fillRect(17, 4, 9, 7, O);
+    c.fillRect(17, 5, 8, 5, accent);
+    c.fillRect(17, 5, 8, 1, PALETTE.white);
+  } else if (kind === 'troop') {
     wall(c, 5, 20, 22, 16, 3);
     // Roof: stepped triangle, outline first so it frames the accent fill.
     for (let r = 0; r < 9; r++) {

@@ -16,6 +16,16 @@ export const UNIT_CLOTH: Readonly<Record<UnitId, number>> = {
   bandit_archer: PALETTE.soil,
   boar_rider: PALETTE.soil,
   ogre: PALETTE.soil,
+  peasant: PALETTE.wheatLight,
+  slinger: PALETTE.soil,
+  miner: PALETTE.soilDark,
+  golem: PALETTE.stone,
+  rubble: PALETTE.stoneDark,
+  apprentice: PALETTE.purple,
+  archmage: PALETTE.plum,
+  construct: PALETTE.stoneLight,
+  frost_mage: PALETTE.waterLight,
+  mercenary: PALETTE.teal,
 };
 
 export const unitCloth = (def: UnitDef): number => UNIT_CLOTH[def.id] ?? PALETTE.blue;

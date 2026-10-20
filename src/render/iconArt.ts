@@ -1,7 +1,22 @@
 import { UI_PALETTE } from '../data/uiPalette';
 import { PixelCanvas } from './pixel';
 
-export const ICON_IDS = ['troop', 'tower', 'tome', 'throne', 'crown', 'boulder', 'skull'] as const;
+export const ICON_IDS = [
+  'troop',
+  'tower',
+  'tome',
+  'throne',
+  'crown',
+  'boulder',
+  'skull',
+  'gold',
+  'level',
+  'enchant',
+  'reroll',
+  'sell',
+  'lock',
+  'conquer',
+] as const;
 export type IconId = (typeof ICON_IDS)[number];
 
 const P = UI_PALETTE;
@@ -63,6 +78,73 @@ export const paintIcon = (id: IconId): PixelCanvas => {
       c.fillEllipse(8, 8, 6, 5.5, P.creamDark);
       c.fillEllipse(6.5, 6.5, 2.5, 2, P.creamLight);
       c.fillEllipse(10, 10, 3, 2.5, P.wood);
+      break;
+    }
+    case 'gold': {
+      c.fillEllipse(8, 8, 7, 7, P.outline);
+      c.fillEllipse(8, 8, 6, 6, P.gold);
+      c.fillEllipse(8, 8, 4, 4, P.woodLight);
+      c.fillRect(7, 5, 2, 6, P.gold);
+      c.fillRect(5, 5, 2, 1, P.creamLight);
+      break;
+    }
+    case 'level': {
+      for (let r = 0; r < 6; r++) c.fillRect(8 - r - 1, 2 + r, r * 2 + 2, 1, P.outline);
+      for (let r = 1; r < 6; r++) c.fillRect(8 - r, 2 + r, r * 2, 1, P.good);
+      c.fillRect(5, 8, 6, 7, P.outline);
+      c.fillRect(6, 8, 4, 6, P.good);
+      break;
+    }
+    case 'enchant': {
+      c.fillRect(7, 1, 2, 14, P.outline);
+      c.fillRect(1, 7, 14, 2, P.outline);
+      c.fillRect(7, 2, 2, 12, P.gold);
+      c.fillRect(2, 7, 12, 2, P.gold);
+      c.fillRect(5, 5, 6, 6, P.outline);
+      c.fillRect(6, 6, 4, 4, P.creamLight);
+      c.set(3, 3, P.gold);
+      c.set(12, 3, P.gold);
+      c.set(3, 12, P.gold);
+      c.set(12, 12, P.gold);
+      break;
+    }
+    case 'reroll': {
+      c.fillEllipse(8, 8, 6.5, 6.5, P.outline);
+      c.fillEllipse(8, 8, 4.5, 4.5, 0, 0);
+      c.fillEllipse(8, 8, 5.5, 5.5, P.wood);
+      c.fillEllipse(8, 8, 3.5, 3.5, 0, 0);
+      c.fillRect(8, 1, 6, 5, 0, 0);
+      c.fillRect(9, 1, 6, 1, P.outline);
+      c.fillRect(13, 1, 2, 6, P.outline);
+      c.fillRect(11, 5, 6, 3, P.outline);
+      c.fillRect(12, 2, 1, 4, P.creamLight);
+      c.fillRect(11, 6, 4, 1, P.creamLight);
+      break;
+    }
+    case 'sell': {
+      c.fillEllipse(8, 5, 5.5, 4.5, P.outline);
+      c.fillEllipse(8, 5, 4.5, 3.5, P.gold);
+      c.fillRect(7, 3, 2, 4, P.woodLight);
+      c.fillRect(7, 9, 2, 3, P.outline);
+      for (let r = 0; r < 4; r++) c.fillRect(4 + r, 11 + r, 8 - r * 2, 1, P.outline);
+      for (let r = 0; r < 3; r++) c.fillRect(5 + r, 11 + r, 6 - r * 2, 1, P.select);
+      break;
+    }
+    case 'lock': {
+      c.fillRect(4, 1, 8, 8, P.outline);
+      c.fillRect(6, 3, 4, 6, 0, 0);
+      c.fillRect(5, 2, 1, 7, P.creamDark);
+      c.fillRect(10, 2, 1, 7, P.creamDark);
+      box(c, 2, 7, 12, 8, P.gold);
+      c.fillRect(7, 9, 2, 3, P.outline);
+      break;
+    }
+    case 'conquer': {
+      c.fillRect(3, 1, 2, 14, P.outline);
+      c.fillRect(3, 1, 1, 14, P.woodLight);
+      for (let r = 0; r < 6; r++) c.fillRect(5, 2 + r, 9 - r, 1, P.outline);
+      for (let r = 1; r < 5; r++) c.fillRect(5, 2 + r, 7 - r, 1, P.select);
+      c.fillRect(2, 14, 5, 1, P.outline);
       break;
     }
     case 'skull': {

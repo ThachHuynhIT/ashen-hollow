@@ -22,7 +22,8 @@ import {
 import { ICON_IDS, paintIcon } from './iconArt';
 import type { PixelCanvas } from './pixel';
 import { PLOT_SIZE, paintPlot } from './plotArt';
-import { paintUnit, unitCloth, type UnitAnim, type UnitTeam } from './unitArt';
+import { paintPortrait, PORTRAIT_SIZE } from './portraitArt';
+import { UNIT_CLOTH, paintUnit, unitCloth, type UnitAnim, type UnitTeam } from './unitArt';
 
 const colorAt = (c: PixelCanvas, x: number, y: number): number => {
   const i = (y * c.width + x) * 4;
@@ -176,7 +177,7 @@ describe('field art', () => {
 
 describe('icons and fx', () => {
   it('paints 7 icons at 16x16 in UI colours', () => {
-    expect(ICON_IDS.length).toBe(7);
+    expect(ICON_IDS.length).toBe(14);
     for (const id of ICON_IDS) {
       const art = paintIcon(id);
       expect([art.width, art.height], id).toEqual([16, 16]);
@@ -229,5 +230,59 @@ describe('card art', () => {
       expect([art.width, art.height], def.id).toEqual([CARD_ART.w, CARD_ART.h]);
       expect(foreign(art, WORLD), def.id).toEqual([]);
     }
+  });
+});
+
+describe('G2 art', () => {
+  it('gives every unit of the content an explicit cloth colour', () => {
+    for (const def of CONTENT.allUnits()) expect(UNIT_CLOTH, def.id).toHaveProperty(def.id);
+  });
+
+  it('paints economy and support buildings at the building size in PALETTE colours', () => {
+    const economy = paintBuilding('economy', PALETTE.wheat);
+    const support = paintBuilding('support', PALETTE.stone);
+    for (const art of [economy, support]) {
+      expect([art.width, art.height]).toEqual([BUILDING_SIZE.w, BUILDING_SIZE.h]);
+      expect(foreign(art, WORLD)).toEqual([]);
+    }
+    expect(same(economy, support)).toBe(false);
+    expect(same(economy, paintBuilding('troop', PALETTE.wheat))).toBe(false);
+    expect(same(support, paintBuilding('tower', PALETTE.stone))).toBe(false);
+  });
+
+  it('adds the G2 icons at 16x16 in UI colours', () => {
+    for (const id of ['gold', 'level', 'enchant', 'reroll', 'sell', 'lock', 'conquer'] as const) {
+      expect(ICON_IDS).toContain(id);
+      const art = paintIcon(id);
+      expect([art.width, art.height], id).toEqual([16, 16]);
+      expect(foreign(art, UI_COLORS), id).toEqual([]);
+    }
+  });
+
+  it('paints a different card picture for every card of the same kind', () => {
+    const byKind = new Map<string, PixelCanvas[]>();
+    const names = new Map<string, string[]>();
+    for (const def of CONTENT.allCards()) {
+      const art = paintCardArt(def, PALETTE.red);
+      byKind.set(def.kind, [...(byKind.get(def.kind) ?? []), art]);
+      names.set(def.kind, [...(names.get(def.kind) ?? []), def.id]);
+    }
+    for (const [kind, arts] of byKind)
+      for (let i = 0; i < arts.length; i++)
+        for (let j = i + 1; j < arts.length; j++)
+          expect(same(arts[i]!, arts[j]!), `${kind}: ${names.get(kind)![i]} vs ${names.get(kind)![j]}`).toBe(false);
+  });
+
+  it('paints a king portrait per king in UI colours plus the king colour', () => {
+    const arts: PixelCanvas[] = [];
+    for (const king of CONTENT.kings()) {
+      const art = paintPortrait(king);
+      expect([art.width, art.height]).toEqual([PORTRAIT_SIZE, PORTRAIT_SIZE]);
+      expect(foreign(art, [...UI_COLORS, PALETTE[king.color]]), king.id).toEqual([]);
+      arts.push(art);
+    }
+    expect(arts.length).toBeGreaterThanOrEqual(3);
+    for (let i = 0; i < arts.length; i++)
+      for (let j = i + 1; j < arts.length; j++) expect(same(arts[i]!, arts[j]!)).toBe(false);
   });
 });
