@@ -5,8 +5,10 @@ import type { CardId } from '../data/types';
 import type { Edge } from '../game/battle/types';
 import { plotCenter } from '../game/battle/world';
 import type { Content } from '../game/cards/registry';
-import { THRONE_PLOT } from '../game/run/board';
+import { unlockCost } from '../data/run';
+import { THRONE_PLOT, adjacentToUnlocked } from '../game/run/board';
 import type { RunState } from '../game/run/state';
+import { FONT_UI } from '../ui/theme';
 import { SPRITES_KEY, buildingFrame, plotFrame } from './atlas';
 
 const SIZE = 5;
@@ -16,6 +18,11 @@ const PLOT_DEPTH = 1;
 const HIGHLIGHT_DEPTH = 2;
 /** Edge arrows are an overlay above every world sprite. */
 const ARROW_DEPTH = 100_000;
+/** Level pips, enchantment dots and price labels sit just under the arrows. */
+const MARK_DEPTH = 99_000;
+/** Width of one pip / dot and the gap to the next (world px). */
+const PIP = 3;
+const PIP_STEP = 5;
 /** Gap between the board and an edge arrow's tip (world px). */
 const ARROW_GAP = 4;
 const ARROW_HALF = 7;
@@ -45,6 +52,10 @@ export class BoardRenderer {
   private readonly cards: (CardId | null)[] = [];
   private readonly highlights: Phaser.GameObjects.Graphics;
   private readonly arrows: Phaser.GameObjects.Graphics;
+  /** Level pips (bottom) and enchantment dots (top) of each building. */
+  private readonly marks: Phaser.GameObjects.Graphics;
+  /** "4"-style gold price on every locked plot next to an open one. */
+  private readonly prices: Phaser.GameObjects.Text[] = [];
   private buildingsVisible = true;
 
   constructor(scene: Phaser.Scene, content: Content) {
@@ -60,6 +71,7 @@ export class BoardRenderer {
     }
     this.highlights = scene.add.graphics().setDepth(HIGHLIGHT_DEPTH);
     this.arrows = scene.add.graphics().setDepth(ARROW_DEPTH);
+    this.marks = scene.add.graphics().setDepth(MARK_DEPTH);
   }
 
   /** Redraw plots and buildings from the run state. */
@@ -72,12 +84,16 @@ export class BoardRenderer {
       const cardId = p === THRONE_PLOT ? throneId : (plot?.building?.cardId ?? null);
       this.setBuilding(p, cardId);
     }
+    this.drawMarks(state);
+    this.drawPrices(state);
   }
 
   /** Hide buildings while the battle renders them as structures (UnitRenderer). */
   setBuildingsVisible(visible: boolean): void {
     this.buildingsVisible = visible;
     this.buildings.forEach((b, p) => b?.setVisible(visible && this.cards[p] !== null));
+    this.marks.setVisible(visible);
+    for (const t of this.prices) t.setVisible(visible && t.getData('on') === true);
   }
 
   /** Outline plots in UI_PALETTE.good / bad, picked ones in gold; an empty map clears them. */
@@ -151,6 +167,54 @@ export class BoardRenderer {
     this.cards.length = 0;
     this.highlights.destroy();
     this.arrows.destroy();
+    this.marks.destroy();
+    for (const t of this.prices) t.destroy();
+    this.prices.length = 0;
+  }
+
+  /** Level pips along the bottom of a building's plot (level ≥ 2) and one dot per enchantment stack along the top. */
+  private drawMarks(state: RunState): void {
+    const g = this.marks;
+    g.clear();
+    for (let p = 0; p < PLOTS; p++) {
+      const b = state.plots[p]?.building;
+      if (!b) continue;
+      const c = plotCenter(p);
+      const left = c.x - BATTLE.plot / 2 + 3;
+      const level = p === THRONE_PLOT ? state.throneLevel : b.level;
+      const stacks = b.enchants.reduce((n, e) => n + e.stacks, 0);
+      const pip = (i: number, y: number, color: number): void => {
+        g.fillStyle(UI_PALETTE.outline, 1);
+        g.fillRect(left + i * PIP_STEP - 1, y - 1, PIP + 2, PIP + 2);
+        g.fillStyle(color, 1);
+        g.fillRect(left + i * PIP_STEP, y, PIP, PIP);
+      };
+      if (level > 1) for (let i = 0; i < level; i++) pip(i, c.y + BATTLE.plot / 2 - 6, UI_PALETTE.gold);
+      for (let i = 0; i < stacks; i++) pip(i, c.y - BATTLE.plot / 2 + 3, UI_PALETTE.select);
+    }
+  }
+
+  /** Gold price on each locked plot that touches an open plot (spec §3.11). */
+  private drawPrices(state: RunState): void {
+    const price = unlockCost(state.purchasedPlots);
+    let used = 0;
+    for (let p = 0; p < PLOTS; p++) {
+      const plot = state.plots[p];
+      if (!plot || plot.unlocked || !adjacentToUnlocked(state.plots, p)) continue;
+      let text = this.prices[used];
+      if (!text) {
+        text = this.scene.add
+          .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '11px', fontStyle: 'bold', color: '#f2c94c' })
+          .setStroke('#2b1408', 3)
+          .setOrigin(0.5)
+          .setDepth(MARK_DEPTH + 1);
+        this.prices.push(text);
+      }
+      const c = plotCenter(p);
+      text.setText(`${price}`).setPosition(c.x, c.y).setData('on', true).setVisible(this.buildingsVisible);
+      used++;
+    }
+    for (let i = used; i < this.prices.length; i++) this.prices[i]!.setData('on', false).setVisible(false);
   }
 
   private throneCard(state: RunState): CardId {

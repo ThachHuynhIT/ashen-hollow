@@ -17,7 +17,8 @@ import { FxRenderer } from '../render/FxRenderer';
 import { UnitRenderer } from '../render/UnitRenderer';
 import { buildSpritesTexture } from '../render/atlas';
 import { DRAG_SLOP, type Size } from '../ui/hud/layout';
-import { plotHighlights } from '../ui/planning/targetHints';
+import { lockedPlotTap, plotHighlights } from '../ui/planning/targetHints';
+import { lockedPlotPrice } from '../ui/realm/calendarModel';
 import { realmCamera, realmCameraMix } from '../ui/realm/realmLayout';
 import { SCENES } from './keys';
 import type { RunEndData } from './RunEndScene';
@@ -59,6 +60,8 @@ export class RealmScene extends Phaser.Scene {
   private units: UnitRenderer | null = null;
   private fx: FxRenderer | null = null;
   private pending: PendingPlay | null = null;
+  /** A locked plot waiting for ✓ to be bought. */
+  private pendingBuy: number | null = null;
   private inBattle = false;
   /** The controller's auto-start check runs once, on the first frame after the HUD is up. */
   private kicked = false;
@@ -75,6 +78,7 @@ export class RealmScene extends Phaser.Scene {
   create(data: Partial<RealmData> = {}): void {
     // Scene instances are reused: reset every per-run field first.
     this.pending = null;
+    this.pendingBuy = null;
     this.inBattle = false;
     this.kicked = false;
     this.cameraEase = null;
@@ -98,7 +102,10 @@ export class RealmScene extends Phaser.Scene {
     bus.on('run:state', ({ state }) => this.onState(state));
     bus.on('battle:started', () => this.onBattleStarted());
     bus.on('ui:select-card', ({ handIndex }) => this.select(handIndex));
-    bus.on('ui:cancel-play', () => this.bus.emit('ui:select-card', { handIndex: null }));
+    bus.on('ui:cancel-play', () => {
+      this.setPendingBuy(null);
+      this.bus.emit('ui:select-card', { handIndex: null });
+    });
     bus.on('ui:drop-card', ({ handIndex, plot }) => this.drop(handIndex, plot));
     bus.on('ui:confirm-play', () => this.confirm());
     bus.on('ui:continue', () => this.onContinue());
@@ -159,6 +166,7 @@ export class RealmScene extends Phaser.Scene {
   private onBattleStarted(): void {
     this.inBattle = true;
     this.setPending(null);
+    this.setPendingBuy(null);
     this.board?.setEdgeArrows([]);
     this.board?.setBuildingsVisible(false);
     this.placeCamera(true);
@@ -191,6 +199,7 @@ export class RealmScene extends Phaser.Scene {
   // ---- pending play --------------------------------------------------------------------
 
   private select(handIndex: number | null): void {
+    if (handIndex !== null) this.setPendingBuy(null);
     const state = this.controller.state;
     const ok =
       handIndex !== null &&
@@ -224,7 +233,7 @@ export class RealmScene extends Phaser.Scene {
     const state = this.controller.state;
     const cardId = p ? state.hand[p.handIndex] : undefined;
     if (!p || cardId === undefined) {
-      board.setHighlights(new Map());
+      board.setHighlights(this.pendingBuy === null ? new Map() : new Map([[this.pendingBuy, 'selected']]));
       return;
     }
     board.setHighlights(plotHighlights(state.plots, CONTENT.card(cardId), p.targets));
@@ -252,7 +261,24 @@ export class RealmScene extends Phaser.Scene {
     if (count <= 1 && this.ready()) this.confirm();
   }
 
+  /** Offer to buy the locked `plot` (null clears): the HUD shows the price with ✓/✕. */
+  private setPendingBuy(plot: number | null): void {
+    if (plot === this.pendingBuy) return;
+    this.pendingBuy = plot;
+    this.refreshHighlights();
+    this.bus.emit('ui:pending-buy', {
+      plot,
+      price: lockedPlotPrice(this.controller.state),
+    });
+  }
+
   private confirm(): void {
+    if (this.pendingBuy !== null) {
+      const plot = this.pendingBuy;
+      this.setPendingBuy(null);
+      this.bus.emit('ui:command', { command: { type: 'unlockPlot', plot } });
+      return;
+    }
     const p = this.pending;
     if (!p || !this.ready()) return;
     const [first, second] = p.targets;
@@ -281,6 +307,23 @@ export class RealmScene extends Phaser.Scene {
     if (dx * dx + dy * dy > DRAG_SLOP * DRAG_SLOP) return;
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const plot = this.board.plotAt(world.x, world.y);
+    const state = this.controller.state;
+    const aimedId = this.pending ? state.hand[this.pending.handIndex] : undefined;
+    const aiming = aimedId === undefined ? null : CONTENT.card(aimedId);
+    if (plot !== null && state.plots[plot]?.unlocked === false) {
+      const tap = lockedPlotTap(state, plot, aiming);
+      if (tap.kind === 'buy') {
+        this.bus.emit('ui:inspect', { plot: null, x: pointer.x, y: pointer.y });
+        this.setPendingBuy(plot);
+        return;
+      }
+      if (tap.kind === 'target') {
+        this.pick(plot);
+        return;
+      }
+      if (aiming === null) this.bus.emit('run:illegal', { reason: 'notAdjacent' });
+    }
+    this.setPendingBuy(null);
     if (this.pending) {
       if (plot !== null) this.pick(plot);
       return;

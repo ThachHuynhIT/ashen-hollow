@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
 import { RUN, rerollCost } from '../data/run';
+import { describeCard } from '../game/cards/describe';
 import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
@@ -106,6 +107,8 @@ export class PlanningHudScene extends Phaser.Scene {
   private reward: RewardModal | null = null;
   private scoutModal: ScoutModal | null = null;
   private pending: Pending = NO_PENDING;
+  /** A locked plot offered for purchase (set by RealmScene), shown with its price and ✓/✕. */
+  private buy: { plot: number; price: number } | null = null;
   private illegal: IllegalReason | null = null;
   private illegalTimer: Phaser.Time.TimerEvent | null = null;
   private plotTimer: Phaser.Time.TimerEvent | null = null;
@@ -126,6 +129,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.actionSize = { w: 0, h: 0 };
     this.inspected = null;
     this.pending = NO_PENDING;
+    this.buy = null;
     this.illegal = null;
     this.illegalTimer = null;
     this.plotTimer = null;
@@ -184,7 +188,7 @@ export class PlanningHudScene extends Phaser.Scene {
       height: 48,
       fontSize: 13,
       onClick: () => this.bus.emit('ui:confirm-play', {}),
-      tooltip: tip(['Đặt (Enter)']),
+      tooltip: { host: this.tooltip, content: () => textContent(this.confirmTip()) },
     });
     this.cancelBtn = createButton(this, 0, 0, '✕\nHuỷ', {
       width: 48,
@@ -203,6 +207,10 @@ export class PlanningHudScene extends Phaser.Scene {
         this.refreshPending();
       }),
       bus.on('run:illegal', ({ reason }) => this.flashIllegal(reason)),
+      bus.on('ui:pending-buy', ({ plot, price }) => {
+        this.buy = plot === null ? null : { plot, price };
+        this.refreshPending();
+      }),
       bus.on('ui:open-modal', ({ modal }) => this.openModal(modal)),
       bus.on('ui:close-modal', () => this.closeModals()),
       bus.on('ui:inspect', ({ plot, x, y }) => this.inspect(plot, { x, y })),
@@ -265,6 +273,7 @@ export class PlanningHudScene extends Phaser.Scene {
       this.reward = null;
     }
     if (!choosing && this.pending.handIndex !== null) this.pending = NO_PENDING;
+    if (!planning) this.buy = null;
     this.refreshPending();
   }
 
@@ -310,14 +319,21 @@ export class PlanningHudScene extends Phaser.Scene {
     const p = this.pending;
     this.hand.setSelected(p.handIndex);
     this.refreshActions(this.controller.state);
-    const last = p.targets.at(-1);
-    const show = p.ready && last !== undefined;
+    const buy = this.buy;
+    const last = buy ? buy.plot : p.targets.at(-1);
+    const show = buy !== null || p.ready;
     if (show) {
       const screen = { w: this.scale.width, h: this.scale.height };
-      const { confirm, cancel } = confirmFor(this.lay, plotScreenRect(this.lay, last), screen);
+      // A no-target tome has no plot: ✓/✕ take their default spot.
+      const { confirm, cancel } =
+        last === undefined
+          ? { confirm: this.lay.confirm, cancel: this.lay.cancel }
+          : confirmFor(this.lay, plotScreenRect(this.lay, last), screen);
       this.confirmBtn.container.setPosition(confirm.x + confirm.w / 2, confirm.y + confirm.h / 2);
       this.cancelBtn.container.setPosition(cancel.x + cancel.w / 2, cancel.y + cancel.h / 2);
     }
+    this.confirmBtn.setLabel(buy ? '✓\nMua' : p.ready && last === undefined ? '✓\nDùng' : '✓\nĐặt');
+    this.confirmBtn.setEnabled(buy === null || this.controller.state.gold >= buy.price);
     this.confirmBtn.setVisible(show);
     this.cancelBtn.setVisible(show);
     if (p.handIndex === null) this.tooltip.hide(PLOT_TIP);
@@ -327,7 +343,7 @@ export class PlanningHudScene extends Phaser.Scene {
   private refreshHint(): void {
     const content = this.hintContent();
     // On mobile ✓/✕ take the row above the board, which the hint shares.
-    const hidden = !this.lay.desktop && this.pending.ready && this.illegal === null;
+    const hidden = !this.lay.desktop && (this.pending.ready || this.buy !== null) && this.illegal === null;
     this.hint.setContent(hidden ? null : content);
     const { x, y, w } = this.lay.hint;
     this.hint.setPosition(this.lay.desktop ? x + (w - this.hint.width) / 2 : x, y);
@@ -336,6 +352,10 @@ export class PlanningHudScene extends Phaser.Scene {
   private hintContent(): TooltipContent | null {
     if (this.illegal !== null) return { lines: [[{ text: illegalText(this.illegal) }]] };
     const state = this.controller.state;
+    if (this.buy) {
+      const text = state.gold >= this.buy.price ? `Mở ô này: ${this.buy.price} vàng.` : 'Không đủ vàng.';
+      return this.lay.desktop ? { title: 'Mở ô mới', lines: [[{ text }]] } : { lines: [[{ text }]] };
+    }
     const p = this.pending;
     const cardId = p.handIndex === null ? undefined : state.hand[p.handIndex];
     if (cardId === undefined) return null;
@@ -343,12 +363,35 @@ export class PlanningHudScene extends Phaser.Scene {
     const two = targetCount(card) === 2;
     let line: string;
     if (p.ready) line = this.lay.desktop ? 'Bấm ✓ để xác nhận, ✕ để huỷ.' : 'Bấm ✓ hoặc ✕.';
-    else if (two && p.targets.length === 0) line = 'Chọn công trình cần dời.';
-    else if (two) line = 'Chọn ô đích.';
-    else line = 'Chọn một ô viền xanh.';
+    else if (two && p.targets.length === 0) line = 'Chọn công trình đầu tiên (viền xanh).';
+    else if (two) line = 'Chọn công trình hoặc ô thứ hai.';
+    else if (card.kind === 'enchantment') line = 'Chọn công trình để gắn Bùa.';
+    else if (card.kind === 'tome') line = 'Chọn một ô viền xanh.';
+    else line = 'Chọn ô trống, hoặc bản cùng loại để lên cấp.';
     return this.lay.desktop
       ? { title: card.nameVi, lines: [[{ text: line }]] }
       : { lines: [[{ text: line }]] };
+  }
+
+  /** Tooltip of ✓: what exactly the play will do (level-up preview, enchantment, purchase). */
+  private confirmTip(): string[] {
+    const state = this.controller.state;
+    if (this.buy) {
+      return [`Mua ô (Enter)`, state.gold >= this.buy.price ? `Giá ${this.buy.price} vàng.` : 'Không đủ vàng.'];
+    }
+    const p = this.pending;
+    const cardId = p.handIndex === null ? undefined : state.hand[p.handIndex];
+    if (cardId === undefined) return ['Đặt (Enter)'];
+    const card = CONTENT.card(cardId);
+    const plot = p.targets.at(-1);
+    const building = plot === undefined ? null : state.plots[plot]?.building ?? null;
+    if (building && building.cardId === card.id && building.level < RUN.maxLevel) {
+      const next = (building.level + 1) as 2 | 3 | 4 | 5;
+      return [`${card.nameVi} → Cấp ${next} (Enter)`, describeCard(card, next).lines[0] ?? ''];
+    }
+    if (card.kind === 'enchantment') return ['Gắn Bùa (Enter)', describeCard(card).lines[0] ?? ''];
+    if (card.kind === 'tome') return ['Dùng sách (Enter)', describeCard(card).lines[0] ?? ''];
+    return ['Đặt (Enter)'];
   }
 
   private flashIllegal(reason: IllegalReason): void {
@@ -449,11 +492,11 @@ export class PlanningHudScene extends Phaser.Scene {
         if (!state.played) this.sell();
         break;
       case 'Enter':
-        if (this.pending.ready) this.bus.emit('ui:confirm-play', {});
+        if (this.pending.ready || this.buy) this.bus.emit('ui:confirm-play', {});
         else if (this.canFight(state)) this.command('startBattle');
         break;
       case 'Escape':
-        if (this.pending.handIndex !== null) this.bus.emit('ui:cancel-play', {});
+        if (this.pending.handIndex !== null || this.buy) this.bus.emit('ui:cancel-play', {});
         break;
     }
   }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../game/cards/registry';
 import { THRONE_PLOT, initialPlots, placeBuilding } from '../../game/run/board';
 import type { BuildingState, PlotState } from '../../game/run/state';
-import { dropOutcome, plotHighlights, plotIllegalReason } from './targetHints';
+import { dropOutcome, lockedPlotTap, plotHighlights, plotIllegalReason } from './targetHints';
 
 const troop = CONTENT.card('neutral_barracks');
 const move = CONTENT.card('neutral_move');
@@ -126,5 +126,30 @@ describe('plotHighlights for every card kind', () => {
     expect(second.get(8)).toBe('selected');
     expect(second.get(7)).toBe('good'); // the other building
     expect(second.get(6)).toBe('bad');
+  });
+});
+
+describe('lockedPlotTap', () => {
+  const state = (purchasedPlots = 0) => ({ plots: board(), purchasedPlots });
+
+  it('offers to buy a locked plot next to an open one when no card is aimed', () => {
+    expect(lockedPlotTap(state(), 2, null)).toEqual({ kind: 'buy', price: 4 }); // above the open 3×3
+    expect(lockedPlotTap(state(3), 2, null)).toEqual({ kind: 'buy', price: 10 });
+  });
+
+  it('ignores open plots and locked plots that touch no open plot', () => {
+    expect(lockedPlotTap(state(), 6, null)).toEqual({ kind: 'ignore' }); // open
+    expect(lockedPlotTap(state(), 0, null)).toEqual({ kind: 'ignore' }); // corner, no open neighbour
+  });
+
+  it('ignores a locked plot while another kind of card is aimed', () => {
+    expect(lockedPlotTap(state(), 2, troop)).toEqual({ kind: 'ignore' });
+    expect(lockedPlotTap(state(), 2, move)).toEqual({ kind: 'ignore' });
+  });
+
+  it('lets a Khai Hoang tome target any locked plot instead of buying it', () => {
+    expect(lockedPlotTap(state(), 2, clearLand)).toEqual({ kind: 'target' });
+    expect(lockedPlotTap(state(), 0, clearLand)).toEqual({ kind: 'target' });
+    expect(lockedPlotTap(state(), 6, clearLand)).toEqual({ kind: 'ignore' }); // open plot is not a target
   });
 });
