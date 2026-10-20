@@ -115,6 +115,13 @@ describe('play / skip', () => {
     expect(r.events).toContainEqual({ type: 'cardPlayed', cardId: 'wheat_militia' });
   });
 
+  it('clear land unlocks a locked plot that is not next to an open one', () => {
+    const s = runState({ hand: ['neutral_clear_land'] });
+    expect(s.plots[0]!.unlocked).toBe(false);
+    const r = ok(applyCommand(s, play(0, plot(0)), CONTENT));
+    expect(r.state.plots[0]!.unlocked).toBe(true);
+  });
+
   it('clear land unlocks a plot', () => {
     const s = runState({ hand: ['neutral_clear_land'] });
     const r = ok(applyCommand(s, play(0, plot(1)), CONTENT));
@@ -191,7 +198,7 @@ describe('errors', () => {
     expect(errorOf(occ, play(0, plot(6)))).toBe('occupied');
     expect(errorOf(occ, play(2, two(7, 6)))).toBe('noBuilding');
     const clear = runState({ hand: ['neutral_clear_land'] });
-    expect(errorOf(clear, play(0, plot(0)))).toBe('notAdjacent');
+    expect(errorOf(clear, play(0, plot(6)))).toBe('badTarget');
   });
 });
 

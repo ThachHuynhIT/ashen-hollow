@@ -53,7 +53,7 @@ export const NEUTRAL_CARDS: readonly CardDef[] = [
     kind: 'tome',
     rarity: 'common',
     tags: [],
-    textVi: 'Mở một ô khoá kề ô đã mở.',
+    textVi: 'Mở một ô khoá bất kỳ.',
     target: 'lockedPlot',
     actions: [{ type: 'unlockPlot', gold: 0 }],
   },

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../cards/registry';
 import {
   THRONE_PLOT,
+  adjacentToUnlocked,
   checkPlay,
   checkTargetStep,
   hasAnyTarget,
@@ -72,10 +73,19 @@ describe('checkPlay troop', () => {
 
 describe('checkPlay lockedPlot (clear land)', () => {
   const plots = withThrone();
-  it('requires a locked plot next to an unlocked one', () => {
-    expect(checkPlay(plots, clearLand, { kind: 'plot', plot: 0 })).toBe('notAdjacent');
+  it('accepts any locked plot, adjacent to an unlocked one or not', () => {
+    expect(checkPlay(plots, clearLand, { kind: 'plot', plot: 0 })).toBeNull();
     expect(checkPlay(plots, clearLand, { kind: 'plot', plot: 1 })).toBeNull();
+    expect(checkPlay(plots, clearLand, { kind: 'plot', plot: 24 })).toBeNull();
     expect(checkPlay(plots, clearLand, { kind: 'plot', plot: 6 })).toBe('badTarget');
+  });
+  it('has a target as long as one plot is locked, even if none is adjacent to an open plot', () => {
+    const allLocked = plots.map((p) => ({ ...p, unlocked: false }));
+    expect(hasAnyTarget(allLocked, clearLand)).toBe(true);
+  });
+  it('keeps the adjacency rule available for buying plots with gold', () => {
+    expect(adjacentToUnlocked(plots, 1)).toBe(true);
+    expect(adjacentToUnlocked(plots, 0)).toBe(false);
   });
   it('has no target when all plots are open', () => {
     const open = plots.map((p) => ({ ...p, unlocked: true }));
@@ -116,7 +126,7 @@ describe('targetCount / checkTargetStep', () => {
     expect(checkTargetStep(plots, troop, [], 6)).toBeNull();
     expect(checkTargetStep(plots, troop, [], 7)).toBe('occupied');
     expect(checkTargetStep(plots, clearLand, [], 1)).toBeNull();
-    expect(checkTargetStep(plots, clearLand, [], 0)).toBe('notAdjacent');
+    expect(checkTargetStep(plots, clearLand, [], 0)).toBeNull();
   });
   it('checks the first pick of a two-target card against any second plot', () => {
     expect(checkTargetStep(plots, move, [], 7)).toBeNull();
