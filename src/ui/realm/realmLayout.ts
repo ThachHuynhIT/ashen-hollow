@@ -1,7 +1,7 @@
 import { BATTLE } from '../../data/battle';
 import { plotCenter } from '../../game/battle/world';
 import { THRONE_PLOT, plotCol, plotRow } from '../../game/run/board';
-import { GAP, MARGIN, SPEED_GAP, type Point, type Rect, type Size } from '../hud/layout';
+import { CARD_LIFT, GAP, MARGIN, SPEED_GAP, type Point, type Rect, type Size } from '../hud/layout';
 
 /**
  * Pure layout maths of the realm screens (no Phaser): the planning HUD (§10.4), the battle
@@ -33,19 +33,25 @@ const BUTTON = 48;
 const BUTTON_GAP = 8;
 
 const DESK = {
-  top: { lives: 120, year: 160, h: 52 },
+  top: { lives: 120, gold: 120, year: 160, h: 52 },
   scout: { w: 260, y: 92, bottom: 520 },
   card: { w: 120, h: 168, gap: 12 },
-  skip: { w: 140, h: 52 },
+  button: { w: 140, h: 52 },
 } as const;
 
+/** A calendar cell: the year, an attacker badge and attack dots (§10.4). */
+const CELL = 52;
+const CALENDAR_CELLS = 5;
+
 const PHONE = {
-  top: { lives: 96, h: 48 },
-  boardY: 124,
-  // Ends 12 px above the hand (y 650) so a lifted selected card (CARD_LIFT) clears it.
-  scout: { y: 508, h: 130 },
+  top: { lives: 96, gold: 96, h: 48 },
+  /** Second row: calendar + scout button (y 64..116). */
+  rowY: 64,
+  /** Below the calendar row and the ✓/✕ row above the board. */
+  boardY: 180,
+  /** Deck / reroll / sell, one row under the board; ends well above the hand (y 650). */
+  buttons: { w: 84, h: 48, y: 508 },
   card: { w: 108, h: 152, gap: 8 },
-  skip: { w: 84, h: 48, y: 452 },
 } as const;
 
 const FIGHT = { w: 200, h: 56 } as const;
@@ -56,11 +62,19 @@ export interface PlanningLayout {
   /** Camera zoom of the planning phase: one plot is `BATTLE.plot × zoom` screen px. */
   zoom: number;
   lives: Rect;
+  gold: Rect;
   year: Rect;
+  /** Five 52×52 cells: this year and the next four. */
+  calendar: readonly Rect[];
   board: Rect;
-  scout: Rect;
+  /** The scouting report column (desktop); null on mobile, where `scoutButton` opens it. */
+  scout: Rect | null;
+  scoutButton: Rect | null;
   hand: readonly Rect[];
-  skip: Rect;
+  /** "Đổi bài", "Bán bài" and "Bộ bài". */
+  reroll: Rect;
+  sell: Rect;
+  deck: Rect;
   fight: Rect;
   /** Default ✓/✕ spot: the row above the board on mobile, beside the centre plot on desktop. */
   confirm: Rect;
@@ -133,20 +147,28 @@ const besidePlot = (cell: Rect, screen: Size): { confirm: Rect; cancel: Rect } =
   };
 };
 
+/** `count` cells in a row from `x`, `CELL` wide with `GAP` between. */
+const cellRow = (x: number, y: number): Rect[] =>
+  Array.from({ length: CALENDAR_CELLS }, (_, i) => ({ x: x + i * (CELL + GAP), y, w: CELL, h: CELL }));
+
 const desktopLayout = (screen: Size): PlanningLayout => {
   const { w, h } = screen;
   const zoom = planningZoom(screen);
   const cell = BATTLE.plot * zoom;
   const boardPx = cell * BOARD_SIDE;
   const lives = { x: MARGIN, y: MARGIN, w: DESK.top.lives, h: DESK.top.h };
+  const gold = { x: lives.x + lives.w + GAP, y: MARGIN, w: DESK.top.gold, h: DESK.top.h };
   const year = {
     x: Math.round((w - DESK.top.year) / 2),
     y: MARGIN,
     w: DESK.top.year,
     h: DESK.top.h,
   };
+  const calendarW = CALENDAR_CELLS * CELL + (CALENDAR_CELLS - 1) * GAP;
+  const calendar = cellRow(w - MARGIN - calendarW, MARGIN);
   const hand = handRow(screen, DESK.card);
   const first = hand[0]!;
+  const last = hand[hand.length - 1]!;
   // Centred like the battle camera's throne, lowered no further than the hand allows.
   const centreY = Math.min(h / 2, first.y - GAP - boardPx / 2);
   const board = {
@@ -155,29 +177,36 @@ const desktopLayout = (screen: Size): PlanningLayout => {
     w: boardPx,
     h: boardPx,
   };
+  // Ends above a lifted selected card too, so a narrow desktop window never overlaps the hand.
+  const scoutBottom = Math.min(DESK.scout.bottom, first.y - CARD_LIFT - GAP);
   const scout = {
     x: w - MARGIN - DESK.scout.w,
     y: DESK.scout.y,
     w: DESK.scout.w,
-    h: DESK.scout.bottom - DESK.scout.y,
+    h: Math.max(0, scoutBottom - DESK.scout.y),
   };
-  const skip = {
-    x: first.x - DESK.card.gap - DESK.skip.w,
-    y: h - HAND_BOTTOM - DESK.skip.h,
-    w: DESK.skip.w,
-    h: DESK.skip.h,
-  };
+  const bottomY = h - HAND_BOTTOM - DESK.button.h;
+  // Left of the hand: "Đổi bài" over "Bán bài". Right of it: "Bộ bài".
+  const left = first.x - DESK.card.gap - DESK.button.w;
+  const sell = { x: left, y: bottomY, w: DESK.button.w, h: DESK.button.h };
+  const reroll = { ...sell, y: bottomY - GAP * 2 - DESK.button.h };
+  const deck = { x: last.x + last.w + DESK.card.gap, y: bottomY, w: DESK.button.w, h: DESK.button.h };
   const mid = Math.floor(BOARD_SIDE / 2) * cell;
   const centre = { x: board.x + mid, y: board.y + mid, w: cell, h: cell };
   return {
     desktop: true,
     zoom,
     lives,
+    gold,
     year,
+    calendar,
     board,
     scout,
+    scoutButton: null,
     hand,
-    skip,
+    reroll,
+    sell,
+    deck,
     fight: fightOver(screen, hand),
     ...besidePlot(centre, screen),
     hint: {
@@ -193,37 +222,37 @@ const mobileLayout = (screen: Size): PlanningLayout => {
   const { w } = screen;
   const boardPx = BATTLE.plot * PLANNING_ZOOM * BOARD_SIDE;
   const lives = { x: MARGIN, y: MARGIN, w: PHONE.top.lives, h: PHONE.top.h };
-  const yearX = MARGIN + PHONE.top.lives + GAP;
+  const gold = { x: lives.x + lives.w + GAP, y: MARGIN, w: PHONE.top.gold, h: PHONE.top.h };
+  const yearX = gold.x + gold.w + GAP;
   const year = { x: yearX, y: MARGIN, w: Math.max(0, w - MARGIN - yearX), h: PHONE.top.h };
+  const calendar = cellRow(MARGIN, PHONE.rowY);
+  const scoutButton = { x: w - MARGIN - CELL, y: PHONE.rowY, w: CELL, h: CELL };
   const board = {
     x: Math.round((w - boardPx) / 2),
     y: PHONE.boardY,
     w: boardPx,
     h: boardPx,
   };
-  const scout = {
-    x: MARGIN,
-    y: PHONE.scout.y,
-    w: Math.max(0, w - 2 * MARGIN),
-    h: PHONE.scout.h,
-  };
   const hand = handRow(screen, PHONE.card);
   const pair = aboveBoard(screen, board);
-  const skip = {
-    x: w - MARGIN - PHONE.skip.w,
-    y: PHONE.skip.y,
-    w: PHONE.skip.w,
-    h: PHONE.skip.h,
-  };
+  const b = PHONE.buttons;
+  const sell = { x: w - MARGIN - b.w, y: b.y, w: b.w, h: b.h };
+  const reroll = { x: sell.x - GAP - b.w, y: b.y, w: b.w, h: b.h };
+  const deck = { x: reroll.x - GAP - b.w, y: b.y, w: b.w, h: b.h };
   return {
     desktop: false,
     zoom: PLANNING_ZOOM,
     lives,
+    gold,
     year,
+    calendar,
     board,
-    scout,
+    scout: null,
+    scoutButton,
     hand,
-    skip,
+    reroll,
+    sell,
+    deck,
     fight: fightOver(screen, hand),
     ...pair,
     hint: {
@@ -235,7 +264,7 @@ const mobileLayout = (screen: Size): PlanningLayout => {
   };
 };
 
-/** §10.4 (G1 parts only). */
+/** §10.4. */
 export const planningLayout = (screen: Size): PlanningLayout =>
   isDesktop(screen.w) ? desktopLayout(screen) : mobileLayout(screen);
 

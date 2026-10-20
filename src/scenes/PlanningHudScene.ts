@@ -18,6 +18,7 @@ import { buildingInfoLines } from '../ui/info/infoLines';
 import { HandView } from '../ui/planning/HandView';
 import { ScoutPanel } from '../ui/planning/ScoutPanel';
 import { dropOutcome, plotIllegalReason } from '../ui/planning/targetHints';
+import { illegalText } from '../ui/realm/calendarModel';
 import {
   centerHand,
   confirmFor,
@@ -36,24 +37,6 @@ import {
 } from '../ui/theme';
 import { SCENES } from './keys';
 import type { RealmHudData } from './RealmScene';
-
-/** Why a plot is red (§4.4), shown on hover / long-press over it. */
-export const ILLEGAL_TEXT: Record<IllegalReason, string> = {
-  locked: 'Ô chưa mở.',
-  throne: 'Không thể đặt lên Ngai.',
-  occupied: 'Ô đã có công trình.',
-  noBuilding: 'Ô này chưa có công trình.',
-  noTarget: 'Không còn mục tiêu hợp lệ.',
-  notAdjacent: 'Ô phải kề một ô đã mở.',
-  notEnoughGold: 'Không đủ vàng.',
-  maxLevel: 'Đã đạt cấp tối đa.',
-  wrongKind: 'Bùa này không gắn được lên loại công trình đó.',
-  stacksFull: 'Công trình đã đủ stack Bùa.',
-  wrongPhase: 'Lúc này chưa dùng được.',
-  alreadyPlayed: 'Năm nay bạn đã chơi hoặc bỏ thẻ.',
-  notPlayed: 'Hãy chơi hoặc bỏ một thẻ trước.',
-  badTarget: 'Mục tiêu không hợp lệ.',
-};
 
 /** How long a rejected command's reason stays in the hint box. */
 const ILLEGAL_MS = 2000;
@@ -273,7 +256,7 @@ export class PlanningHudScene extends Phaser.Scene {
   }
 
   private hintContent(): TooltipContent | null {
-    if (this.illegal !== null) return { lines: [[{ text: ILLEGAL_TEXT[this.illegal] }]] };
+    if (this.illegal !== null) return { lines: [[{ text: illegalText(this.illegal) }]] };
     const state = this.controller.state;
     const p = this.pending;
     const cardId = p.handIndex === null ? undefined : state.hand[p.handIndex];
@@ -391,7 +374,7 @@ export class PlanningHudScene extends Phaser.Scene {
       return;
     }
     const hit = this.plotReason(pointer.x, pointer.y);
-    if (hit) this.tooltip.showAtPointer({ title: ILLEGAL_TEXT[hit.reason], lines: [] }, PLOT_TIP);
+    if (hit) this.tooltip.showAtPointer({ title: illegalText(hit.reason), lines: [] }, PLOT_TIP);
     else this.tooltip.hide(PLOT_TIP);
   }
 
@@ -403,7 +386,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.plotTimer = this.time.delayedCall(LONG_PRESS_MS, () => {
       this.plotTimer = null;
       const r = plotScreenRect(this.lay, hit.plot);
-      this.tooltip.showAbove({ title: ILLEGAL_TEXT[hit.reason], lines: [] }, r, PLOT_TIP);
+      this.tooltip.showAbove({ title: illegalText(hit.reason), lines: [] }, r, PLOT_TIP);
     });
   }
 
@@ -484,7 +467,7 @@ export class PlanningHudScene extends Phaser.Scene {
   // ---- layout ---------------------------------------------------------------------------
 
   private createSkip(): Button {
-    const { w, h } = this.lay.skip;
+    const { w, h } = this.lay.sell;
     this.skipSize = { w, h };
     return createButton(this, 0, 0, 'Bỏ bài', {
       width: w,
@@ -515,16 +498,17 @@ export class PlanningHudScene extends Phaser.Scene {
     this.yearText.setPosition(l.year.x + l.year.w / 2, l.year.y + l.year.h / 2);
     this.yearText.setFontSize(l.desktop ? 18 : 16);
 
-    this.scout.layout(l.scout, l.desktop ? 'full' : 'summary');
+    this.scout.setVisible(l.scout !== null);
+    if (l.scout) this.scout.layout(l.scout, 'full');
     this.hand.layout(centerHand(l.hand, this.handCount));
-    if (this.skipSize.w !== l.skip.w || this.skipSize.h !== l.skip.h) {
+    if (this.skipSize.w !== l.sell.w || this.skipSize.h !== l.sell.h) {
       // 140×52 on desktop, 84×48 on mobile: buttons have a fixed size, so rebuild it.
       const visible = this.skip.container.visible;
       this.skip.container.destroy();
       this.skip = this.createSkip();
       this.skip.setVisible(visible);
     }
-    this.skip.container.setPosition(l.skip.x + l.skip.w / 2, l.skip.y + l.skip.h / 2);
+    this.skip.container.setPosition(l.sell.x + l.sell.w / 2, l.sell.y + l.sell.h / 2);
     this.skip.setEnabled(this.pending.handIndex !== null);
     this.fight.container.setPosition(l.fight.x + l.fight.w / 2, l.fight.y + l.fight.h / 2);
     this.hint.setMaxWidth(l.hint.w);
