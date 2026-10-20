@@ -156,3 +156,23 @@ export const contentWith = (extra: {
     allUnits: () => sortById([...CONTENT.allUnits(), ...units.values()]),
   };
 };
+
+/** Chín thẻ giả của một vua (4 thường, 3 vừa, 2 hiếm), `<king>_c1..` / `_u1..` / `_r1..`. */
+export const fakeKingCards = (king: KingId): CardDef[] => {
+  const make = (id: string, rarity: CardDef['rarity']): CardDef => ({
+    id: id as CardDef['id'],
+    owner: king,
+    nameVi: id,
+    name: id,
+    kind: 'troop',
+    rarity,
+    tags: [],
+    textVi: id,
+    effects: [],
+  });
+  return [
+    ...[1, 2, 3, 4].map((n) => make(`${king}_c${n}`, 'common')),
+    ...[1, 2, 3].map((n) => make(`${king}_u${n}`, 'uncommon')),
+    ...[1, 2].map((n) => make(`${king}_r${n}`, 'rare')),
+  ];
+};

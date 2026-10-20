@@ -1,31 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { RULES_G2 } from '../../data/rules';
 import { RUN, battleGold } from '../../data/run';
-import type { CardDef, CardId, KingId } from '../../data/types';
 import type { BattleResult } from '../battle/types';
-import { contentWith, fakeKing, runState } from '../testing/fixtures';
+import { contentWith, fakeKing, fakeKingCards, runState } from '../testing/fixtures';
 import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
 import type { IllegalReason, RunCommand, RunState } from './state';
 
-const card = (id: string, rarity: CardDef['rarity']): CardDef => ({
-  id: id as CardId,
-  owner: id.split('_')[0] as KingId,
-  nameVi: id,
-  name: id,
-  kind: 'troop',
-  rarity,
-  tags: [],
-  textVi: id,
-  effects: [],
-});
-const kingCards = (king: string): CardDef[] => [
-  ...[1, 2, 3, 4].map((n) => card(`${king}_c${n}`, 'common')),
-  ...[1, 2, 3].map((n) => card(`${king}_u${n}`, 'uncommon')),
-  ...[1, 2].map((n) => card(`${king}_r${n}`, 'rare')),
-];
 const content = contentWith({
-  kings: [fakeKing('stone', { cards: kingCards('stone') }), fakeKing('arcane', { cards: kingCards('arcane') })],
+  kings: [fakeKing('stone', { cards: fakeKingCards('stone') }), fakeKing('arcane', { cards: fakeKingCards('arcane') })],
 });
 
 const ok = (r: CommandResult) => {
