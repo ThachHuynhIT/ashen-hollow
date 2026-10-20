@@ -5,7 +5,16 @@ import type { Content } from '../game/cards/registry';
 import { paintBuilding, paintThrone } from './buildingArt';
 import { paintCardArt } from './cardArt';
 import { paintField, paintGroundTile } from './fieldArt';
-import { ARROW_DIRS, paintArrow, paintBoulder, paintBoulderShadow, paintSpark } from './fxArt';
+import {
+  ARROW_DIRS,
+  paintArrow,
+  paintBoulder,
+  paintBoulderShadow,
+  paintPulse,
+  paintShieldFx,
+  paintSpark,
+  paintStun,
+} from './fxArt';
 import { ICON_IDS, paintIcon, type IconId } from './iconArt';
 import { PixelCanvas } from './pixel';
 import { paintPlot, type PlotState } from './plotArt';
@@ -175,6 +184,9 @@ export const spriteList = (content: Content): { name: string; art: PixelCanvas }
   out.push({ name: fxFrame('boulder'), art: paintBoulder() });
   out.push({ name: fxFrame('boulder_shadow'), art: paintBoulderShadow() });
   out.push({ name: fxFrame('spark'), art: paintSpark() });
+  out.push({ name: fxFrame('pulse'), art: paintPulse() });
+  out.push({ name: fxFrame('shield'), art: paintShieldFx() });
+  out.push({ name: fxFrame('stun'), art: paintStun() });
   return out;
 };
 

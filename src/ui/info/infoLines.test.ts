@@ -51,6 +51,17 @@ describe('buildingInfoLines', () => {
     expect(lines.some((l) => l.startsWith('Lính:'))).toBe(false);
   });
 
+  it('lists each enchantment with its stack count', () => {
+    const b = { ...building('wheat_militia', 2), enchants: [
+      { cardId: 'neutral_sharpen' as const, stacks: 2 },
+      { cardId: 'neutral_fortify' as const, stacks: 1 },
+    ] };
+    const lines = buildingInfoLines(b, CONTENT);
+    expect(lines).toContain(`Bùa: ${CONTENT.card('neutral_sharpen').nameVi} ×2`);
+    expect(lines).toContain(`Bùa: ${CONTENT.card('neutral_fortify').nameVi} ×1`);
+    expect(buildingInfoLines(building('wheat_militia'), CONTENT).some((l) => l.startsWith('Bùa:'))).toBe(false);
+  });
+
   it('uses the throne HP for the throne', () => {
     const lines = buildingInfoLines(building('wheat_throne'), CONTENT);
     expect(lines).toContain('Máu: 300');
@@ -133,6 +144,18 @@ describe('entityInfoLines', () => {
     expect(lines).toContain('Giáp: 25%');
     w.dmgType[2] = 2;
     expect(entityInfoLines(w, 2, CONTENT)).toContain('Sát thương: 5 (phép)');
+  });
+
+  it('shows the shield while it lasts and says when a unit is stunned', () => {
+    const w = world();
+    const id = 2;
+    expect(entityInfoLines(w, id, CONTENT).some((l) => l.startsWith('Khiên'))).toBe(false);
+    expect(entityInfoLines(w, id, CONTENT)).not.toContain('Đang choáng');
+    w.shield[id] = 14.2;
+    w.stunTicks[id] = 6;
+    const lines = entityInfoLines(w, id, CONTENT);
+    expect(lines).toContain('Khiên: 15');
+    expect(lines).toContain('Đang choáng');
   });
 
   it('says a building that cannot attack does not attack', () => {

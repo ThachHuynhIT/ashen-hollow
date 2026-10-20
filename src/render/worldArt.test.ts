@@ -17,7 +17,10 @@ import {
   paintArrow,
   paintBoulder,
   paintBoulderShadow,
+  paintPulse,
+  paintShieldFx,
   paintSpark,
+  paintStun,
 } from './fxArt';
 import { ICON_IDS, paintIcon } from './iconArt';
 import type { PixelCanvas } from './pixel';
@@ -183,6 +186,19 @@ describe('icons and fx', () => {
       expect([art.width, art.height], id).toEqual([16, 16]);
       expect(foreign(art, UI_COLORS), id).toEqual([]);
     }
+  });
+
+  it('paints the pulse burst, shield bubble and stun stars in PALETTE colours', () => {
+    const arts = {
+      pulse: paintPulse(),
+      shield: paintShieldFx(),
+      stun: paintStun(),
+    };
+    expect([arts.pulse.width, arts.pulse.height]).toEqual([16, 16]);
+    expect([arts.shield.width, arts.shield.height]).toEqual([16, 16]);
+    expect([arts.stun.width, arts.stun.height]).toEqual([8, 8]);
+    for (const [name, art] of Object.entries(arts)) expect(foreign(art, WORLD), name).toEqual([]);
+    expect(same(arts.pulse, arts.shield)).toBe(false);
   });
 
   it('paints 8 distinct arrows at 8x8', () => {

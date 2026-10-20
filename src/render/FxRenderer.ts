@@ -14,12 +14,16 @@ const BOULDER_DROP_H = 96;
 const SHADOW_DEPTH = 3;
 const SPARK_MS = 160;
 const RING_MS = 320;
+const BUBBLE_MS = 600;
 const RING_DEPTH = 99_500;
 
 interface Ring {
   x: number;
   y: number;
   start: number;
+  /** Final radius (px) and colour; the royal boulder ring is cream and `INTERVENTION.radius` wide. */
+  radius: number;
+  color: number;
 }
 
 /**
@@ -35,6 +39,8 @@ export class FxRenderer {
   private readonly boulders: Phaser.GameObjects.Image[] = [];
   private readonly shadows: Phaser.GameObjects.Image[] = [];
   private readonly sparks: Phaser.GameObjects.Image[] = [];
+  /** Pulse bursts and shield bubbles, pooled separately from the hit sparks. */
+  private readonly bursts: Phaser.GameObjects.Image[] = [];
   private readonly rings: Ring[] = [];
   private readonly ringGfx: Phaser.GameObjects.Graphics;
 
@@ -49,7 +55,9 @@ export class FxRenderer {
     for (const e of events) {
       if (e.type === 'hit') this.spark(world, e.id);
       else if (e.type === 'boulder' && e.phase === 'impact')
-        this.rings.push({ x: e.x, y: e.y, start: now });
+        this.rings.push({ x: e.x, y: e.y, start: now, radius: INTERVENTION.radius, color: PALETTE.cream });
+      else if (e.type === 'pulse') this.pulse(world, e.id, now);
+      else if (e.type === 'shield') this.bubble(world, e.id);
     }
     this.syncProjectiles(world, a);
     this.syncBoulders(world, a);
@@ -57,7 +65,7 @@ export class FxRenderer {
   }
 
   destroy(): void {
-    for (const list of [this.projectiles, this.boulders, this.shadows, this.sparks]) {
+    for (const list of [this.projectiles, this.boulders, this.shadows, this.sparks, this.bursts]) {
       for (const img of list) {
         this.scene.tweens.killTweensOf(img);
         img.destroy();
@@ -150,6 +158,35 @@ export class FxRenderer {
     });
   }
 
+  /** A structure's pulse: a gold burst on it and a ring growing to the pulse radius. */
+  private pulse(world: BattleWorld, id: number, now: number): void {
+    if (id < 0 || id >= world.count) return;
+    const x = world.x[id]!;
+    const y = world.y[id]!;
+    this.rings.push({ x, y, start: now, radius: world.pulseRadius[id]!, color: PALETTE.gold });
+    this.burst('pulse', x, y - 8, y + 20, 1, 260);
+  }
+
+  /** A shield bubble flashing over the unit that just received one. */
+  private bubble(world: BattleWorld, id: number): void {
+    if (id < 0 || id >= world.count) return;
+    const r = world.radius[id]!;
+    this.burst('shield', world.x[id]!, world.y[id]! - r, world.y[id]! + r + 1, 0.9, BUBBLE_MS);
+  }
+
+  /** Fade-out of one pooled fx frame at (x, y) with the given depth. */
+  private burst(frame: string, x: number, y: number, depth: number, alpha: number, ms: number): void {
+    let img = this.bursts.find((b) => !b.visible && b.frame.name === fxFrame(frame));
+    if (img === undefined) {
+      img = this.scene.add.image(0, 0, SPRITES_KEY, fxFrame(frame));
+      this.bursts.push(img);
+    }
+    const b = img;
+    this.scene.tweens.killTweensOf(b);
+    b.setPosition(Math.round(x), Math.round(y)).setDepth(depth).setAlpha(alpha).setVisible(true);
+    this.scene.tweens.add({ targets: b, alpha: 0, duration: ms, onComplete: () => b.setVisible(false) });
+  }
+
   private drawRings(now: number): void {
     const g = this.ringGfx;
     g.clear();
@@ -160,8 +197,8 @@ export class FxRenderer {
         this.rings.splice(i, 1);
         continue;
       }
-      g.lineStyle(2, PALETTE.cream, 1 - t);
-      g.strokeCircle(ring.x, ring.y, 4 + (INTERVENTION.radius - 4) * t);
+      g.lineStyle(2, ring.color, 1 - t);
+      g.strokeCircle(ring.x, ring.y, 4 + (ring.radius - 4) * t);
     }
   }
 

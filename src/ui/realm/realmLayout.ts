@@ -301,6 +301,7 @@ export const confirmFor = (
 export interface BattleLayout {
   clock: Rect;
   lives: Rect;
+  gold: Rect;
   foes: Rect;
   speed: readonly Rect[];
   intervene: Rect;
@@ -320,7 +321,7 @@ const WAVES = { w: 44, h: 44 } as const;
 export const battleLayout = (screen: Size): BattleLayout => {
   const { w, h } = screen;
   const desktop = isDesktop(w);
-  const lives = planningLayout(screen).lives;
+  const { lives, gold } = planningLayout(screen);
   const clock = {
     x: Math.round((w - CLOCK.w) / 2),
     y: desktop ? MARGIN : MARGIN + Math.max(lives.h, FOES.h) + GAP,
@@ -352,7 +353,7 @@ export const battleLayout = (screen: Size): BattleLayout => {
     w: WAVES.w,
     h: WAVES.h,
   };
-  return { clock, lives, foes, speed, intervene, auto, waves };
+  return { clock, lives, gold, foes, speed, intervene, auto, waves };
 };
 
 /**

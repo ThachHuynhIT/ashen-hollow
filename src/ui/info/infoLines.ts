@@ -33,6 +33,7 @@ export const buildingInfoLines = (building: BuildingState, content: Content): st
   const hp = structureHp(card, building.level);
   if (hp !== null) lines.push(`Máu: ${hp}`);
   lines.push(...describeCard(card, building.level).lines);
+  for (const e of building.enchants) lines.push(`Bùa: ${content.card(e.cardId).nameVi} ×${e.stacks}`);
   lines.push(...spawnedUnitLines(card, building.level, content));
   return lines;
 };
@@ -57,6 +58,8 @@ const spawnedUnitLines = (card: CardDef, level: BuildingState['level'], content:
 const tintOf = (line: string): number | undefined => {
   if (line.startsWith('Lính:') || line.startsWith('Máu lính')) return UI_PALETTE.woodDark;
   if (line.startsWith('Cấp ')) return UI_PALETTE.wood;
+  if (line.startsWith('Bùa:') || line.startsWith('Đang choáng')) return UI_PALETTE.select;
+  if (line.startsWith('Khiên')) return UI_PALETTE.woodDark;
   if (line.startsWith('Máu')) return UI_PALETTE.good;
   return undefined;
 };
@@ -110,6 +113,8 @@ export const entityInfoLines = (world: BattleWorld, id: number, content: Content
     lines.push('Không tấn công');
   }
   lines.push(`Giáp: ${Math.round(world.armor[id]! * 100)}%`);
+  if (world.shield[id]! > 0) lines.push(`Khiên: ${Math.ceil(world.shield[id]!)}`);
+  if (world.stunTicks[id]! > 0) lines.push('Đang choáng');
   return lines;
 };
 

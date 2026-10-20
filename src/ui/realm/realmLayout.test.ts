@@ -403,6 +403,7 @@ describe('battleLayout', () => {
       const all = {
         clock: l.clock,
         lives: l.lives,
+        gold: l.gold,
         foes: l.foes,
         intervene: l.intervene,
         auto: l.auto,
@@ -420,7 +421,9 @@ describe('battleLayout', () => {
     expect(intervene.y + intervene.h).toBe(710);
   });
 
-  it('reuses the planning lives panel', () => {
+  it('reuses the planning lives and gold panels', () => {
+    expect(battleLayout(DESKTOP).gold).toEqual(planningLayout(DESKTOP).gold);
+    expect(battleLayout(MOBILE).gold).toEqual(planningLayout(MOBILE).gold);
     expect(battleLayout(DESKTOP).lives).toEqual(planningLayout(DESKTOP).lives);
     expect(battleLayout(MOBILE).lives).toEqual(planningLayout(MOBILE).lives);
   });

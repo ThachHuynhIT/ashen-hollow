@@ -45,6 +45,10 @@ describe('spriteList for the content', () => {
           expect(names.has(unitFrame(unit.id, team, anim, 0)), `${unit.id} ${team} ${anim}`).toBe(true);
   });
 
+  it('has the pulse, shield and stun effect frames', () => {
+    for (const name of ['pulse', 'shield', 'stun']) expect(names.has(fxFrame(name)), name).toBe(true);
+  });
+
   it('has the G2 icons', () => {
     for (const id of ['gold', 'level', 'enchant', 'reroll', 'sell', 'lock', 'conquer'] as const)
       expect(names.has(iconFrame(id)), id).toBe(true);
