@@ -244,7 +244,7 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       const { index } = cmd;
       const conquest = state.phase === 'conquest';
       if (conquest && index === null) return fail('badTarget'); // bắt buộc chọn một thẻ
-      let { deck, discardPile } = state;
+      let { deck, drawPile } = state;
       let gold = state.gold;
       let goldEarned = state.stats.goldEarned;
       if (index === null) {
@@ -254,10 +254,11 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
         const picked = Number.isInteger(index) ? state.offers.cardIds[index] : undefined;
         if (picked === undefined) return fail('badTarget');
         deck = [...deck, picked];
-        discardPile = [...discardPile, picked];
+        // Lên đầu chồng rút: thẻ vừa chọn có ngay trên tay năm sau (không bị chôn trong chồng bỏ).
+        drawPile = [picked, ...drawPile];
       }
       const stats = { ...state.stats, goldEarned };
-      const picked = { ...state, deck, discardPile, gold, stats };
+      const picked = { ...state, deck, drawPile, gold, stats };
       if (!conquest && state.pendingConquest !== null) {
         // Sau thưởng tới chinh phục: ba thẻ của vua bại trận, bắt buộc chọn một.
         const king = content.king(state.pendingConquest);

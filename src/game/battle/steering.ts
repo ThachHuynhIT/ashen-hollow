@@ -3,6 +3,9 @@
  * overlap (centre distance < rA + rB) are pushed apart.
  *
  * - Two units: each moves min(overlap / 2, pushMax) away from the other.
+ * - Teams (optional `team`): two units of different teams are pushed apart by at most
+ *   `crossMax` each (default `pushMax`), and a unit marked `anchored` (in contact with its
+ *   target) is never pushed by an enemy, so a crowd cannot shove a fighting unit away.
  * - A structure (`fixed`) never moves; it pushes a non-flying unit fully out of its radius.
  *   Flying units ignore structures. Two structures never push each other.
  * - Exactly coincident centres split along the fixed axis (1, 0), as the old code did.
@@ -21,6 +24,10 @@ export interface SeparationBodies {
   readonly fixed: ArrayLike<number>;
   /** 1 = flying unit, 0 = ground unit. */
   readonly flying: ArrayLike<number>;
+  /** Team id per body; without it every pair of units counts as teammates. */
+  readonly team?: ArrayLike<number>;
+  /** 1 = in contact with its target: ignores pushes from enemy units. */
+  readonly anchored?: ArrayLike<number>;
 }
 
 /** Below this centre distance two bodies count as coincident. */
@@ -32,8 +39,9 @@ export const separationPush = (
   pushMax: number,
   outX: Float64Array,
   outY: Float64Array,
+  crossMax: number = pushMax,
 ): void => {
-  const { count, x, y, radius, fixed, flying } = bodies;
+  const { count, x, y, radius, fixed, flying, team, anchored } = bodies;
   outX.fill(0, 0, count);
   outY.fill(0, 0, count);
   for (let i = 0; i < count; i++) {
@@ -64,11 +72,16 @@ export const separationPush = (
         outX[i] = outX[i]! - dx * overlap;
         outY[i] = outY[i]! - dy * overlap;
       } else {
-        const push = Math.min(overlap / 2, pushMax);
-        outX[i] = outX[i]! - dx * push;
-        outY[i] = outY[i]! - dy * push;
-        outX[j] = outX[j]! + dx * push;
-        outY[j] = outY[j]! + dy * push;
+        const enemies = team !== undefined && team[i] !== team[j];
+        const push = Math.min(overlap / 2, enemies ? crossMax : pushMax);
+        if (!(enemies && anchored !== undefined && anchored[i] === 1)) {
+          outX[i] = outX[i]! - dx * push;
+          outY[i] = outY[i]! - dy * push;
+        }
+        if (!(enemies && anchored !== undefined && anchored[j] === 1)) {
+          outX[j] = outX[j]! + dx * push;
+          outY[j] = outY[j]! + dy * push;
+        }
       }
     }
   }

@@ -534,6 +534,17 @@ describe('rewards', () => {
     expect(r.state.offers).toBeNull();
   });
 
+  it('the chosen reward is in the next hand right away, not buried in the discard pile', () => {
+    for (const index of [0, 1, 2]) {
+      const s = reward();
+      const chosen = s.offers!.cardIds[index]!;
+      const next = ok(applyCommand(s, { type: 'pickOffer', index }, CONTENT)).state;
+      expect(next.hand).toContain(chosen);
+      expect(next.hand).toHaveLength(3);
+      expect(sorted([...next.hand, ...next.drawPile, ...next.discardPile])).toEqual(sorted(next.deck));
+    }
+  });
+
   it('pickOffer null skips', () => {
     const s = reward();
     const r = ok(applyCommand(s, { type: 'pickOffer', index: null }, CONTENT));

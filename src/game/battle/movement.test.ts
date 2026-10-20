@@ -209,3 +209,28 @@ describe('moveEntities — separation, knockback, clamp', () => {
     expect(w.y[b]).toBe(hi);
   });
 });
+
+describe('moveEntities — holding ground against a crowd', () => {
+  it('a soldier in contact with its target is not shoved away by the enemies crowding it', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100);
+    const target = unit(w, TEAM_FOE, 110, 100, { speed: 0 }); // edge gap 2 = range: in contact
+    w.target[a] = target;
+    unit(w, TEAM_FOE, 104, 103, { speed: 0 });
+    unit(w, TEAM_FOE, 96, 97, { speed: 0 });
+    unit(w, TEAM_FOE, 101, 106, { speed: 0 });
+    moveEntities(w);
+    // Anchored by its target in range: the three overlapping enemies do not move it at all.
+    expect(w.x[a]).toBe(100);
+    expect(w.y[a]).toBe(100);
+  });
+
+  it('a lone enemy overlapping a soldier is eased away slowly, not thrown', () => {
+    const w = world();
+    const a = unit(w, TEAM_ALLY, 100, 100, { speed: 0 });
+    const f = unit(w, TEAM_FOE, 102, 100, { speed: 0 });
+    moveEntities(w);
+    expect(Math.abs(w.x[a]! - 100)).toBeLessThanOrEqual(BATTLE.separationPushCross + EPS);
+    expect(Math.abs(w.x[f]! - 102)).toBeLessThanOrEqual(BATTLE.separationPushCross + EPS);
+  });
+});
