@@ -2,6 +2,7 @@
 import { Rng, hashSeed } from '../../core/random';
 import { RULES_G1, PLAYABLE_KINGS_G2, type Rules } from '../../data/rules';
 import { RUN, START_DECK_G1 } from '../../data/run';
+import { yearIncome } from './income';
 import type { KingId } from '../../data/types';
 import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
@@ -47,6 +48,9 @@ export function startYear(state: RunState, content: Content): RunState {
     rng,
     RUN.handSize,
   );
+  // Thứ tự §5.5: phí duy trì (kiểm với vàng đang có) → thuế → thu nhập công trình.
+  const income = yearIncome(state, content, state.gold);
+  const gained = RUN.taxPerYear + Math.max(0, income.delta);
   return {
     ...state,
     year,
@@ -56,7 +60,9 @@ export function startYear(state: RunState, content: Content): RunState {
     played: false,
     offers: null,
     rerollsThisYear: 0,
-    idleUids: [],
+    idleUids: income.idleUids,
+    gold: state.gold + RUN.taxPerYear + income.delta,
+    stats: { ...state.stats, goldEarned: state.stats.goldEarned + gained },
     rng: { ...state.rng, draw: rng.getState() },
   };
 }

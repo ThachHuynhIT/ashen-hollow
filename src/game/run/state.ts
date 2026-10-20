@@ -88,6 +88,7 @@ export type IllegalReason =
   | 'wrongPhase'
   | 'alreadyPlayed'
   | 'notPlayed'
+  | 'notEnoughGold'
   | 'badTarget';
 
 export type PlayTarget =
@@ -99,6 +100,10 @@ export type RunCommand =
   | { type: 'play'; handIndex: number; target: PlayTarget }
   /** Bán/bỏ đúng một thẻ thay cho việc chơi thẻ. */
   | { type: 'discard'; handIndex: number }
+  /** Bỏ cả tay và rút lại, trả `rerollCost` vàng. */
+  | { type: 'reroll' }
+  /** Mua một ô khoá kề ô đã mở bằng vàng (spec §3.11). */
+  | { type: 'unlockPlot'; plot: number }
   | { type: 'setAutoFire'; on: boolean }
   | { type: 'startBattle' }
   | { type: 'battleResult'; result: BattleResult }

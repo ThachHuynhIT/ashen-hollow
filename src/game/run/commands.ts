@@ -1,9 +1,11 @@
 /** Lệnh người chơi lên RunState (spec §5.1, §5.5). Thuần: làm việc trên bản sao, không sửa đầu vào. */
 import { Rng } from '../../core/random';
 import { RULES_G1 } from '../../data/rules';
+import { RUN, battleGold, rerollCost, unlockCost } from '../../data/run';
 import type { CardId } from '../../data/types';
 import type { Content } from '../cards/registry';
-import { checkPlay, moveBuilding, placeBuilding, unlockPlot } from './board';
+import { adjacentToUnlocked, checkPlay, moveBuilding, placeBuilding, unlockPlot } from './board';
+import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
 import { rollOffers } from './rewards';
 import type { IllegalReason, RunCommand, RunState } from './state';
@@ -76,6 +78,38 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       state.hand.splice(handIndex, 1);
       state.discardPile.push(sold);
       state.played = true;
+      state.gold += RUN.skipPlayGold;
+      state.stats.goldEarned += RUN.skipPlayGold;
+      return { state, events };
+    }
+
+    case 'reroll': {
+      if (state.phase !== 'planning') return fail('wrongPhase');
+      if (state.played) return fail('alreadyPlayed');
+      const cost = rerollCost(state.rerollsThisYear + 1);
+      if (state.gold < cost) return fail('notEnoughGold');
+      const rng = new Rng(state.rng.draw);
+      const piles = refillHand([], state.drawPile, [...state.discardPile, ...state.hand], rng, RUN.handSize);
+      state.hand = piles.hand;
+      state.drawPile = piles.drawPile;
+      state.discardPile = piles.discardPile;
+      state.gold -= cost;
+      state.rerollsThisYear += 1;
+      state.rng.draw = rng.getState();
+      return { state, events };
+    }
+
+    case 'unlockPlot': {
+      if (state.phase !== 'planning') return fail('wrongPhase');
+      const { plot } = cmd;
+      if (!Number.isInteger(plot) || plot < 0 || plot >= state.plots.length) return fail('badTarget');
+      if (state.plots[plot]!.unlocked) return fail('badTarget');
+      if (!adjacentToUnlocked(state.plots, plot)) return fail('notAdjacent');
+      const cost = unlockCost(state.purchasedPlots);
+      if (state.gold < cost) return fail('notEnoughGold');
+      state.plots = unlockPlot(state.plots, plot);
+      state.gold -= cost;
+      state.purchasedPlots += 1;
       return { state, events };
     }
 
@@ -95,7 +129,12 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       const { result } = cmd;
       state.stats.kills += result.kills;
       events.push({ type: 'battleEnded', won: result.won });
-      if (result.won) state.stats.battlesWon += 1;
+      if (result.won) {
+        state.stats.battlesWon += 1;
+        const prize = battleGold(state.year);
+        state.gold += prize;
+        state.stats.goldEarned += prize;
+      }
       else {
         state.stats.battlesLost += 1;
         state.lives -= 1;
@@ -129,13 +168,19 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       if (state.phase !== 'reward' || state.offers === null) return fail('wrongPhase');
       const { index } = cmd;
       let { deck, discardPile } = state;
-      if (index !== null) {
+      let gold = state.gold;
+      let goldEarned = state.stats.goldEarned;
+      if (index === null) {
+        gold += RUN.skipRewardGold;
+        goldEarned += RUN.skipRewardGold;
+      } else {
         const picked = Number.isInteger(index) ? state.offers.cardIds[index] : undefined;
         if (picked === undefined) return fail('badTarget');
         deck = [...deck, picked];
         discardPile = [...discardPile, picked];
       }
-      return { state: begin({ ...state, deck, discardPile }, content, events), events };
+      const stats = { ...state.stats, goldEarned };
+      return { state: begin({ ...state, deck, discardPile, gold, stats }, content, events), events };
     }
 
     case 'advance':

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, hashSeed } from '../../core/random';
 import { RULES_G1, RULES_G2 } from '../../data/rules';
-import { START_DECK_G1 } from '../../data/run';
+import { RUN, START_DECK_G1, battleGold, rerollCost, unlockCost } from '../../data/run';
 import { SLOT_MULT } from '../../data/battle';
 import { armyBudget, composeArmy } from '../battle/compose';
 import type { CardId } from '../../data/types';
 import type { BattleResult } from '../battle/types';
 import { CONTENT } from '../cards/registry';
-import { runState } from '../testing/fixtures';
+import { contentWith, runState } from '../testing/fixtures';
 import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
 import type { IllegalReason, PlayTarget, RunCommand, RunState } from './state';
@@ -61,11 +61,11 @@ describe('newRun under the G2 rules', () => {
 
   it('starts with gold, the rules, no conquests and the chosen deck', () => {
     expect(s.rules).toEqual(RULES_G2);
-    expect(s.gold).toBe(5);
+    expect(s.gold).toBe(RUN.startGold + RUN.taxPerYear); // year-1 tax is already in
     expect(s.rerollsThisYear).toBe(0);
     expect(s.purchasedPlots).toBe(0);
     expect(s.idleUids).toEqual([]);
-    expect(s.stats).toMatchObject({ goldEarned: 0, conquered: 0 });
+    expect(s.stats).toMatchObject({ goldEarned: RUN.taxPerYear, conquered: 0 });
     expect(s.deck).toEqual(startDeck(CONTENT.king('wheat')));
     expect(sorted([...s.hand, ...s.drawPile, ...s.discardPile])).toEqual(sorted(s.deck));
   });
@@ -251,6 +251,114 @@ describe('errors', () => {
     expect(errorOf(occ, play(2, two(7, 6)))).toBe('noBuilding');
     const clear = runState({ hand: ['neutral_clear_land'] });
     expect(errorOf(clear, play(0, plot(6)))).toBe('badTarget');
+  });
+});
+
+describe('gold', () => {
+  const rich = (over: Partial<RunState> = {}): RunState => runState({ gold: 20, ...over });
+
+  it('adds the yearly tax when a year starts', () => {
+    const lost = ok(
+      applyCommand(
+        { ...rich({ gold: 7 }), phase: 'battle', hand: [], played: true },
+        { type: 'battleResult', result: result(false) },
+        CONTENT,
+      ),
+    ).state;
+    const next = ok(applyCommand(lost, { type: 'advance' }, CONTENT)).state;
+    expect(next.gold).toBe(7 + RUN.taxPerYear);
+    expect(next.stats.goldEarned).toBe(lost.stats.goldEarned + RUN.taxPerYear);
+  });
+
+  it('reroll costs 1, 2, 4 and moves the whole hand to the discard pile', () => {
+    let s = rich();
+    const oldHand = s.hand;
+    for (const cost of [1, 2, 4]) {
+      const before = s.gold;
+      s = ok(applyCommand(s, { type: 'reroll' }, CONTENT)).state;
+      expect(s.gold).toBe(before - cost);
+    }
+    expect(s.rerollsThisYear).toBe(3);
+    expect(s.hand).toHaveLength(3);
+    expect(sorted([...s.hand, ...s.drawPile, ...s.discardPile])).toEqual(sorted(s.deck));
+    expect(oldHand).toHaveLength(3);
+    expect(rerollCost(s.rerollsThisYear + 1)).toBe(8);
+  });
+
+  it('reroll is refused without enough gold, after the action and outside planning', () => {
+    expect(errorOf(rich({ gold: 0 }), { type: 'reroll' })).toBe('notEnoughGold');
+    expect(errorOf(rich({ gold: 3, rerollsThisYear: 2 }), { type: 'reroll' })).toBe('notEnoughGold');
+    expect(errorOf(rich({ played: true }), { type: 'reroll' })).toBe('alreadyPlayed');
+    expect(errorOf(rich({ phase: 'battle' }), { type: 'reroll' })).toBe('wrongPhase');
+  });
+
+  it('discard pays skipPlayGold', () => {
+    const s = rich();
+    const r = ok(applyCommand(s, { type: 'discard', handIndex: 0 }, CONTENT)).state;
+    expect(r.gold).toBe(s.gold + RUN.skipPlayGold);
+    expect(r.stats.goldEarned).toBe(s.stats.goldEarned + RUN.skipPlayGold);
+  });
+
+  it('unlockPlot buys an adjacent locked plot at 4, then 6, without using the action', () => {
+    let s = rich();
+    s = ok(applyCommand(s, { type: 'unlockPlot', plot: 1 }, CONTENT)).state;
+    expect(s.plots[1]!.unlocked).toBe(true);
+    expect(s.gold).toBe(20 - unlockCost(0));
+    expect(s.purchasedPlots).toBe(1);
+    expect(s.played).toBe(false);
+    s = ok(applyCommand(s, { type: 'unlockPlot', plot: 2 }, CONTENT)).state;
+    expect(s.gold).toBe(20 - unlockCost(0) - unlockCost(1));
+    expect(s.purchasedPlots).toBe(2);
+  });
+
+  it('unlockPlot rejects a plot that is not adjacent, already open, out of range or unaffordable', () => {
+    expect(errorOf(rich(), { type: 'unlockPlot', plot: 0 })).toBe('notAdjacent');
+    expect(errorOf(rich(), { type: 'unlockPlot', plot: 6 })).toBe('badTarget');
+    expect(errorOf(rich(), { type: 'unlockPlot', plot: 99 })).toBe('badTarget');
+    expect(errorOf(rich({ gold: 3 }), { type: 'unlockPlot', plot: 1 })).toBe('notEnoughGold');
+    expect(errorOf(rich({ phase: 'battle' }), { type: 'unlockPlot', plot: 1 })).toBe('wrongPhase');
+  });
+
+  it('a won battle pays battleGold(year); skipping the reward pays skipRewardGold', () => {
+    const s = rich({ phase: 'battle', hand: [], played: true, year: 4 });
+    const won = ok(applyCommand(s, { type: 'battleResult', result: result(true) }, CONTENT)).state;
+    expect(won.gold).toBe(20 + battleGold(4));
+    expect(won.stats.goldEarned).toBe(s.stats.goldEarned + battleGold(4));
+    const skipped = ok(applyCommand(won, { type: 'pickOffer', index: null }, CONTENT)).state;
+    expect(skipped.gold).toBe(won.gold + RUN.skipRewardGold + RUN.taxPerYear);
+  });
+
+  it('a lost battle pays no battle gold', () => {
+    const s = rich({ phase: 'battle', hand: [], played: true });
+    const lost = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT)).state;
+    expect(lost.gold).toBe(20);
+  });
+
+  it('income from economy buildings and idle upkeep are applied at the start of a year', () => {
+    const well = {
+      id: 'neutral_well' as const,
+      owner: 'neutral' as const,
+      nameVi: 'Giếng',
+      name: 'Well',
+      kind: 'economy' as const,
+      rarity: 'common' as const,
+      tags: [],
+      textVi: 'Giếng',
+      effects: [{ type: 'gold' as const, amount: [1, 2, 3, 4, 5] as const }],
+    };
+    const c = contentWith({ cards: [well] });
+    const s = rich({ phase: 'yearEnd', gold: 10 });
+    s.plots[6]!.building = {
+      uid: 5,
+      cardId: 'neutral_well',
+      level: 3,
+      enchants: [],
+      placedYear: 1,
+      permanent: {},
+    };
+    const next = ok(applyCommand(s, { type: 'advance' }, c)).state;
+    expect(next.gold).toBe(10 + RUN.taxPerYear + 3);
+    expect(next.idleUids).toEqual([]);
   });
 });
 

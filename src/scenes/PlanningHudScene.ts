@@ -45,6 +45,7 @@ export const ILLEGAL_TEXT: Record<IllegalReason, string> = {
   noBuilding: 'Ô này chưa có công trình.',
   noTarget: 'Không còn mục tiêu hợp lệ.',
   notAdjacent: 'Ô phải kề một ô đã mở.',
+  notEnoughGold: 'Không đủ vàng.',
   wrongPhase: 'Lúc này chưa dùng được.',
   alreadyPlayed: 'Năm nay bạn đã chơi hoặc bỏ thẻ.',
   notPlayed: 'Hãy chơi hoặc bỏ một thẻ trước.',
