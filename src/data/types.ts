@@ -254,6 +254,8 @@ export interface KingDef {
   readonly id: KingId;
   readonly nameVi: string;
   readonly name: string;
+  /** Một dòng lối chơi, hiện ở màn chọn vua. */
+  readonly blurbVi: string;
   /** màu chủ đạo (§11.1) */
   readonly color: PaletteColor;
   readonly throne: ThroneDef;

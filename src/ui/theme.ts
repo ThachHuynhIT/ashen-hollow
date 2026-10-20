@@ -236,6 +236,8 @@ export interface Button {
    * it can say why (e.g. "Không đủ vàng").
    */
   setEnabled: (enabled: boolean) => void;
+  /** New logical size (e.g. when the layout switches between desktop and phone). */
+  resize: (width: number, height: number) => void;
 }
 
 /** Opacity of a disabled button. */
@@ -248,14 +250,16 @@ export const createButton = (
   y: number,
   label: string,
   {
-    width = TOUCH_TARGET,
-    height = TOUCH_TARGET,
+    width: initialWidth = TOUCH_TARGET,
+    height: initialHeight = TOUCH_TARGET,
     fontSize = 15,
     icon,
     onClick,
     tooltip,
   }: ButtonOptions,
 ): Button => {
+  let width = initialWidth;
+  let height = initialHeight;
   const box = createPanel(scene, 'button', width, height, 0.5, 0.5);
   const children: Phaser.GameObjects.GameObject[] = [box.image];
   let text: Phaser.GameObjects.Text;
@@ -309,6 +313,12 @@ export const createButton = (
       refresh();
     },
     setLabel: (value) => text.setText(value),
+    resize: (w, h) => {
+      width = w;
+      height = h;
+      box.resize(w, h);
+      container.setSize(w, h);
+    },
     setVisible: (value) => {
       container.setVisible(value);
       if (value) {

@@ -5,6 +5,7 @@ export const ARCANE: KingDef = {
   id: 'arcane',
   nameVi: 'Vua Phép Thuật',
   name: 'Arcane King',
+  blurbVi: 'Bùa chồng bùa: phép thuật lan rộng, mỗi công trình một nguồn sức mạnh.',
   color: 'purple',
   throne: {
     id: 'arcane_throne',

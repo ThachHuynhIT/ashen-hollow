@@ -196,10 +196,13 @@ export class CardView {
     const inset = frameBorder(this.scene, frame) + PAD;
     const inner = Math.max(1, w - 2 * inset);
     const big = w >= 100;
+    // Mini cards (king-select card row): just the name and the picture; the tooltip has the text.
+    const compact = w < 80;
 
     // Name band: wraps to up to two lines in the space right of the kind icon (top-left).
-    const nameWidth = Math.max(1, inner - ICON - PAD);
-    const name = addUiText(this.scene, inset + ICON + PAD + nameWidth / 2, inset, '', big ? 12 : 10)
+    const nameWidth = Math.max(1, compact ? inner : inner - ICON - PAD);
+    const nameX = compact ? w / 2 : inset + ICON + PAD + nameWidth / 2;
+    const name = addUiText(this.scene, nameX, inset, '', big ? 12 : compact ? 9 : 10)
       .setOrigin(0.5, 0)
       .setAlign('center')
       .setFontStyle('bold');
@@ -207,7 +210,7 @@ export class CardView {
     name.setText(clampLines(def.nameVi, nameWidth, 2, measureName).join('\n'));
     this.add(name);
 
-    const icon = this.addImage(iconFrame(KIND_ICON[def.kind]), inset, inset)?.setOrigin(0, 0);
+    const icon = compact ? null : this.addImage(iconFrame(KIND_ICON[def.kind]), inset, inset)?.setOrigin(0, 0);
     const bandBottom = inset + Math.max(name.height, icon?.displayHeight ?? 0) + PAD;
 
     // Picture: largest integer scale (≤ 3) that fits the inner width.
@@ -225,6 +228,7 @@ export class CardView {
       y += badge.height;
     }
 
+    if (compact) return;
     const first = describeCard(def).lines[0] ?? '';
     const text = addUiText(this.scene, w / 2, y, '', big ? 11 : 10).setOrigin(0.5, 0);
     const measure = (s: string): number => text.setText(s).width;
