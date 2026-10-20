@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { toCss } from '../data/palette';
-import { RULES_G1 } from '../data/rules';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { RunState } from '../game/run/state';
 import { RESULT_BUTTON, resultLayout } from '../ui/modals/modalLayout';
@@ -25,7 +24,7 @@ const PAD = 16;
 
 /** The lines of the run summary (§10.8, G1 part). */
 export const runEndLines = (state: RunState): string[] => [
-  `Năm đạt được: ${state.year} / ${RULES_G1.years}`,
+  `Năm đạt được: ${state.year} / ${state.rules.years}`,
   `Trận thắng: ${state.stats.battlesWon} · Trận thua: ${state.stats.battlesLost}`,
   `Địch đã hạ: ${state.stats.kills}`,
 ];
@@ -88,7 +87,7 @@ export class RunEndScene extends Phaser.Scene {
   }
 
   private newRun(): void {
-    const data: RealmData = { seed: newRunSeed() };
+    const data: RealmData = { seed: newRunSeed(), kingId: 'wheat' };
     this.scene.start(SCENES.realm, data);
   }
 

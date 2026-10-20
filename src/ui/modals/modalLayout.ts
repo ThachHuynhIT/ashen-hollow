@@ -117,3 +117,121 @@ export const resultLayout = (
   }));
   return { panel, title, lines, buttons };
 };
+
+export interface CalendarModalLayout {
+  panel: Rect;
+  title: Rect;
+  close: Rect;
+  /** The 15 years, row-major in 5 columns. */
+  cells: readonly Rect[];
+}
+
+const CAL_COLS = 5;
+const CAL_ROWS = 3;
+
+/** Whole-run calendar (§10.4 "L"): 15 years in a 5×3 grid under a title with a ✕. */
+export const calendarModalLayout = (screen: Size, inset: number): CalendarModalLayout => {
+  const desktop = isDesktop(screen.w);
+  const cell = desktop ? 72 : 56;
+  const gap = desktop ? 8 : 6;
+  const gridW = CAL_COLS * cell + (CAL_COLS - 1) * gap;
+  const gridH = CAL_ROWS * cell + (CAL_ROWS - 1) * gap;
+  const w = gridW + 2 * inset;
+  const h = inset + CLOSE_BUTTON + GAP_ABOVE_CARDS + gridH + inset;
+  const panel = centredPanel(screen, w, h);
+  const innerX = panel.x + inset;
+  const innerW = panel.w - 2 * inset;
+  const close = { x: innerX + innerW - CLOSE_BUTTON, y: panel.y + inset, w: CLOSE_BUTTON, h: CLOSE_BUTTON };
+  const title = {
+    x: innerX,
+    y: panel.y + inset,
+    w: Math.max(0, innerW - CLOSE_BUTTON - BUTTON_GAP),
+    h: CLOSE_BUTTON,
+  };
+  const y0 = panel.y + inset + CLOSE_BUTTON + GAP_ABOVE_CARDS;
+  const x0 = Math.round(panel.x + (panel.w - gridW) / 2);
+  const cells = Array.from({ length: CAL_COLS * CAL_ROWS }, (_, i) => ({
+    x: x0 + (i % CAL_COLS) * (cell + gap),
+    y: y0 + Math.floor(i / CAL_COLS) * (cell + gap),
+    w: cell,
+    h: cell,
+  }));
+  return { panel, title, close, cells };
+};
+
+export interface DeckModalLayout {
+  panel: Rect;
+  title: Rect;
+  close: Rect;
+  /** Filter tabs (All, buildings, enchantments, tomes), left to right. */
+  tabs: readonly Rect[];
+  /** The scrolling area: only cards fully inside it are shown. */
+  viewport: Rect;
+  cols: number;
+  /** Every card slot at its scrolled position (some are outside the viewport). */
+  cards: readonly Rect[];
+  scroll: number;
+  maxScroll: number;
+  /** Distance between two rows: the scroll step. */
+  rowStep: number;
+  /** Indices of the cards fully inside the viewport. */
+  visible: readonly number[];
+}
+
+export const DECK_CARD = { w: 96, h: 134 } as const;
+export const DECK_TAB_COUNT = 4;
+const DECK_GAP = 8;
+const DECK_TAB_H = 44;
+
+/** Deck viewer (§10.4 "Bộ bài"): 6 columns on desktop, 3 on phones; `scroll` is clamped. */
+export const deckModalLayout = (
+  screen: Size,
+  inset: number,
+  count: number,
+  scroll: number,
+): DeckModalLayout => {
+  const cols = isDesktop(screen.w) ? 6 : 3;
+  const gridW = cols * DECK_CARD.w + (cols - 1) * DECK_GAP;
+  const panelW = gridW + 2 * inset;
+  const panelH = Math.min(640, screen.h - 2 * MARGIN);
+  const panel = centredPanel(screen, panelW, panelH);
+  const innerX = panel.x + inset;
+  const innerW = panel.w - 2 * inset;
+  const close = { x: innerX + innerW - CLOSE_BUTTON, y: panel.y + inset, w: CLOSE_BUTTON, h: CLOSE_BUTTON };
+  const title = {
+    x: innerX,
+    y: panel.y + inset,
+    w: Math.max(0, innerW - CLOSE_BUTTON - BUTTON_GAP),
+    h: CLOSE_BUTTON,
+  };
+  const tabY = panel.y + inset + CLOSE_BUTTON + DECK_GAP;
+  const tabW = Math.floor((innerW - (DECK_TAB_COUNT - 1) * DECK_GAP) / DECK_TAB_COUNT);
+  const tabs = Array.from({ length: DECK_TAB_COUNT }, (_, i) => ({
+    x: innerX + i * (tabW + DECK_GAP),
+    y: tabY,
+    w: tabW,
+    h: DECK_TAB_H,
+  }));
+  const vy = tabY + DECK_TAB_H + DECK_GAP;
+  const viewport = {
+    x: Math.round(panel.x + (panel.w - gridW) / 2),
+    y: vy,
+    w: gridW,
+    h: Math.max(0, panel.y + panel.h - inset - vy),
+  };
+  const rowStep = DECK_CARD.h + DECK_GAP;
+  const rows = Math.ceil(count / cols);
+  const contentH = rows === 0 ? 0 : rows * rowStep - DECK_GAP;
+  const maxScroll = Math.max(0, contentH - viewport.h);
+  const at = Math.max(0, Math.min(scroll, maxScroll));
+  const cards = Array.from({ length: count }, (_, i) => ({
+    x: viewport.x + (i % cols) * (DECK_CARD.w + DECK_GAP),
+    y: viewport.y + Math.floor(i / cols) * rowStep - at,
+    w: DECK_CARD.w,
+    h: DECK_CARD.h,
+  }));
+  const visible = cards.flatMap((c, i) =>
+    c.y >= viewport.y && c.y + c.h <= viewport.y + viewport.h ? [i] : [],
+  );
+  return { panel, title, close, tabs, viewport, cols, cards, scroll: at, maxScroll, rowStep, visible };
+};

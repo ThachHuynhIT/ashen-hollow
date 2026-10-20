@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Rect, Size } from '../hud/layout';
-import { centredPanel, resultLayout, rewardLayout } from './modalLayout';
+import {
+  calendarModalLayout,
+  centredPanel,
+  deckModalLayout,
+  resultLayout,
+  rewardLayout,
+} from './modalLayout';
 
 const DESKTOP: Size = { w: 1280, h: 720 };
 const MOBILE: Size = { w: 375, h: 812 };
@@ -87,4 +93,93 @@ describe('resultLayout', () => {
       });
     }
   }
+});
+
+describe('calendarModalLayout', () => {
+  for (const [name, screen, inset] of [
+    ['desktop', DESKTOP, 24],
+    ['mobile', MOBILE, 10],
+    ['odd 900×600', { w: 900, h: 600 }, 24],
+  ] as const) {
+    it(`fits a 5×3 grid of 15 years, a title and ✕ inside the panel (${name})`, () => {
+      const l = calendarModalLayout(screen, inset);
+      expect(contains({ x: 0, y: 0, ...screen }, l.panel)).toBe(true);
+      expect(l.cells).toHaveLength(15);
+      const inner = {
+        x: l.panel.x + inset,
+        y: l.panel.y + inset,
+        w: l.panel.w - 2 * inset,
+        h: l.panel.h - 2 * inset,
+      };
+      for (const r of [l.title, ...l.cells, l.close]) expect(contains(inner, r), JSON.stringify(r)).toBe(true);
+      for (const c of l.cells) {
+        expect(c.w).toBeGreaterThanOrEqual(44);
+        expect(c.h).toBeGreaterThanOrEqual(44);
+      }
+      expect(l.close.w).toBeGreaterThanOrEqual(44);
+      expect(l.close.h).toBeGreaterThanOrEqual(44);
+      const parts = [l.title, ...l.cells, l.close];
+      for (let i = 0; i < parts.length; i++)
+        for (let j = i + 1; j < parts.length; j++) expect(overlaps(parts[i]!, parts[j]!)).toBe(false);
+      // Row-major: year 1..5 on the first row.
+      expect(l.cells[0]!.y).toBe(l.cells[4]!.y);
+      expect(l.cells[5]!.y).toBeGreaterThan(l.cells[0]!.y);
+    });
+  }
+});
+
+describe('deckModalLayout', () => {
+  for (const [name, screen, inset, cols] of [
+    ['desktop', DESKTOP, 24, 6],
+    ['mobile', MOBILE, 10, 3],
+  ] as const) {
+    it(`has ${cols} columns of 96×134 cards in a viewport inside the panel (${name})`, () => {
+      const l = deckModalLayout(screen, inset, 20, 0);
+      expect(contains({ x: 0, y: 0, ...screen }, l.panel)).toBe(true);
+      expect(l.cols).toBe(cols);
+      expect(l.cards).toHaveLength(20);
+      for (const c of l.cards) {
+        expect(c.w).toBe(96);
+        expect(c.h).toBe(134);
+        // Horizontally always inside the viewport.
+        expect(c.x).toBeGreaterThanOrEqual(l.viewport.x);
+        expect(c.x + c.w).toBeLessThanOrEqual(l.viewport.x + l.viewport.w);
+      }
+      expect(l.tabs.length).toBeGreaterThanOrEqual(3);
+      for (const t of [...l.tabs, l.close]) {
+        expect(t.w).toBeGreaterThanOrEqual(44);
+        expect(t.h).toBeGreaterThanOrEqual(44);
+        expect(contains(l.panel, t)).toBe(true);
+      }
+      for (const t of l.tabs) expect(overlaps(t, l.viewport)).toBe(false);
+      expect(l.maxScroll).toBeGreaterThan(0); // 20 cards do not fit
+    });
+
+    it(`scrolls: visible cards follow the offset and the offset is clamped (${name})`, () => {
+      const top = deckModalLayout(screen, inset, 20, 0);
+      const moved = deckModalLayout(screen, inset, 20, 40);
+      expect(moved.cards[0]!.y).toBe(top.cards[0]!.y - 40);
+      const past = deckModalLayout(screen, inset, 20, 99999);
+      expect(past.scroll).toBe(top.maxScroll);
+      const before = deckModalLayout(screen, inset, 20, -50);
+      expect(before.scroll).toBe(0);
+      // The last card ends exactly at the viewport bottom when fully scrolled.
+      expect(past.cards[19]!.y + past.cards[19]!.h).toBeLessThanOrEqual(past.viewport.y + past.viewport.h);
+      expect(past.visible).toContain(19);
+      expect(top.visible).toContain(0);
+      expect(top.visible).not.toContain(19);
+    });
+  }
+
+  it('needs no scrolling for a handful of cards', () => {
+    const l = deckModalLayout(DESKTOP, 24, 5, 0);
+    expect(l.maxScroll).toBe(0);
+    expect(l.visible).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('copes with an empty deck', () => {
+    const l = deckModalLayout(MOBILE, 10, 0, 0);
+    expect(l.cards).toEqual([]);
+    expect(l.maxScroll).toBe(0);
+  });
 });

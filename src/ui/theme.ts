@@ -231,7 +231,10 @@ export interface Button {
   setActive: (active: boolean) => void;
   setLabel: (label: string) => void;
   setVisible: (visible: boolean) => void;
-  /** Disabled: dimmed, ignores hover and clicks (e.g. a feature that is not built yet). */
+  /**
+   * Disabled: dimmed, no hover frame and clicks do nothing — but the tooltip still shows, so
+   * it can say why (e.g. "Không đủ vàng").
+   */
   setEnabled: (enabled: boolean) => void;
 }
 
@@ -284,10 +287,12 @@ export const createButton = (
     );
   };
   const press = bindPress(scene, box.image, {
-    onClick,
+    onClick: () => {
+      if (enabled) onClick();
+    },
     tooltip,
     onState: (next) => {
-      state = next;
+      state = enabled ? next : 'idle';
       refresh();
     },
   });
@@ -306,7 +311,7 @@ export const createButton = (
     setLabel: (value) => text.setText(value),
     setVisible: (value) => {
       container.setVisible(value);
-      if (value && enabled) {
+      if (value) {
         box.image.setInteractive();
       } else {
         box.image.disableInteractive();
@@ -318,14 +323,8 @@ export const createButton = (
     setEnabled: (value) => {
       enabled = value;
       container.setAlpha(value ? 1 : DISABLED_ALPHA);
-      if (value && container.visible) {
-        box.image.setInteractive();
-      } else {
-        box.image.disableInteractive();
-        press.cancel();
-        state = 'idle';
-        refresh();
-      }
+      if (!value) state = 'idle';
+      refresh();
     },
   };
 };

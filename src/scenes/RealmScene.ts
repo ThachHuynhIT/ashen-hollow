@@ -8,6 +8,8 @@ import { createGameBus, type GameEvents } from '../game/events';
 import { RunController } from '../game/run/RunController';
 import { checkTargetStep, targetCount } from '../game/run/board';
 import type { PlayTarget, RunState } from '../game/run/state';
+import { RULES_G2 } from '../data/rules';
+import type { KingId } from '../data/types';
 import { newRun } from '../game/run/yearFlow';
 import { BoardRenderer } from '../render/BoardRenderer';
 import { FieldRenderer } from '../render/FieldRenderer';
@@ -22,6 +24,8 @@ import type { RunEndData } from './RunEndScene';
 
 export interface RealmData {
   seed: number;
+  /** Chosen king; the king-select scene passes it (default: Wheat). */
+  kingId: KingId;
 }
 
 /** Launch data of the HUD scenes layered over the realm. */
@@ -79,7 +83,11 @@ export class RealmScene extends Phaser.Scene {
 
     buildSpritesTexture(this.textures, CONTENT); // no-op once PreloadScene built it
     this.bus = createGameBus();
-    this.controller = new RunController(this.bus, CONTENT, newRun(seed, 'wheat', CONTENT));
+    this.controller = new RunController(
+      this.bus,
+      CONTENT,
+      newRun(seed, data.kingId ?? 'wheat', CONTENT, RULES_G2),
+    );
     this.cameras.main.setBackgroundColor(PALETTE.grass);
     this.field = new FieldRenderer(this, seed);
     this.board = new BoardRenderer(this, CONTENT);

@@ -105,7 +105,14 @@ export class ScoutPanel {
     if (full) {
       cy += this.text(inset, cy, 'Trinh sát', 16, true).height + LINE_GAP;
       if (plan) {
-        cy += this.text(inset, cy, `${name} · Cấp ${plan.level}`, 13).height + LINE_GAP * 2;
+        cy += this.text(inset, cy, `${name} · Cấp ${plan.level}`, 13).height + LINE_GAP;
+        if (plan.attacker !== 'raiders') {
+          const banner = this.content.king(plan.attacker).banner;
+          const line = this.text(inset, cy, `Cờ hiệu ${banner.nameVi}: ${banner.textVi}`, 12, false, UI_PALETTE.woodDark);
+          line.setWordWrapWidth(w - 2 * inset);
+          cy += line.height + LINE_GAP;
+        }
+        cy += LINE_GAP;
       }
     } else {
       const head = plan ? `Trinh sát: ${name} · Cấp ${plan.level}` : 'Trinh sát';

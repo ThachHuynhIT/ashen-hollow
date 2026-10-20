@@ -27,7 +27,7 @@ export interface GameEvents {
   'ui:continue': Record<string, never>;
   /** A tap on the realm: the plot with a building under it (null = none), at screen (x, y). */
   'ui:inspect': { plot: number | null; x: number; y: number };
-  'ui:open-modal': { modal: 'scout' };
+  'ui:open-modal': { modal: 'scout' | 'calendar' | 'deck' };
   'ui:close-modal': Record<string, never>;
 }
 

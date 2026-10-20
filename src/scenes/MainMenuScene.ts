@@ -44,7 +44,7 @@ const MENU_ENTRIES: readonly MenuEntry[] = [
     label: 'Ván mới',
     enabled: true,
     onClick: (scene) => {
-      const data: RealmData = { seed: newRunSeed() };
+      const data: RealmData = { seed: newRunSeed(), kingId: 'wheat' };
       scene.scene.start(SCENES.realm, data);
     },
   },
