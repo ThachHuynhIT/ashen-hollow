@@ -275,11 +275,17 @@ export interface BattleLayout {
   foes: Rect;
   speed: readonly Rect[];
   intervene: Rect;
+  /** "Tự bắn: Bật/Tắt" (§7.4): right-aligned just above the Can Thiệp button. */
+  auto: Rect;
+  /** "Địch": opens the full scout report of this year's army; just below the foes panel. */
+  waves: Rect;
 }
 
 const CLOCK = { w: 260, h: 52 } as const;
 const FOES = { w: 140, h: 52 } as const;
 const INTERVENE = 72;
+const AUTO = { w: 104, h: 48 } as const;
+const WAVES = { w: 44, h: 44 } as const;
 
 /** §10.7. On mobile the clock drops to a second row (the top row holds lives and foes). */
 export const battleLayout = (screen: Size): BattleLayout => {
@@ -305,7 +311,19 @@ export const battleLayout = (screen: Size): BattleLayout => {
     w: INTERVENE,
     h: INTERVENE,
   };
-  return { clock, lives, foes, speed, intervene };
+  const auto = {
+    x: intervene.x + intervene.w - AUTO.w,
+    y: intervene.y - GAP - AUTO.h,
+    w: AUTO.w,
+    h: AUTO.h,
+  };
+  const waves = {
+    x: foes.x + foes.w - WAVES.w,
+    y: foes.y + foes.h + GAP,
+    w: WAVES.w,
+    h: WAVES.h,
+  };
+  return { clock, lives, foes, speed, intervene, auto, waves };
 };
 
 /**

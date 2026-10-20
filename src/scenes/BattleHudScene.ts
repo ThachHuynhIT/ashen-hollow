@@ -6,6 +6,7 @@ import { toCss } from '../data/palette';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { BattleResult } from '../game/battle/types';
 import type { BattleWorld } from '../game/battle/world';
+import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
 import { SPRITES_KEY, iconFrame } from '../render/atlas';
@@ -15,7 +16,7 @@ import { foesRemaining, interventionCooldown, throneHpFraction } from '../ui/bat
 import { DRAG_SLOP, GAP, MARGIN, textContent, type Point, type Rect } from '../ui/hud/layout';
 import { RESULT_BUTTON, centredPanel, resultLayout } from '../ui/modals/modalLayout';
 import { createOverlay, fitOverlay } from '../ui/modals/overlay';
-import { tickClock } from '../ui/planning/ScoutPanel';
+import { ScoutPanel, tickClock } from '../ui/planning/ScoutPanel';
 import {
   battleLayout,
   battleWorldAt,
@@ -72,6 +73,12 @@ interface Summary {
   next: Button;
 }
 
+/** Label of the auto-fire toggle (§7.4). */
+const autoLabel = (on: boolean): string => `Tự bắn: ${on ? 'Bật' : 'Tắt'}`;
+
+const SCOUT_MODAL = { w: 300, h: 460 } as const;
+const SCOUT_CLOSE = 48;
+
 const inside = (r: Rect, p: Point): boolean =>
   p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
 
@@ -103,6 +110,14 @@ export class BattleHudScene extends Phaser.Scene {
   private dots!: Phaser.GameObjects.Graphics;
   private speedButtons: Button[] = [];
   private intervene!: Button;
+  private autoBtn!: Button;
+  private wavesBtn!: Button;
+  private scoutModal: {
+    root: Phaser.GameObjects.Container;
+    overlay: Phaser.GameObjects.Rectangle;
+    panel: ScoutPanel;
+    close: Button;
+  } | null = null;
   private cooldown!: Phaser.GameObjects.Graphics;
   private cooldownText!: Phaser.GameObjects.Text;
   private ring!: Phaser.GameObjects.Graphics;
@@ -137,6 +152,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.bannerTimer = null;
     this.summary = null;
     this.result = null;
+    this.scoutModal = null;
     this.lay = this.currentLayout();
 
     this.tooltip = new Tooltip(this);
@@ -190,6 +206,25 @@ export class BattleHudScene extends Phaser.Scene {
         'Bấm lại để huỷ.',
       ]),
     });
+    this.autoBtn = createButton(this, 0, 0, autoLabel(this.controller.state.autoFire), {
+      width: this.lay.auto.w,
+      height: this.lay.auto.h,
+      fontSize: 13,
+      onClick: () => this.toggleAuto(),
+      tooltip: tip([
+        'Tự bắn',
+        'Đá Tảng tự rơi vào chỗ đông địch nhất khi hết hồi chiêu.',
+        'Dùng chung thời gian hồi với Can Thiệp.',
+      ]),
+    });
+    this.autoBtn.setActive(this.controller.state.autoFire);
+    this.wavesBtn = createButton(this, 0, 0, 'Địch', {
+      width: this.lay.waves.w,
+      height: this.lay.waves.h,
+      fontSize: 13,
+      onClick: () => (this.scoutModal ? this.closeScout() : this.openScout()),
+      tooltip: tip(['Các đợt địch', 'Xem lại đạo quân năm nay.']),
+    });
     this.cooldown = this.add.graphics();
     this.cooldownText = addUiText(this, 0, 0, '', 22, UI_PALETTE.creamLight)
       .setOrigin(0.5)
@@ -201,7 +236,11 @@ export class BattleHudScene extends Phaser.Scene {
     this.offs.push(
       bus.on('battle:tick', ({ tick }) => this.clockText.setText(tickClock(tick))),
       bus.on('clock:speed', ({ speed }) => this.showSpeed(speed)),
-      bus.on('run:state', ({ state }) => this.livesText.setText(`× ${state.lives}`)),
+      bus.on('run:state', ({ state }) => {
+        this.livesText.setText(`× ${state.lives}`);
+        this.autoBtn.setLabel(autoLabel(state.autoFire));
+        this.autoBtn.setActive(state.autoFire);
+      }),
       bus.on('log', ({ text }) => this.toasts.push(text)),
       bus.on('battle:ended', ({ result }) => this.onEnded(result)),
     );
@@ -307,6 +346,52 @@ export class BattleHudScene extends Phaser.Scene {
     this.speedButtons.forEach((b, i) => b.setActive(SPEEDS[i]!.speed === speed));
   }
 
+  // ---- Tự bắn / các đợt địch -----------------------------------------------------------------
+
+  private toggleAuto(): void {
+    if (this.ended) return;
+    this.bus.emit('ui:command', {
+      command: { type: 'setAutoFire', on: !this.controller.state.autoFire },
+    });
+  }
+
+  private openScout(): void {
+    if (this.scoutModal) return;
+    this.setAiming(false);
+    const overlay = createOverlay(this);
+    overlay.on(Phaser.Input.Events.GAMEOBJECT_POINTER_UP, () => this.closeScout());
+    const panel = new ScoutPanel(this, CONTENT);
+    panel.setPlan(this.controller.state.army);
+    const close = createButton(this, 0, 0, '✕', {
+      width: SCOUT_CLOSE,
+      height: SCOUT_CLOSE,
+      fontSize: 20,
+      onClick: () => this.closeScout(),
+      tooltip: { host: this.tooltip, content: () => textContent(['Đóng (Esc)']) },
+    });
+    const root = this.add
+      .container(0, 0, [overlay, panel.container, close.container])
+      .setDepth(MODAL_DEPTH - 1);
+    this.scoutModal = { root, overlay, panel, close };
+    this.layoutScout();
+  }
+
+  private layoutScout(): void {
+    const modal = this.scoutModal;
+    if (!modal) return;
+    fitOverlay(this, modal.overlay);
+    const r = centredPanel(this.screen(), SCOUT_MODAL.w, SCOUT_MODAL.h);
+    modal.panel.layout(r, 'full');
+    modal.close.container.setPosition(r.x + r.w - SCOUT_CLOSE / 2 - 4, r.y + SCOUT_CLOSE / 2 + 4);
+  }
+
+  private closeScout(): void {
+    if (!this.scoutModal) return;
+    this.scoutModal.panel.destroy();
+    this.scoutModal.root.destroy();
+    this.scoutModal = null;
+  }
+
   // ---- Can Thiệp ----------------------------------------------------------------------------
 
   private isReady(): boolean {
@@ -382,6 +467,10 @@ export class BattleHudScene extends Phaser.Scene {
 
   private onKey(event: KeyboardEvent): void {
     if (event.repeat) return; // a held key acts once
+    if (this.scoutModal) {
+      if (event.key === 'Escape') this.closeScout();
+      return;
+    }
     if (this.ended) {
       if (this.summary && (event.key === 'Enter' || event.key === ' ')) this.continueRun();
       return;
@@ -415,6 +504,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.result = result;
     this.setAiming(false);
     this.intervene.setEnabled(false);
+    this.autoBtn.setEnabled(false);
     for (const b of this.speedButtons) b.setEnabled(false);
     const box = createPanel(this, 'panel', 280, 72);
     box.image.setDepth(MODAL_DEPTH);
@@ -527,6 +617,11 @@ export class BattleHudScene extends Phaser.Scene {
     const iv = l.intervene;
     this.intervene.container.setPosition(iv.x + iv.w / 2, iv.y + iv.h / 2);
     this.cooldownText.setPosition(iv.x + iv.w / 2, iv.y + iv.h / 2);
+    const au = l.auto;
+    this.autoBtn.container.setPosition(au.x + au.w / 2, au.y + au.h / 2);
+    const wv = l.waves;
+    this.wavesBtn.container.setPosition(wv.x + wv.w / 2, wv.y + wv.h / 2);
+    this.layoutScout();
 
     this.toasts.setAnchor(this.scale.width / 2, c.y + c.h + GAP * 2, this.scale.width - 2 * MARGIN);
     this.tooltip.refresh();
@@ -575,6 +670,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
     this.bannerTimer?.remove(false);
     this.bannerTimer = null;
+    this.closeScout();
     this.toasts.destroy();
     this.tooltip.destroy();
     this.world = null;

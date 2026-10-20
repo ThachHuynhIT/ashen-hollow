@@ -363,7 +363,22 @@ describe('battleLayout', () => {
       expect(l.speed[0]!.x).toBe(10);
       expect(l.speed[0]!.y + 48).toBe(screen.h - 10);
       expect(l.intervene).toEqual({ x: screen.w - 10 - 72, y: screen.h - 10 - 72, w: 72, h: 72 });
-      const all = { clock: l.clock, lives: l.lives, foes: l.foes, intervene: l.intervene };
+      for (const b of [l.auto, l.waves, l.intervene]) {
+        expect(b.w).toBeGreaterThanOrEqual(44);
+        expect(b.h).toBeGreaterThanOrEqual(44);
+      }
+      expect(l.auto.x + l.auto.w).toBe(l.intervene.x + l.intervene.w); // right-aligned above Can Thiệp
+      expect(l.auto.y + l.auto.h).toBeLessThanOrEqual(l.intervene.y);
+      expect(l.waves.x + l.waves.w).toBe(l.foes.x + l.foes.w); // right-aligned below the foes panel
+      expect(l.waves.y).toBeGreaterThanOrEqual(l.foes.y + l.foes.h);
+      const all = {
+        clock: l.clock,
+        lives: l.lives,
+        foes: l.foes,
+        intervene: l.intervene,
+        auto: l.auto,
+        waves: l.waves,
+      };
       l.speed.forEach((b, i) => Object.assign(all, { [`speed${i}`]: b }));
       for (const r of Object.values(all)) expect(inside(r, screen), JSON.stringify(r)).toBe(true);
       expectSeparate(all);
