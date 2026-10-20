@@ -7,7 +7,7 @@ import { CONTENT } from '../game/cards/registry';
 import { addPixelTexture, buildSpritesTexture } from '../render/atlas';
 import { paintPortrait } from '../render/portraitArt';
 import { CardView } from '../ui/cards/CardView';
-import { textContent } from '../ui/hud/layout';
+import { snapScroll, textContent } from '../ui/hud/layout';
 import { KING_CARD, kingCardRow, kingSelectLayout, type KingSelectLayout } from '../ui/kingSelectLayout';
 import { Tooltip } from '../ui/Tooltip';
 import {
@@ -256,8 +256,8 @@ export class KingSelectScene extends Phaser.Scene {
   private onUp(pointer: Phaser.Input.Pointer): void {
     if (!this.drag || this.drag.id !== pointer.id) return;
     this.drag = null;
-    const step = KING_CARD.w + KING_CARD.gap;
-    this.scroll = Math.round(this.scroll / step) * step;
+    const max = kingCardRow(this.lay.cards, this.king().cards.length, this.scroll).maxScroll;
+    this.scroll = snapScroll(this.scroll, KING_CARD.w + KING_CARD.gap, max);
     this.applyCards();
   }
 

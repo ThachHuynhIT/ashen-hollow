@@ -6,7 +6,6 @@ import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
 import { hasAnyTarget, targetCount } from '../game/run/board';
-import { hasPlayableCard } from '../game/run/playable';
 import type { IllegalReason, RunState } from '../game/run/state';
 import { SPRITES_KEY, iconFrame } from '../render/atlas';
 import { ContentBox } from '../ui/ContentBox';
@@ -24,6 +23,7 @@ import { cardBadge, willLevelUpTo } from '../ui/cards/cardText';
 import { CalendarStrip } from '../ui/planning/CalendarStrip';
 import { HandView } from '../ui/planning/HandView';
 import { ScoutPanel } from '../ui/planning/ScoutPanel';
+import { canFight } from '../ui/planning/fightRule';
 import { dropOutcome, plotIllegalReason } from '../ui/planning/targetHints';
 import { calendarCells, illegalText } from '../ui/realm/calendarModel';
 import {
@@ -261,7 +261,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.sellBtn.setVisible(choosing);
     this.rerollBtn.setVisible(choosing);
     this.deckBtn.setVisible(planning);
-    this.fight.setVisible(this.canFight(state));
+    this.fight.setVisible(canFight(state));
     this.refreshActions(state);
     this.handCount = state.hand.length;
     this.hand.layout(centerHand(this.lay.hand, this.handCount));
@@ -287,15 +287,6 @@ export class PlanningHudScene extends Phaser.Scene {
     if (!choosing && this.pending.handIndex !== null) this.pending = NO_PENDING;
     if (!planning) this.buy = null;
     this.refreshPending();
-  }
-
-  /** "Ra trận" is shown when battles start by hand (G2) once the year's action is done. */
-  private canFight(state: RunState): boolean {
-    return (
-      state.phase === 'planning' &&
-      !state.rules.autoStart &&
-      (state.played || !hasPlayableCard(state, CONTENT))
-    );
   }
 
   private rerollPrice(state: RunState): number {
@@ -504,8 +495,9 @@ export class PlanningHudScene extends Phaser.Scene {
         if (!state.played) this.sell();
         break;
       case 'Enter':
-        if (this.pending.ready || this.buy) this.bus.emit('ui:confirm-play', {});
-        else if (this.canFight(state)) this.command('startBattle');
+        if (this.buy && state.gold < this.buy.price) this.flashIllegal('notEnoughGold');
+        else if (this.pending.ready || this.buy) this.bus.emit('ui:confirm-play', {});
+        else if (canFight(state)) this.command('startBattle');
         break;
       case 'Escape':
         if (this.pending.handIndex !== null || this.buy) this.bus.emit('ui:cancel-play', {});

@@ -13,8 +13,6 @@ import {
 } from '../ui/theme';
 import { runEndLines } from '../ui/runEndLines';
 import { SCENES } from './keys';
-import { newRunSeed } from './MainMenuScene';
-import type { RealmData } from './RealmScene';
 
 export interface RunEndData {
   state: RunState;
@@ -81,8 +79,7 @@ export class RunEndScene extends Phaser.Scene {
   }
 
   private newRun(): void {
-    const data: RealmData = { seed: newRunSeed(), kingId: 'wheat' };
-    this.scene.start(SCENES.realm, data);
+    this.scene.start(SCENES.kingSelect);
   }
 
   private onKey(event: KeyboardEvent): void {

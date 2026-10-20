@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { BATTLE } from '../data/battle';
+import { toCss } from '../data/palette';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { CardId } from '../data/types';
 import type { Edge } from '../game/battle/types';
@@ -204,8 +205,8 @@ export class BoardRenderer {
       let text = this.prices[used];
       if (!text) {
         text = this.scene.add
-          .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '11px', fontStyle: 'bold', color: '#f2c94c' })
-          .setStroke('#2b1408', 3)
+          .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '11px', fontStyle: 'bold', color: toCss(UI_PALETTE.gold) })
+          .setStroke(toCss(UI_PALETTE.outline), 3)
           .setOrigin(0.5)
           .setDepth(MARK_DEPTH + 1);
         this.prices.push(text);

@@ -15,6 +15,7 @@ import {
 } from '../theme';
 import { DECK_TABS, deckEntries, type DeckEntry, type DeckTab } from './deckModel';
 import { CLOSE_BUTTON, DECK_CARD, deckModalLayout, type DeckModalLayout } from './modalLayout';
+import { snapScroll } from '../hud/layout';
 import { createOverlay, fitOverlay } from './overlay';
 
 const PAD_DESKTOP = 12;
@@ -61,8 +62,7 @@ export class DeckModal {
     this.drag = null;
     const l = this.lay;
     if (l && l.maxScroll > 0) {
-      const snapped = Math.round(this.scroll / l.rowStep) * l.rowStep;
-      this.setScroll(snapped);
+      this.setScroll(snapScroll(this.scroll, l.rowStep, l.maxScroll));
     }
   };
 

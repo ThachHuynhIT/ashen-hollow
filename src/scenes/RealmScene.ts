@@ -275,6 +275,11 @@ export class RealmScene extends Phaser.Scene {
   private confirm(): void {
     if (this.pendingBuy !== null) {
       const plot = this.pendingBuy;
+      if (this.controller.state.gold < lockedPlotPrice(this.controller.state)) {
+        // Keep the offer open: the HUD says why instead of the game rejecting a command.
+        this.bus.emit('run:illegal', { reason: 'notEnoughGold' });
+        return;
+      }
       this.setPendingBuy(null);
       this.bus.emit('ui:command', { command: { type: 'unlockPlot', plot } });
       return;
