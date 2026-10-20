@@ -545,6 +545,28 @@ describe('rewards', () => {
     }
   });
 
+  it('under the G1 rules the reward cards come only from the G1 card set', () => {
+    const g1 = new Set<string>(START_DECK_G1);
+    for (let year = 1; year <= 9; year++) {
+      for (let seed = 1; seed <= 6; seed++) {
+        const s = ok(
+          applyCommand(
+            runState({
+              phase: 'battle',
+              hand: [],
+              played: true,
+              year,
+              rng: { draw: seed, reward: seed * 7919, calendar: 1 },
+            }),
+            { type: 'battleResult', result: result(true) },
+            CONTENT,
+          ),
+        ).state;
+        for (const id of s.offers!.cardIds) expect(g1.has(id), `${id} in G1 rewards`).toBe(true);
+      }
+    }
+  });
+
   it('pickOffer null skips', () => {
     const s = reward();
     const r = ok(applyCommand(s, { type: 'pickOffer', index: null }, CONTENT));

@@ -4,13 +4,27 @@ import { describeCard } from '../../game/cards/describe';
 import { createBattle, spawnWave, type BattleWorld } from '../../game/battle/world';
 import type { BuildingState } from '../../game/run/state';
 import { battleSetup, structure, unitStats } from '../../game/testing/fixtures';
-import { buildingInfoLines, entityAt, entityInfoLines, placeInfoBox } from './infoLines';
+import { UI_PALETTE } from '../../data/uiPalette';
+import { buildingInfoLines, entityAt, entityInfoLines, infoContent, placeInfoBox } from './infoLines';
 
 const building = (cardId: BuildingState['cardId'], level: BuildingState['level'] = 1): BuildingState => ({
   uid: 1,
   cardId,
   level,
   enchants: [], placedYear: 1, permanent: {}
+});
+
+describe('infoContent', () => {
+  it('titles the first line and tints level, HP and spawned-unit lines from UI_PALETTE', () => {
+    const c = infoContent(['Dân Quân', 'Cấp 2', 'Máu: 100', 'Lính: Dân Quân ×6', 'Máu lính 32 · Giáp 25%', 'Sinh lính.']);
+    expect(c.title).toBe('Dân Quân');
+    const colorOf = (i: number) => c.lines[i]![0]!.color;
+    expect(colorOf(0)).toBe(UI_PALETTE.wood);
+    expect(colorOf(1)).toBe(UI_PALETTE.good);
+    expect(colorOf(2)).toBe(UI_PALETTE.woodDark);
+    expect(colorOf(3)).toBe(UI_PALETTE.woodDark);
+    expect(colorOf(4)).toBeUndefined();
+  });
 });
 
 describe('buildingInfoLines', () => {
@@ -20,6 +34,21 @@ describe('buildingInfoLines', () => {
     expect(lines).toContain('Cấp 3');
     expect(lines).toContain('Máu: 150');
     expect(lines).toContain(describeCard(CONTENT.card('wheat_militia'), 3).lines[0]);
+  });
+
+  it('lists the units a troop building spawns, with count at its level and their stats', () => {
+    const unit = CONTENT.unit('militia');
+    const lines = buildingInfoLines(building('wheat_militia', 3), CONTENT);
+    expect(lines).toContain(`Lính: ${unit.nameVi} ×${8}`);
+    const stats = lines.find((l) => l.startsWith('Máu lính'))!;
+    expect(stats).toContain(`Máu lính ${unit.hp}`);
+    expect(stats).toContain(`Sát thương ${unit.attack.dmg}`);
+    expect(stats).toContain(`Giáp ${Math.round(unit.armor * 100)}%`);
+  });
+
+  it('shows no unit section for a building that spawns nothing', () => {
+    const lines = buildingInfoLines(building('wheat_throne'), CONTENT);
+    expect(lines.some((l) => l.startsWith('Lính:'))).toBe(false);
   });
 
   it('uses the throne HP for the throne', () => {

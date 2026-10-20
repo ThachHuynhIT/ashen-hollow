@@ -57,18 +57,18 @@ describe('G1 content integrity', () => {
     }
   });
 
-  it('defines the wheat king', () => {
+  it('defines the wheat king (full card set is checked in cards.effects.test)', () => {
     expect(KINGS_G1).toEqual([WHEAT]);
-    expect(WHEAT.cards.map((c) => [c.id, c.rarity])).toEqual([
-      ['wheat_militia', 'common'],
-      ['wheat_reapers', 'uncommon'],
-      ['wheat_scarecrow', 'common'],
-    ]);
+    expect(WHEAT.cards).toHaveLength(9);
+    for (const id of ['wheat_militia', 'wheat_reapers', 'wheat_scarecrow']) {
+      expect(WHEAT.cards.map((c) => c.id)).toContain(id);
+    }
     expect(Object.keys(PALETTE)).toContain(WHEAT.color);
-    expect(WHEAT.units.map((u) => u.id)).toEqual(['militia', 'reaper']);
+    expect(WHEAT.units.map((u) => u.id)).toEqual(['militia', 'reaper', 'peasant']);
     expect(WHEAT.enemyRoster).toEqual([
       { unit: 'militia', weight: 50 },
       { unit: 'reaper', weight: 25 },
+      { unit: 'peasant', weight: 25 },
     ]);
   });
 

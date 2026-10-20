@@ -2,7 +2,8 @@ import type Phaser from 'phaser';
 import { toCss } from '../data/palette';
 import { UI_PALETTE } from '../data/uiPalette';
 import { UI_KEY } from '../render/atlas';
-import { UI_FRAMES, type UiFrame } from '../render/uiArt';
+import type { UiFrame } from '../render/uiArt';
+import { uiFrameDef } from '../render/uiKit';
 import {
   DRAG_SLOP,
   LONG_PRESS_MS,
@@ -55,7 +56,7 @@ export const uiScale = (scene: Phaser.Scene): 1 | 2 =>
 
 /** Screen px of a frame's decorative edge at the current uiScale. */
 export const frameBorder = (scene: Phaser.Scene, frame: UiFrame): number =>
-  UI_FRAMES[frame].border * uiScale(scene);
+  uiFrameDef(frame).border * uiScale(scene);
 
 export interface UiBox {
   readonly image: Phaser.GameObjects.NineSlice;
@@ -80,7 +81,7 @@ export const createPanel = (
   originX = 0,
   originY = 0,
 ): UiBox => {
-  const { slice } = UI_FRAMES[frame];
+  const { slice } = uiFrameDef(frame);
   let w = width;
   let h = height;
   const s = uiScale(scene);

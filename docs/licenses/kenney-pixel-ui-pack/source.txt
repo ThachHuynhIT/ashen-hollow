@@ -1,0 +1,5 @@
+Source: https://kenney.nl/assets/pixel-ui-pack
+Direct download: https://kenney.nl/media/pages/assets/pixel-ui-pack/821e760f21-1677661508/kenney_pixel-ui-pack.zip
+License: Creative Commons Zero (CC0 1.0) - http://creativecommons.org/publicdomain/zero/1.0/ (site shows "CC0 licensed!")
+Checked: 2026-10-20
+Used files: 9-Slice/Ancient/{tan,white,tan_pressed}.png, 9-Slice/Outline/{yellow,green,red}.png (unmodified)

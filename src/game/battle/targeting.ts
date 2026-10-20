@@ -49,11 +49,36 @@ const nearestFoe = (w: BattleWorld, self: number): number => {
 };
 
 /**
+ * Khiêu khích (§8.4 bước 1): công trình phe mình còn sống gần nhất (so khoảng cách tâm, hoà → id
+ * nhỏ) có `taunt > 0` mà địch `self` đứng trong bán kính đó; −1 nếu không có.
+ */
+const tauntingStructure = (w: BattleWorld, self: number): number => {
+  const sx = w.x[self]!;
+  const sy = w.y[self]!;
+  let best = -1;
+  let bestD2 = 0;
+  for (let j = 0; j < w.count; j++) {
+    if (w.alive[j] === 0 || w.team[j] !== TEAM_ALLY || w.taunt[j]! <= 0) continue;
+    const dx = w.x[j]! - sx;
+    const dy = w.y[j]! - sy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > w.taunt[j]! * w.taunt[j]!) continue;
+    if (best < 0 || d2 < bestD2) {
+      best = j;
+      bestD2 = d2;
+    }
+  }
+  return best;
+};
+
+/**
  * Địch (không Cuồng Nộ): thực thể phe mình còn sống gần nhất có khoảng cách mép ≤ enemyAggro
  * (siege: chỉ công trình/Ngai, trong siegeAggro), so theo khoảng cách mép vì bán kính công
  * trình khác lính; không có → Ngai (−1 nếu Ngai đã chết).
  */
 const foeTarget = (w: BattleWorld, self: number): number => {
+  const taunter = tauntingStructure(w, self);
+  if (taunter >= 0) return taunter;
   const siege = w.siege[self] === 1;
   const limit = siege ? BATTLE.siegeAggro : BATTLE.enemyAggro;
   const sx = w.x[self]!;

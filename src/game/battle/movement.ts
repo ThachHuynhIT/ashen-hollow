@@ -29,6 +29,7 @@ const outY = new Float64Array(BATTLE.entityCap);
 
 /** Bước đi mong muốn của lính `i`, tính từ prevX/prevY (vị trí đầu tick của mọi thực thể). */
 const steer = (w: BattleWorld, i: number, rage: boolean): void => {
+  if (w.stunTicks[i]! > 0) return; // choáng: đứng yên (§8.6)
   let step = w.speed[i]! * (1 - w.slowPct[i]! / 100);
   if (rage && w.team[i] === TEAM_FOE) step *= RAGE_MULT;
   const px = w.prevX[i]!;

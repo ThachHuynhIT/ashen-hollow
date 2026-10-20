@@ -9,17 +9,24 @@ import type { TooltipHost } from '../theme';
 export class HandView {
   private readonly cards: CardView[];
   private handler: ((index: number) => void) | null = null;
+  private dropper: ((index: number, x: number, y: number) => void) | null = null;
 
   constructor(scene: Phaser.Scene, content: Content, tooltip: TooltipHost, slots = 3) {
     this.cards = Array.from({ length: slots }, (_, i) => {
       const card = new CardView(scene, content, { w: 120, h: 168 }, tooltip);
       card.onClick(() => this.handler?.(i));
+      card.onDrop((x, y) => this.dropper?.(i, x, y));
       return card;
     });
   }
 
   onSelect(handler: (index: number) => void): void {
     this.handler = handler;
+  }
+
+  /** A card dragged off its slot and released at screen (x, y). */
+  onDrop(handler: (index: number, x: number, y: number) => void): void {
+    this.dropper = handler;
   }
 
   /** Cards in hand order; missing slots are hidden and ignore input (`[]` hides the hand). */

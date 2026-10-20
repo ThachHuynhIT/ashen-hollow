@@ -234,3 +234,15 @@ describe('moveEntities — holding ground against a crowd', () => {
     expect(Math.abs(w.x[f]! - 102)).toBeLessThanOrEqual(BATTLE.separationPushCross + EPS);
   });
 });
+
+describe('moveEntities — stun', () => {
+  it('a stunned unit does not walk', () => {
+    const { w, a } = approach();
+    w.stunTicks[a] = 3;
+    moveEntities(w);
+    expect(w.x[a]).toBe(20);
+    w.stunTicks[a] = 0;
+    moveEntities(w);
+    expect(w.x[a]).toBeCloseTo(21, 12);
+  });
+});

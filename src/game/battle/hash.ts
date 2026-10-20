@@ -76,6 +76,17 @@ export const hashWorld = (world: BattleWorld): number => {
     world.homeY,
     world.kbX,
     world.kbY,
+    world.shield,
+    world.splash,
+    world.chainRadius,
+    world.chainFalloff,
+    world.rampPct,
+    world.rampCap,
+    world.taunt,
+    world.pulseRadius,
+    world.pulseDmg,
+    world.shieldRadius,
+    world.shieldAmount,
   ]) {
     h = mixF64(h, a, n);
   }
@@ -91,10 +102,19 @@ export const hashWorld = (world: BattleWorld): number => {
     world.kbTicks,
     world.targeting,
     world.killerUid,
+    world.stunTicks,
+    world.onHitStunTicks,
+    world.rampTarget,
+    world.rampStacks,
+    world.chainCount,
+    world.pulseEvery,
+    world.pulseStun,
+    world.shieldEvery,
   ]) {
     h = mixI32(h, a, n);
   }
   h = mixU8(h, world.dmgType, n);
+  h = mixU8(h, world.pulseDmgType, n);
 
   const p = world.projectiles;
   const m = world.projectileCount;

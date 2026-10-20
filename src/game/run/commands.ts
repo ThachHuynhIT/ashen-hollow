@@ -1,7 +1,7 @@
 /** Lệnh người chơi lên RunState (spec §5.1, §5.5). Thuần: làm việc trên bản sao, không sửa đầu vào. */
 import { Rng } from '../../core/random';
-import { RUN, battleGold, rerollCost, unlockCost } from '../../data/run';
-import type { CardId, KingId } from '../../data/types';
+import { RUN, START_DECK_G1, battleGold, rerollCost, unlockCost } from '../../data/run';
+import type { CardDef, CardId, KingId } from '../../data/types';
 import { CUSTOM_TOME_HANDLERS } from '../cards/custom';
 import type { Content } from '../cards/registry';
 import {
@@ -222,9 +222,13 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
         events.push({ type: 'runEnded', won: state.won });
       } else if (result.won) {
         const rng = new Rng(state.rng.reward);
+        // G1 (lịch toàn Thổ Phỉ) chỉ thưởng các thẻ G1: giao diện G1 chưa chơi được thẻ G2.
+        const g1 = state.rules.calendar === 'raiders';
+        const only = (cards: readonly CardDef[]): readonly CardDef[] =>
+          g1 ? cards.filter((c) => START_DECK_G1.includes(c.id)) : cards;
         const cardIds = rollOffers(rng, state.year, {
-          king: content.king(state.kingId).cards,
-          neutral: content.neutralPool(),
+          king: only(content.king(state.kingId).cards),
+          neutral: only(content.neutralPool()),
         });
         state.rng.reward = rng.getState();
         state.offers = { kind: 'reward', cardIds };

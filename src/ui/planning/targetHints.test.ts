@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../game/cards/registry';
 import { THRONE_PLOT, initialPlots, placeBuilding } from '../../game/run/board';
 import type { BuildingState, PlotState } from '../../game/run/state';
-import { plotHighlights, plotIllegalReason } from './targetHints';
+import { dropOutcome, plotHighlights, plotIllegalReason } from './targetHints';
 
 const troop = CONTENT.card('neutral_barracks');
 const move = CONTENT.card('neutral_move');
@@ -61,5 +61,30 @@ describe('plotIllegalReason', () => {
     expect(plotIllegalReason(board(), move, [7], THRONE_PLOT)).toBe('throne');
     expect(plotIllegalReason(board(), move, [], 6)).toBe('noBuilding');
     expect(plotIllegalReason(board(), troop, [], 7)).toBe('occupied');
+  });
+});
+
+describe('dropOutcome', () => {
+  it('plays a one-target card dropped on a legal plot', () => {
+    expect(dropOutcome(board(), troop, 6)).toEqual({ action: 'play' });
+  });
+
+  it('rejects a drop on an illegal plot with its reason', () => {
+    const out = dropOutcome(board(), troop, 7); // occupied
+    expect(out).toEqual({ action: 'reject', reason: plotIllegalReason(board(), troop, [], 7) });
+    expect('reason' in out && out.reason).toBeTruthy();
+  });
+
+  it('starts aiming a two-target card instead of playing it', () => {
+    expect(dropOutcome(board(), move, 7)).toEqual({ action: 'aim' });
+  });
+
+  it('rejects a bad first pick of a two-target card', () => {
+    expect(dropOutcome(board(), move, 6).action).toBe('reject'); // no building to move
+  });
+
+  it('plays a no-target card wherever on the board it is dropped', () => {
+    const none = CONTENT.allCards().find((c) => c.kind === 'tome' && c.target === 'none')!;
+    expect(dropOutcome(board(), none, 0)).toEqual({ action: 'play' });
   });
 });

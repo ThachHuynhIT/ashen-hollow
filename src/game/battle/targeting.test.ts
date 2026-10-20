@@ -254,3 +254,53 @@ describe('pickShotTarget', () => {
     expect(pickShotTarget(w, w.throneId)).toBe(e);
   });
 });
+
+describe('retarget — taunt (spec §8.4)', () => {
+  /** Wall at plot 6 = (160, 160) taunting within 40 px; a unit of ours stands next to the foe. */
+  const scene = (foeX: number, over: Partial<StructureSetup> = {}) => {
+    const w = world([structure(6, { taunt: 40, ...over })]);
+    const friend = unit(w, TEAM_ALLY, foeX + 10, 160);
+    const foe = unit(w, TEAM_FOE, foeX, 160);
+    return { w, friend, foe, wall: 1 };
+  };
+
+  it('a foe within the taunt radius must go for the wall even if one of our units is nearer', () => {
+    const { w, foe, wall } = scene(190);
+    retarget(w);
+    expect(w.target[foe]).toBe(wall);
+  });
+
+  it('a foe outside the radius ignores the taunt', () => {
+    const { w, friend, foe, wall } = scene(230);
+    retarget(w);
+    expect(w.target[foe]).toBe(friend);
+    expect(w.target[foe]).not.toBe(wall);
+  });
+
+  it('picks the nearest of two taunting structures, the lower id on a tie', () => {
+    const w = world([structure(6, { uid: 60, taunt: 60 }), structure(8, { uid: 80, taunt: 60 })]);
+    const foe = unit(w, TEAM_FOE, 176, 160); // 16 from plot 6 (160,160), 48 from plot 8 (224,160)
+    retarget(w);
+    expect(w.target[foe]).toBe(1);
+    const tie = unit(w, TEAM_FOE, 192, 160); // 32 from each
+    retarget(w);
+    expect(w.target[tie]).toBe(1);
+  });
+
+  it('ignores a destroyed taunting structure and is ignored during the rage', () => {
+    const { w, friend, foe, wall } = scene(190);
+    w.alive[wall] = 0;
+    retarget(w);
+    expect(w.target[foe]).toBe(friend);
+    w.alive[wall] = 1;
+    w.tick = BATTLE.rageTick;
+    retarget(w);
+    expect(w.target[foe]).toBe(w.throneId);
+  });
+
+  it('does not make structures without taunt special', () => {
+    const { w, friend, foe } = scene(190, { taunt: 0 });
+    retarget(w);
+    expect(w.target[foe]).toBe(friend);
+  });
+});

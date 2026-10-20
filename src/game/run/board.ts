@@ -262,17 +262,22 @@ export function sacrificeBuilding(plots: readonly PlotState[], plot: number): Pl
   return next;
 }
 
-/** Chép mọi stack Bùa từ `from` sang `to` theo thứ tự gắn, dừng khi `to` đủ `maxStacks`. */
+/**
+ * Chép mọi stack Bùa từ `from` sang `to` theo thứ tự gắn, dừng khi `to` đủ `maxStacks`.
+ * `accepts(cardId)` (nếu có) loại các Bùa mà công trình đích không được phép gắn (§4.3).
+ */
 export function copyEnchants(
   plots: readonly PlotState[],
   from: number,
   to: number,
   maxStacks: number,
+  accepts: (cardId: CardId) => boolean = () => true,
 ): PlotState[] {
   const source = plots[from]?.building;
   let next = clonePlots(plots);
   if (!source) return next;
   for (const entry of source.enchants) {
+    if (!accepts(entry.cardId)) continue;
     for (let i = 0; i < entry.stacks; i++) {
       const target = next[to]!.building;
       if (target === null || stacksOf(target) >= maxStacks) return next;

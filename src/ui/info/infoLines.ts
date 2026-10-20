@@ -5,7 +5,8 @@ import { KIND_UNIT, type BattleWorld } from '../../game/battle/world';
 import { describeCard } from '../../game/cards/describe';
 import type { Content } from '../../game/cards/registry';
 import type { BuildingState } from '../../game/run/state';
-import type { Point, Size } from '../hud/layout';
+import { UI_PALETTE } from '../../data/uiPalette';
+import type { Point, Size, TooltipContent } from '../hud/layout';
 
 /** Bấm trượt tối đa chừng này px ngoài vòng va chạm vẫn tính là trúng. */
 const HIT_SLOP = 4;
@@ -14,6 +15,7 @@ const ANCHOR_GAP = 12;
 const SCREEN_MARGIN = 4;
 
 const DMG_TEXT = ['vật lý', 'lửa', 'phép'] as const;
+const DMG_INDEX = { physical: 0, fire: 1, magic: 2 } as const;
 
 /** Máu công trình của một thẻ ở cấp `level` (Ngai: máu Ngai). */
 const structureHp = (card: CardDef, level: BuildingState['level']): number | null => {
@@ -31,8 +33,39 @@ export const buildingInfoLines = (building: BuildingState, content: Content): st
   const hp = structureHp(card, building.level);
   if (hp !== null) lines.push(`Máu: ${hp}`);
   lines.push(...describeCard(card, building.level).lines);
+  lines.push(...spawnedUnitLines(card, building.level, content));
   return lines;
 };
+
+/** Mỗi hiệu ứng `spawn`: "Lính: tên ×số lượng" và một dòng chỉ số gốc của lính (chưa tính Bùa/cộng thêm). */
+const spawnedUnitLines = (card: CardDef, level: BuildingState['level'], content: Content): string[] => {
+  if (!('effects' in card)) return [];
+  const out: string[] = [];
+  for (const e of card.effects) {
+    if (e.type !== 'spawn') continue;
+    const unit = content.unit(e.unit);
+    const count = typeof e.count === 'number' ? e.count : e.count[level - 1]!;
+    out.push(`Lính: ${unit.nameVi} ×${count}`);
+    const a = unit.attack;
+    out.push(
+      `Máu lính ${unit.hp} · Sát thương ${a.dmg} (${DMG_TEXT[DMG_INDEX[a.type]] ?? 'vật lý'}) · Tầm ${a.range} · Giáp ${Math.round(unit.armor * 100)}%`,
+    );
+  }
+  return out;
+};
+
+const tintOf = (line: string): number | undefined => {
+  if (line.startsWith('Lính:') || line.startsWith('Máu lính')) return UI_PALETTE.woodDark;
+  if (line.startsWith('Cấp ')) return UI_PALETTE.wood;
+  if (line.startsWith('Máu')) return UI_PALETTE.good;
+  return undefined;
+};
+
+/** Dòng thông tin → nội dung bảng: dòng đầu là tiêu đề, cấp / máu / lính được tô màu bộ UI. */
+export const infoContent = (lines: readonly string[]): TooltipContent => ({
+  title: lines[0],
+  lines: lines.slice(1).map((text) => [{ text, color: tintOf(text) }]),
+});
 
 /**
  * Thực thể sống có vòng va chạm (cộng `HIT_SLOP`) chứa điểm thế giới `(wx, wy)`: gần tâm nhất,

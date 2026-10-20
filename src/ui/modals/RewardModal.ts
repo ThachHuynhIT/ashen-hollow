@@ -21,8 +21,8 @@ const PAD_DESKTOP = 12;
 const PAD_MOBILE = 4;
 
 /**
- * Reward picker (§10.6): title, the offered cards, **Bỏ qua** and **Nhận** (enabled once a
- * card is chosen). Pure display: the choice goes to `onPick` (index, or null to skip).
+ * Reward picker (§10.6): title, the offered cards and **Nhận** (enabled once a card is
+ * chosen; the reward cannot be skipped). Pure display: the choice goes to `onPick`.
  * Call `layout()` on resize and `destroy()` when the reward phase ends.
  */
 export class RewardModal {
@@ -30,7 +30,6 @@ export class RewardModal {
   private readonly box: UiBox;
   private readonly title: Phaser.GameObjects.Text;
   private readonly cards: CardView[];
-  private readonly skip: Button;
   private readonly take: Button;
   private readonly root: Phaser.GameObjects.Container;
   private selected: number | null = null;
@@ -40,7 +39,7 @@ export class RewardModal {
     content: Content,
     offers: readonly CardId[],
     tooltip: TooltipHost,
-    private readonly onPick: (index: number | null) => void,
+    private readonly onPick: (index: number) => void,
   ) {
     this.overlay = createOverlay(scene);
     this.box = createPanel(scene, 'panel', 64, 64);
@@ -50,13 +49,6 @@ export class RewardModal {
       card.setCard(id);
       card.onClick(() => this.select(i));
       return card;
-    });
-    this.skip = createButton(scene, 0, 0, 'Bỏ qua', {
-      width: REWARD_BUTTON.w,
-      height: REWARD_BUTTON.h,
-      fontSize: 16,
-      onClick: () => this.onPick(null),
-      tooltip: { host: tooltip, content: () => textContent(['Bỏ qua phần thưởng']) },
     });
     this.take = createButton(scene, 0, 0, 'Nhận', {
       width: REWARD_BUTTON.w,
@@ -71,7 +63,6 @@ export class RewardModal {
       this.box.image,
       this.title,
       ...this.cards.map((c) => c.container),
-      this.skip.container,
       this.take.container,
     ]);
     this.layout();
@@ -102,12 +93,7 @@ export class RewardModal {
       card.resize({ w: r.w, h: r.h });
       card.setPosition(r.x, r.y);
     });
-    for (const [button, r] of [
-      [this.skip, l.skip],
-      [this.take, l.take],
-    ] as const) {
-      button.container.setPosition(r.x + r.w / 2, r.y + r.h / 2);
-    }
+    this.take.container.setPosition(l.take.x + l.take.w / 2, l.take.y + l.take.h / 2);
   }
 
   destroy(): void {

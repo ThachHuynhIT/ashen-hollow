@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BATTLE, INTERVENTION, SPAWN_OFFSETS } from '../../data/battle';
-import { battleSetup, structure, unitStats } from '../testing/fixtures';
+import { attackStats, battleSetup, structure, unitStats } from '../testing/fixtures';
 import { hashWorld } from './hash';
 import type { Edge, WaveSetup } from './types';
 import {
@@ -390,5 +390,79 @@ describe('hashWorld', () => {
     a.tick = 0;
     a.projectileCount = 1;
     expect(hashWorld(a)).not.toBe(h);
+  });
+});
+
+describe('G2 mechanics storage in the world', () => {
+  it('copies the extra attack fields of a structure into the arrays', () => {
+    const w = createBattle(
+      battleSetup({
+        structures: [
+          structure(6, {
+            kind: 'tower',
+            attack: attackStats({
+              splash: 16,
+              chain: { count: 1, radius: 32, falloff: 0.6 },
+              stunTicks: 10,
+              rampPctPerHit: 20,
+              rampCapPct: 200,
+            }),
+          }),
+        ],
+      }),
+    );
+    expect(w.splash[1]).toBe(16);
+    expect(w.chainCount[1]).toBe(1);
+    expect(w.chainRadius[1]).toBe(32);
+    expect(w.chainFalloff[1]).toBeCloseTo(0.6, 12);
+    expect(w.onHitStunTicks[1]).toBe(10);
+    expect(w.rampPct[1]).toBe(20);
+    expect(w.rampCap[1]).toBe(200);
+    expect(w.rampStacks[1]).toBe(0);
+    expect(w.rampTarget[1]).toBe(-1);
+  });
+
+  it('copies pulse, taunt and shield-pulse specs of a structure', () => {
+    const w = createBattle(
+      battleSetup({
+        structures: [
+          structure(6, {
+            pulse: { everyTicks: 40, radius: 48, dmg: 30, dmgType: 'physical', stunTicks: 10 },
+            taunt: 40,
+            shieldPulse: { everyTicks: 50, radius: 64, amount: 20 },
+          }),
+        ],
+      }),
+    );
+    expect([w.pulseEvery[1], w.pulseRadius[1], w.pulseDmg[1], w.pulseStun[1]]).toEqual([40, 48, 30, 10]);
+    expect(w.taunt[1]).toBe(40);
+    expect([w.shieldEvery[1], w.shieldRadius[1], w.shieldAmount[1]]).toEqual([50, 64, 20]);
+    expect(w.pulseEvery[0]).toBe(0); // the throne has none
+  });
+
+  it('starts units with their spawn shield and no stun', () => {
+    const shielded = unitStats({ unit: 'shielded', shield: 12 });
+    const w = createBattle(
+      battleSetup({
+        structures: [structure(6, { spawn: { stats: shielded, count: 2 } })],
+        waves: [{ spawnTick: 0, spawns: [{ stats: shielded, edge: 'N' }] }],
+      }),
+    );
+    spawnWave(w, 0);
+    for (let i = 2; i < w.count; i++) {
+      expect(w.shield[i]).toBe(12);
+      expect(w.stunTicks[i]).toBe(0);
+    }
+    expect(w.shield[0]).toBe(0);
+  });
+
+  it('keeps a unit death-spawn spec reachable by entity id', () => {
+    const rubble = unitStats({ unit: 'rubble' });
+    const miner = unitStats({ unit: 'miner', deathSpawn: { stats: rubble, count: 1 } });
+    const w = createBattle(
+      battleSetup({ structures: [structure(6, { spawn: { stats: miner, count: 1 } })] }),
+    );
+    expect(w.deathSpawn[2]).toEqual({ stats: rubble, count: 1 });
+    expect(w.deathSpawn[1] ?? null).toBeNull();
   });
 });

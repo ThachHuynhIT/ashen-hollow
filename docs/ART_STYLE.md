@@ -39,6 +39,8 @@ Ngôn ngữ thị giác: tông ấm, bão hoà vừa; **xanh dương = phe mình
 
 **Luật:** pixel UI (khung, nút, thẻ, lớp phủ trên thế giới, nền menu) chỉ lấy từ `UI_PALETTE` (`src/data/uiPalette.ts`); pixel thế giới chỉ lấy từ `PALETTE`. UI cố ý ấm và sáng (khung gỗ nâu, lõi giấy kem, chữ nâu đậm có bóng) giống Stardew Valley. Nếu sau playtest thấy chướng, chỉ đổi `UI_PALETTE`.
 
+**Ngoại lệ có đăng ký:** các khung panel/tooltip/nút/thẻ lấy từ bộ [Pixel UI Pack](https://kenney.nl/assets/pixel-ui-pack) của Kenney (CC0, `public/assets/ui/kenney-pixel-ui/`, đăng ký trong `docs/assets.manifest.yml`) được nạp đè lên khung sinh ra bởi `paintUiFrame` (xem `src/render/uiKit.ts`) — màu của chúng không thuộc `UI_PALETTE`. Ô hotbar, thanh, decor vẫn sinh từ `UI_PALETTE`; file kit thiếu/lỗi thì rơi về khung sinh.
+
 - Art UI sinh bằng code trong `src/render/uiArt.ts` (có test: kích thước, góc bo, chỉ màu UI), đóng gói thành texture `ui` trong `PreloadScene` (`buildUiTexture`).
 - Mọi khung là **9-slice**, vẽ bằng `createPanel` (`src/ui/theme.ts`) theo kích thước logic. Viền scale nguyên lần: `uiScale = 2` khi cạnh ngắn màn hình ≥ 600 px, ngược lại `1`.
 - Chữ trên nền kem: `FONT_UI`, màu `text`, bóng `textShadow` lệch (+1, +1). Vàng `gold` không dùng cho chữ trên nền kem (không đủ tương phản).

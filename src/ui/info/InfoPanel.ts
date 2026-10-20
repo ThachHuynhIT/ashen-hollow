@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import { ContentBox } from '../ContentBox';
-import { textContent, type Point, type Size } from '../hud/layout';
-import { placeInfoBox } from './infoLines';
+import type { Point, Size } from '../hud/layout';
+import { infoContent, placeInfoBox } from './infoLines';
 
 /**
  * The info box of a tapped building or unit (§10.7): a self-sizing `ContentBox` opened to the
@@ -13,8 +13,8 @@ export class InfoPanel {
   private anchor: Point | null = null;
   private screen: Size = { w: 0, h: 0 };
 
-  constructor(scene: Phaser.Scene, depth: number, maxWidth = 240) {
-    this.box = new ContentBox(scene, 'tooltip', maxWidth, { blocking: true });
+  constructor(scene: Phaser.Scene, depth: number, maxWidth = 280) {
+    this.box = new ContentBox(scene, 'panel', maxWidth, { blocking: true });
     this.box.container.setDepth(depth);
   }
 
@@ -26,14 +26,14 @@ export class InfoPanel {
   show(lines: readonly string[], anchor: Point, screen: Size): void {
     this.anchor = anchor;
     this.screen = screen;
-    this.box.setContent(textContent(lines));
+    this.box.setContent(infoContent(lines));
     this.place();
   }
 
   /** Replace the lines of the open panel in place (e.g. HP ticking down); no-op when hidden. */
   setLines(lines: readonly string[]): void {
     if (!this.anchor) return;
-    this.box.setContent(textContent(lines));
+    this.box.setContent(infoContent(lines));
     this.place();
   }
 

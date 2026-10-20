@@ -25,6 +25,8 @@ Việc còn lại / lỗ hổng đã biết từ G1 (làm ở lượt art/G5, kh
 - Cân bằng G1 chưa đo: bot `random` thắng dễ; cân bằng thật thuộc G5 (`tools/balance.ts`).
 - `src/platform` và `src/audio` vẫn chưa tạo (G3 lưu ván, G5 âm thanh).
 
+G2b (trận và nội dung 3 vua, chưa có giao diện — G2c): ba vua Lúa Mì / Đá Núi / Phép Thuật chạy trọn 15 năm headless (3 vua × 3 seed, deterministic); benchmark `stepBattle` 0,38 ms/tick (chuẩn) và 0,40 ms/tick (có xung, chuỗi, splash, khiên). Chỉ để tham khảo, cân bằng thật là G5: bot `random`, 20 seed mỗi vua ở luật G2, thắng ván Lúa Mì 0/20 (năm trung bình 7,8), Đá Núi 17/20 (14,3), Phép Thuật 11/20 (13,8).
+
 ## Kiểm thử mỗi G
 
 - Vitest cho dữ liệu, luật và trận (spec §13.1–13.3).

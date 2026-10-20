@@ -4,7 +4,7 @@ import { attackStats, battleSetup, structure, throneSetup, unitStats } from '../
 import { hashWorld } from './hash';
 import { battleResult, simulateBattle, stepBattle } from './step';
 import type { BattleEvent, BattleSetup, UnitStats, WaveSetup } from './types';
-import { TEAM_FOE, createBattle, drainEvents, spawnWave, type BattleWorld } from './world';
+import { TEAM_FOE, addUnit, createBattle, drainEvents, spawnWave, type BattleWorld } from './world';
 
 const wave = (n: number, spawnTick: number, over: Partial<UnitStats> = {}): WaveSetup => ({
   spawnTick,
@@ -244,5 +244,33 @@ describe('simulateBattle', () => {
 
   it('is deterministic', () => {
     expect(simulateBattle(setup)).toEqual(simulateBattle(setup));
+  });
+});
+
+describe('stepBattle runs structure pulses at step 3', () => {
+  it('damages and stuns a foe in range on the pulse tick, and not on the tick before', () => {
+    const mk = () => {
+      const w = createBattle(
+        battleSetup({
+          throne: throneSetup({ attack: null }),
+          structures: [
+            structure(6, {
+              pulse: { everyTicks: 40, radius: 48, dmg: 30, dmgType: 'physical', stunTicks: 10 },
+            }),
+          ],
+        }),
+      );
+      const f = addUnit(w, unitStats({ hp: 500, speed: 0 }), TEAM_FOE, 180, 160, 180, 160, -1);
+      return { w, f };
+    };
+    const early = mk();
+    early.w.tick = 39;
+    stepBattle(early.w, []);
+    expect(early.w.hp[early.f]).toBe(500);
+    const on = mk();
+    on.w.tick = 40;
+    stepBattle(on.w, []);
+    expect(on.w.hp[on.f]).toBe(470);
+    expect(on.w.stunTicks[on.f]).toBeGreaterThan(0);
   });
 });

@@ -25,7 +25,7 @@ describe('rewardLayout', () => {
     ['desktop', DESKTOP, 24, { w: 150, h: 210 }],
     ['mobile', MOBILE, 10, { w: 108, h: 152 }],
   ] as const) {
-    it(`fits title, 3 cards and 2 buttons inside the panel (${name})`, () => {
+    it(`fits title, 3 cards and the take button inside the panel (${name})`, () => {
       const l = rewardLayout(screen, inset);
       expect(contains({ x: 0, y: 0, ...screen }, l.panel)).toBe(true);
       expect(l.cards).toHaveLength(3);
@@ -35,7 +35,7 @@ describe('rewardLayout', () => {
         w: l.panel.w - 2 * inset,
         h: l.panel.h - 2 * inset,
       };
-      for (const r of [l.title, ...l.cards, l.skip, l.take]) {
+      for (const r of [l.title, ...l.cards, l.take]) {
         expect(contains(inner, r), JSON.stringify(r)).toBe(true);
       }
       for (const c of l.cards) {
@@ -44,11 +44,13 @@ describe('rewardLayout', () => {
         // A selected card lifts 12 px: still below the title.
         expect(c.y - 12).toBeGreaterThanOrEqual(l.title.y + l.title.h);
       }
-      for (const b of [l.skip, l.take]) {
+      for (const b of [l.take]) {
         expect(b.w).toBeGreaterThanOrEqual(44);
         expect(b.h).toBeGreaterThanOrEqual(44);
       }
-      const parts = [l.title, ...l.cards, l.skip, l.take];
+      const parts = [l.title, ...l.cards, l.take];
+      expect('skip' in l).toBe(false);
+      expect(l.take.x + l.take.w / 2).toBeCloseTo(l.panel.x + l.panel.w / 2, 0);
       for (let i = 0; i < parts.length; i++)
         for (let j = i + 1; j < parts.length; j++)
           expect(overlaps(parts[i]!, parts[j]!)).toBe(false);

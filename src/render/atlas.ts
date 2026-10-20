@@ -9,7 +9,8 @@ import { ARROW_DIRS, paintArrow, paintBoulder, paintBoulderShadow, paintSpark } 
 import { ICON_IDS, paintIcon, type IconId } from './iconArt';
 import { PixelCanvas } from './pixel';
 import { paintPlot, type PlotState } from './plotArt';
-import { UI_DECOR_IDS, UI_FRAME_IDS, paintUiDecor, paintUiFrame } from './uiArt';
+import { UI_DECOR_IDS, UI_FRAME_IDS, paintUiDecor, paintUiFrame, type UiFrame } from './uiArt';
+import { UI_KIT_FILES, UI_KIT_FRAME, activateUiKitFrames, kitTextureKey } from './uiKit';
 import { UNIT_FRAME_COUNT, paintUnit, unitCloth, type UnitAnim, type UnitTeam } from './unitArt';
 
 /**
@@ -81,8 +82,23 @@ export const addPixelTexture = (
  */
 export const buildUiTexture = (textures: Phaser.Textures.TextureManager): void => {
   if (textures.exists(UI_KEY)) return;
+  const kitFrames: UiFrame[] = [];
+  const frameArt = (id: UiFrame): PixelCanvas => {
+    const key = kitTextureKey(id);
+    if (UI_KIT_FILES[id] && textures.exists(key)) {
+      const art = imageToPixelCanvas(textures.get(key).getSourceImage() as CanvasImageSource & {
+        width: number;
+        height: number;
+      });
+      if (art && art.width === UI_KIT_FRAME.w && art.height === UI_KIT_FRAME.h) {
+        kitFrames.push(id);
+        return art;
+      }
+    }
+    return paintUiFrame(id);
+  };
   const sprites: { name: string; art: PixelCanvas }[] = [
-    ...UI_FRAME_IDS.map((id) => ({ name: id, art: paintUiFrame(id) })),
+    ...UI_FRAME_IDS.map((id) => ({ name: id, art: frameArt(id) })),
     ...UI_DECOR_IDS.map((id) => ({ name: id, art: paintUiDecor(id) })),
   ];
   const width = 128;
@@ -92,6 +108,23 @@ export const buildUiTexture = (textures: Phaser.Textures.TextureManager): void =
   const texture = textures.addCanvas(UI_KEY, toCanvas(sheet));
   if (!texture) throw new Error('Failed to create UI texture');
   for (const p of placed) texture.add(p.name, 0, p.x, p.y, p.art.width, p.art.height);
+  activateUiKitFrames(kitFrames);
+};
+
+/** Pixels of a loaded image as a PixelCanvas; null when the 2D canvas is unavailable. */
+const imageToPixelCanvas = (
+  image: CanvasImageSource & { width: number; height: number },
+): PixelCanvas | null => {
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0);
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  const art = new PixelCanvas(canvas.width, canvas.height);
+  art.data.set(data);
+  return art;
 };
 
 /** Every world sprite (units, buildings, plots, card pictures, icons, fx). */

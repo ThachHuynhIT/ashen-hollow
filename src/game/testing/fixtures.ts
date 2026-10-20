@@ -16,6 +16,11 @@ export const attackStats = (over: Partial<AttackStats> = {}): AttackStats => ({
   cleave: 1,
   slowPct: 0,
   slowTicks: 0,
+  splash: 0,
+  chain: null,
+  stunTicks: 0,
+  rampPctPerHit: 0,
+  rampCapPct: 0,
   ...over,
 });
 
@@ -29,6 +34,8 @@ export const unitStats = (over: Partial<UnitStats> = {}): UnitStats => ({
   armor: 0,
   siege: false,
   sprite: { w: 16, h: 16 },
+  shield: 0,
+  deathSpawn: null,
   ...over,
 });
 
@@ -43,6 +50,9 @@ export const structure = (plot: number, over: Partial<StructureSetup> = {}): Str
   attack: null,
   targeting: 'closestToThrone',
   spawn: null,
+  pulse: null,
+  taunt: 0,
+  shieldPulse: null,
   ...over,
 });
 
@@ -57,6 +67,9 @@ export const throneSetup = (over: Partial<StructureSetup> = {}): StructureSetup 
   attack: attackStats({ dmg: 6, range: 72, interval: 10, projectileSpeed: 8 }),
   targeting: 'nearest',
   spawn: null,
+  pulse: null,
+  taunt: 0,
+  shieldPulse: null,
   ...over,
 });
 
@@ -144,6 +157,7 @@ export const contentWith = (extra: {
     card: (id) => cards.get(id) ?? CONTENT.card(id),
     unit: (id) => units.get(id) ?? CONTENT.unit(id),
     king: (id) => kingMap.get(id) ?? CONTENT.king(id),
+    kings: () => [...CONTENT.kings().filter((k) => !kingMap.has(k.id)), ...kings],
     enemyRoster: (id) => {
       const king = kingMap.get(id);
       if (!king) return CONTENT.enemyRoster(id);
