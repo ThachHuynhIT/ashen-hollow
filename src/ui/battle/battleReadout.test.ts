@@ -3,7 +3,7 @@ import { INTERVENTION } from '../../data/battle';
 import { tryIntervene } from '../../game/battle/intervention';
 import { createBattle, spawnWave } from '../../game/battle/world';
 import { battleSetup, unitStats } from '../../game/testing/fixtures';
-import { foesRemaining, interventionCooldown, throneHpFraction } from './battleReadout';
+import { foesRemaining, interventionCooldown, summaryLines, throneHpFraction } from './battleReadout';
 
 const threeWaves = () =>
   battleSetup({
@@ -62,5 +62,22 @@ describe('interventionCooldown', () => {
     expect(interventionCooldown(w)).toEqual({ ready: false, fraction: 1 / 150, seconds: 1 });
     w.tick += 1;
     expect(interventionCooldown(w).ready).toBe(true);
+  });
+});
+
+describe('summaryLines', () => {
+  const base = { kills: 12, lives: 2, time: '1:05', goldGain: 0, conquered: null };
+
+  it('lists kills, lives left and the battle time', () => {
+    expect(summaryLines(base)).toEqual(['Địch đã hạ: 12', 'Mạng còn: 2', 'Thời gian: 1:05']);
+  });
+
+  it('adds the gold earned when there is some', () => {
+    expect(summaryLines({ ...base, goldGain: 5 })).toContain('Vàng nhận: +5');
+    expect(summaryLines(base).some((l) => l.startsWith('Vàng'))).toBe(false);
+  });
+
+  it('announces a conquered king', () => {
+    expect(summaryLines({ ...base, conquered: 'Vua Đá Núi' })).toContain('Đã chinh phục Vua Đá Núi!');
   });
 });

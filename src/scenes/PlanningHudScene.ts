@@ -16,6 +16,7 @@ import { CalendarModal } from '../ui/modals/CalendarModal';
 import { DeckModal } from '../ui/modals/DeckModal';
 import { CLOSE_BUTTON, centredPanel } from '../ui/modals/modalLayout';
 import { createOverlay, fitOverlay } from '../ui/modals/overlay';
+import { offerTitle } from '../ui/modals/offerModel';
 import { RewardModal } from '../ui/modals/RewardModal';
 import { InfoPanel } from '../ui/info/InfoPanel';
 import { buildingInfoLines } from '../ui/info/infoLines';
@@ -105,6 +106,8 @@ export class PlanningHudScene extends Phaser.Scene {
   private cancelBtn!: Button;
   private hint!: ContentBox;
   private reward: RewardModal | null = null;
+  /** Which offer the open RewardModal shows (kind + cards). */
+  private rewardKey: string | null = null;
   private scoutModal: ScoutModal | null = null;
   private pending: Pending = NO_PENDING;
   /** A locked plot offered for purchase (set by RealmScene), shown with its price and ✓/✕. */
@@ -123,6 +126,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.controller = data.controller;
     this.offs = [];
     this.reward = null;
+    this.rewardKey = null;
     this.scoutModal = null;
     this.calendarModal = null;
     this.deckModal = null;
@@ -262,15 +266,23 @@ export class PlanningHudScene extends Phaser.Scene {
     this.handCount = state.hand.length;
     this.hand.layout(centerHand(this.lay.hand, this.handCount));
 
-    if (state.phase === 'reward' && state.offers) {
-      if (!this.reward) {
-        this.reward = new RewardModal(this, CONTENT, state.offers.cardIds, this.tooltip, (index) =>
-          this.bus.emit('ui:command', { command: { type: 'pickOffer', index } }),
-        ).setDepth(MODAL_DEPTH);
-      }
-    } else if (this.reward) {
+    const offers = (state.phase === 'reward' || state.phase === 'conquest') && state.offers;
+    // The reward step is followed by a conquest step: a new offer replaces the open modal.
+    const offerKey = offers ? `${offers.kind}:${offers.cardIds.join(',')}` : null;
+    if (this.reward && offerKey !== this.rewardKey) {
       this.reward.destroy();
       this.reward = null;
+    }
+    if (offers && !this.reward) {
+      this.rewardKey = offerKey;
+      this.reward = new RewardModal(
+        this,
+        CONTENT,
+        offers.cardIds,
+        offerTitle(offers, (id) => CONTENT.king(id).nameVi),
+        this.tooltip,
+        (index) => this.bus.emit('ui:command', { command: { type: 'pickOffer', index } }),
+      ).setDepth(MODAL_DEPTH);
     }
     if (!choosing && this.pending.handIndex !== null) this.pending = NO_PENDING;
     if (!planning) this.buy = null;

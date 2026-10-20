@@ -12,7 +12,12 @@ import type { RunController } from '../game/run/RunController';
 import { SPRITES_KEY, iconFrame } from '../render/atlas';
 import { ToastStack } from '../ui/ToastStack';
 import { Tooltip } from '../ui/Tooltip';
-import { foesRemaining, interventionCooldown, throneHpFraction } from '../ui/battle/battleReadout';
+import {
+  foesRemaining,
+  interventionCooldown,
+  summaryLines,
+  throneHpFraction,
+} from '../ui/battle/battleReadout';
 import { InfoPanel } from '../ui/info/InfoPanel';
 import { entityAt, entityInfoLines } from '../ui/info/infoLines';
 import { DRAG_SLOP, GAP, MARGIN, textContent, type Point, type Rect } from '../ui/hud/layout';
@@ -137,6 +142,8 @@ export class BattleHudScene extends Phaser.Scene {
   private banner: { box: UiBox; text: Phaser.GameObjects.Text } | null = null;
   private bannerTimer: Phaser.Time.TimerEvent | null = null;
   private summary: Summary | null = null;
+  /** Gold when the battle began, to show what it paid in the summary. */
+  private goldAtStart = 0;
   private result: BattleResult | null = null;
 
   constructor() {
@@ -159,6 +166,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.bannerTimer = null;
     this.summary = null;
     this.result = null;
+    this.goldAtStart = this.controller.state.gold;
     this.scoutModal = null;
     this.inspected = null;
     this.lay = this.currentLayout();
@@ -597,11 +605,14 @@ export class BattleHudScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setFontStyle('bold')
       .setDepth(MODAL_DEPTH);
-    const lines = [
-      `Địch đã hạ: ${result.kills}`,
-      `Mạng còn: ${this.controller.state.lives}`,
-      `Thời gian: ${tickClock(result.ticks)}`,
-    ].map((line) => addUiText(this, 0, 0, line, 18).setOrigin(0.5).setDepth(MODAL_DEPTH));
+    const state = this.controller.state;
+    const lines = summaryLines({
+      kills: result.kills,
+      lives: state.lives,
+      time: tickClock(result.ticks),
+      goldGain: Math.max(0, state.gold - this.goldAtStart),
+      conquered: state.pendingConquest === null ? null : CONTENT.king(state.pendingConquest).nameVi,
+    }).map((line) => addUiText(this, 0, 0, line, 18).setOrigin(0.5).setDepth(MODAL_DEPTH));
     const next = createButton(this, 0, 0, 'Tiếp tục', {
       width: RESULT_BUTTON.w,
       height: RESULT_BUTTON.h,

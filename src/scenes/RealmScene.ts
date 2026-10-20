@@ -178,7 +178,7 @@ export class RealmScene extends Phaser.Scene {
   /** "Tiếp tục" after the battle summary (BattleHudScene). */
   private onContinue(): void {
     const state = this.controller.state;
-    if (state.phase === 'reward') {
+    if (state.phase === 'reward' || state.phase === 'conquest') {
       this.relaunchPlanningHud(); // shows the RewardModal
     } else if (state.phase === 'yearEnd') {
       this.bus.emit('ui:command', { command: { type: 'advance' } });
