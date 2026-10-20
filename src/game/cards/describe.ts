@@ -30,6 +30,12 @@ function effectValues(effects: readonly EffectDef[], level: Level): Record<strin
   for (const e of effects) {
     if (e.type === 'spawn') out.count = e.count[level - 1] ?? 0;
     else if (e.type === 'gold') out.gold = scalarAt(e.amount, level);
+    else if (e.type === 'custom' && e.params) {
+      for (const [key, value] of Object.entries(e.params)) out[key] = scalarAt(value, level);
+    } else if (e.type === 'stat') {
+      if (e.stat === 'unitCount') out.count = scalarAt(e.value, level);
+      else if (e.mode === 'pct') out.pct = scalarAt(e.value, level);
+    }
     else if (e.type === 'tower' || e.type === 'pulse') Object.assign(out, attackValues(e.attack));
   }
   return out;
