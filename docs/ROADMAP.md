@@ -17,10 +17,11 @@ Game đổi thể loại từ colony sim sang **roguelite xây vương quốc + 
 
 **G0 ✔ · G1 ✔** — G1 chơi được: "Ván mới" → Vua Lúa Mì, 10 năm, thắng/thua kết thúc ở `RunEndScene`; headless 3 seed, test deterministic + benchmark (0,36 ms/tick) pass. Tiếp theo: **G2**.
 
+G1 polish đã xong (plan `docs/superpowers/plans/2026-10-20-g2-depth.md`, Phần A): bài chưa dùng ở lại tay (chồng rút/bỏ), `discard` thay `skip`, trận tự bắt đầu sau khi chơi/bán thẻ (`RULES_G1.autoStart`, G2 tắt), Đá Tảng tự bắn (bật/tắt, chung hồi chiêu), Khai Hoang mở ô bất kỳ, camera chung hai pha + nền kín màn hình, nút Địch xem lại các đợt trong trận, bấm nhà/lính xem thông tin.
+
 Việc còn lại / lỗ hổng đã biết từ G1 (làm ở lượt art/G5, không chặn G2):
 
 - Nút Can Thiệp đang vuông (chưa có art nút riêng).
-- Ở 1280 rộng, zoom 2, sân trận chỉ rộng 768 px nên hai bên có dải tối.
 - Cân bằng G1 chưa đo: bot `random` thắng dễ; cân bằng thật thuộc G5 (`tools/balance.ts`).
 - `src/platform` và `src/audio` vẫn chưa tạo (G3 lưu ván, G5 âm thanh).
 

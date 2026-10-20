@@ -27,7 +27,8 @@ Menu chính → **Ván mới** vào thẳng Vua Lúa Mì (seed ngẫu nhiên), v
 Phím tắt:
 
 - **Vương quốc (lên kế hoạch):** `1` `2` `3` chọn thẻ · `S` bỏ lá đang chọn (nút **Bỏ bài**) · `Enter` xác nhận ✓ khi đã ngắm ô · `Esc` huỷ thẻ đang chọn (hoặc đóng bảng thám báo) · `Enter` nhận phần thưởng khi bảng thưởng mở.
-- **Trận:** `P` tạm dừng · `1` `2` `3` tốc độ · `Space` hoặc `B` bật/tắt ngắm **Can Thiệp** · `Esc` huỷ ngắm · `Enter` hoặc `Space` tiếp tục khi có bảng tổng kết.
+- **Trận:** `P` tạm dừng · `1` `2` `3` tốc độ · `Space` hoặc `B` bật/tắt ngắm **Can Thiệp** · `Esc` huỷ ngắm (hoặc đóng bảng đợt địch) · `Enter` hoặc `Space` tiếp tục khi có bảng tổng kết. Nút **Tự bắn: Bật/Tắt** cho Đá Tảng tự rơi vào chỗ đông địch nhất (chung hồi chiêu với Can Thiệp); nút **Địch** xem lại các đợt quân; bấm vào nhà hoặc lính (khi không đang ngắm) để xem thông tin.
+- **Lập kế hoạch:** bấm vào nhà trên bàn (khi không đang chọn thẻ) để xem thông tin.
 - **Kết thúc ván:** `Enter` ván mới · `Esc` về menu.
 
 ## Kiến trúc
