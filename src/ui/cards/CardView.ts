@@ -7,7 +7,7 @@ import { SPRITES_KEY, cardArtFrame, iconFrame } from '../../render/atlas';
 import type { IconId } from '../../render/iconArt';
 import { CARD_ART } from '../../render/cardArt';
 import type { UiFrame } from '../../render/uiArt';
-import { CARD_LIFT, ellipsize, type Size, type TooltipContent } from '../hud/layout';
+import { CARD_LIFT, DRAG_SLOP, ellipsize, type Size, type TooltipContent } from '../hud/layout';
 import {
   addUiText,
   bindPress,
@@ -35,6 +35,9 @@ const KIND_ICON: Record<CardDef['kind'], IconId> = {
   tome: 'tome',
 };
 const MAX_ART_SCALE = 3;
+/** A dragged card floats above the rest of the HUD. */
+const DRAG_DEPTH = 500;
+const DRAG_ALPHA = 0.85;
 
 const RARITY_FRAME: Record<CardDef['rarity'], UiFrame> = {
   common: 'card',
@@ -83,6 +86,9 @@ export class CardView {
   private handler: (() => void) | null = null;
   private readonly press: PressHandle;
   private base = { x: 0, y: 0 };
+  private dropHandler: ((x: number, y: number) => void) | null = null;
+  private dragFrom: { id: number } | null = null;
+  private dragging = false;
   private readonly onResize = (): void => this.render();
 
   constructor(
@@ -97,9 +103,18 @@ export class CardView {
       onClick: () => this.handler?.(),
       tooltip: tooltip ? { host: tooltip, content: () => this.tooltipContent() } : undefined,
     });
+    this.box.image.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.dropHandler) this.dragFrom = { id: pointer.id };
+    });
+    scene.input.on('pointermove', this.onDragMove);
+    scene.input.on('pointerup', this.onDragEnd);
     // Borders switch between 1× and 2× when the viewport crosses 600 px.
     scene.scale.on('resize', this.onResize);
-    this.container.once('destroy', () => scene.scale.off('resize', this.onResize));
+    this.container.once('destroy', () => {
+      scene.scale.off('resize', this.onResize);
+      scene.input.off('pointermove', this.onDragMove);
+      scene.input.off('pointerup', this.onDragEnd);
+    });
     this.render();
   }
 
@@ -137,10 +152,38 @@ export class CardView {
     this.handler = handler;
   }
 
+  /** Drag the card by more than DRAG_SLOP and release: `handler` gets the release point (screen px). */
+  onDrop(handler: (x: number, y: number) => void): void {
+    this.dropHandler = handler;
+  }
+
   destroy(): void {
     this.press.cancel();
     this.container.destroy();
   }
+
+  private readonly onDragMove = (pointer: Phaser.Input.Pointer): void => {
+    const from = this.dragFrom;
+    if (!from || from.id !== pointer.id || !pointer.isDown) return;
+    if (!this.dragging) {
+      if (pointer.getDistance() <= DRAG_SLOP) return;
+      this.dragging = true;
+      this.press.cancel();
+      this.container.setDepth(DRAG_DEPTH).setAlpha(DRAG_ALPHA);
+    }
+    this.container.setPosition(Math.round(pointer.x - this.size.w / 2), Math.round(pointer.y - this.size.h / 2));
+  };
+
+  private readonly onDragEnd = (pointer: Phaser.Input.Pointer): void => {
+    const from = this.dragFrom;
+    if (!from || from.id !== pointer.id) return;
+    this.dragFrom = null;
+    if (!this.dragging) return;
+    this.dragging = false;
+    this.container.setDepth(0).setAlpha(this.dimmed ? DIMMED_ALPHA : 1);
+    this.place();
+    this.dropHandler?.(pointer.x, pointer.y);
+  };
 
   private place(): void {
     this.container.setPosition(this.base.x, this.base.y - (this.selected ? CARD_LIFT : 0));
@@ -173,12 +216,14 @@ export class CardView {
     const inner = Math.max(1, w - 2 * inset);
     const big = w >= 100;
 
-    // Name band: centred, kept clear of the kind icon in the top-left corner.
-    const name = addUiText(this.scene, w / 2, inset, '', big ? 13 : 11)
+    // Name band: wraps to up to two lines in the space right of the kind icon (top-left).
+    const nameWidth = Math.max(1, inner - ICON - PAD);
+    const name = addUiText(this.scene, inset + ICON + PAD + nameWidth / 2, inset, '', big ? 12 : 10)
       .setOrigin(0.5, 0)
+      .setAlign('center')
       .setFontStyle('bold');
     const measureName = (s: string): number => name.setText(s).width;
-    name.setText(ellipsize(def.nameVi, Math.max(1, inner - 2 * (ICON + PAD)), measureName));
+    name.setText(clampLines(def.nameVi, nameWidth, 2, measureName).join('\n'));
     this.add(name);
 
     const icon = this.addImage(iconFrame(KIND_ICON[def.kind]), inset, inset)?.setOrigin(0, 0);

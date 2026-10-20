@@ -91,6 +91,7 @@ export class RealmScene extends Phaser.Scene {
     bus.on('battle:started', () => this.onBattleStarted());
     bus.on('ui:select-card', ({ handIndex }) => this.select(handIndex));
     bus.on('ui:cancel-play', () => this.bus.emit('ui:select-card', { handIndex: null }));
+    bus.on('ui:drop-card', ({ handIndex, plot }) => this.drop(handIndex, plot));
     bus.on('ui:confirm-play', () => this.confirm());
     bus.on('ui:continue', () => this.onContinue());
 
@@ -233,14 +234,26 @@ export class RealmScene extends Phaser.Scene {
     this.setPending({ handIndex: p.handIndex, targets: [...chosen, plot] });
   }
 
+  /** A card dropped on `plot`: aim at it and, when that was all the card needs, play it. */
+  private drop(handIndex: number, plot: number): void {
+    this.select(handIndex);
+    const cardId = this.controller.state.hand[handIndex];
+    if (!this.pending || cardId === undefined) return;
+    const count = targetCount(CONTENT.card(cardId));
+    if (count > 0) this.pick(plot);
+    if (count <= 1 && this.ready()) this.confirm();
+  }
+
   private confirm(): void {
     const p = this.pending;
     if (!p || !this.ready()) return;
     const [first, second] = p.targets;
     const target: PlayTarget =
-      second === undefined
-        ? { kind: 'plot', plot: first! }
-        : { kind: 'two', first: first!, second };
+      first === undefined
+        ? { kind: 'none' }
+        : second === undefined
+          ? { kind: 'plot', plot: first }
+          : { kind: 'two', first, second };
     this.bus.emit('ui:command', { command: { type: 'play', handIndex: p.handIndex, target } });
   }
 

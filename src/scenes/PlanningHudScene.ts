@@ -17,7 +17,7 @@ import { InfoPanel } from '../ui/info/InfoPanel';
 import { buildingInfoLines } from '../ui/info/infoLines';
 import { HandView } from '../ui/planning/HandView';
 import { ScoutPanel } from '../ui/planning/ScoutPanel';
-import { plotIllegalReason } from '../ui/planning/targetHints';
+import { dropOutcome, plotIllegalReason } from '../ui/planning/targetHints';
 import {
   centerHand,
   confirmFor,
@@ -153,6 +153,7 @@ export class PlanningHudScene extends Phaser.Scene {
     );
     this.hand = new HandView(this, CONTENT, this.tooltip);
     this.hand.onSelect((i) => this.selectCard(i));
+    this.hand.onDrop((i, x, y) => this.dropCard(i, x, y));
 
     this.skip = this.createSkip();
     this.fight = createButton(this, 0, 0, 'Ra trận', {
@@ -307,6 +308,23 @@ export class PlanningHudScene extends Phaser.Scene {
     if (state.phase !== 'planning' || state.played || state.hand[index] === undefined) return;
     const next = this.pending.handIndex === index ? null : index;
     this.bus.emit('ui:select-card', { handIndex: next });
+  }
+
+  /** A hand card released over the board: play it there, aim it (two-target cards) or say why not. */
+  private dropCard(index: number, x: number, y: number): void {
+    const state = this.controller.state;
+    const cardId = state.hand[index];
+    if (state.phase !== 'planning' || state.played || cardId === undefined) return;
+    if (this.reward || this.scoutModal) return;
+    const plot = plotAtScreen(this.lay, { x, y });
+    if (plot === null) return; // released off the board: the card just returns to the hand
+    const out = dropOutcome(state.plots, CONTENT.card(cardId), plot);
+    if (out.action === 'reject') {
+      if (this.pending.handIndex !== index) this.bus.emit('ui:select-card', { handIndex: index });
+      this.flashIllegal(out.reason);
+      return;
+    }
+    this.bus.emit('ui:drop-card', { handIndex: index, plot });
   }
 
   private command(type: 'startBattle'): void {

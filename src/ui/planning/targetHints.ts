@@ -32,3 +32,20 @@ export const plotIllegalReason = (
   const chosen = targets.slice(0, Math.max(0, targetCount(card) - 1));
   return checkTargetStep(plots, card, chosen, plot);
 };
+
+export type DropOutcome =
+  | { action: 'play' }
+  | { action: 'aim' }
+  | { action: 'reject'; reason: IllegalReason };
+
+/**
+ * What dropping `card` on `plot` does: play it at once (one target, or none anywhere on the
+ * board), start aiming a two-target card with this plot as its first pick, or reject it.
+ */
+export const dropOutcome = (plots: readonly PlotState[], card: CardDef, plot: number): DropOutcome => {
+  const count = targetCount(card);
+  if (count === 0) return { action: 'play' };
+  const reason = checkTargetStep(plots, card, [], plot);
+  if (reason !== null) return { action: 'reject', reason };
+  return { action: count === 1 ? 'play' : 'aim' };
+};
