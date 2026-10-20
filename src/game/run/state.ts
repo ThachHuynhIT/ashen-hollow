@@ -44,6 +44,8 @@ export interface RunState {
   hand: CardId[];
   drawPile: CardId[];
   discardPile: CardId[];
+  /** Đá Tảng tự bắn (spec §7.4); giữ qua các trận và các năm. */
+  autoFire: boolean;
   played: boolean;
   army: ArmyPlan | null;
   offers: OfferState | null;
@@ -72,7 +74,9 @@ export type PlayTarget =
 
 export type RunCommand =
   | { type: 'play'; handIndex: number; target: PlayTarget }
-  | { type: 'skip' }
+  /** Bán/bỏ đúng một thẻ thay cho việc chơi thẻ. */
+  | { type: 'discard'; handIndex: number }
+  | { type: 'setAutoFire'; on: boolean }
   | { type: 'startBattle' }
   | { type: 'battleResult'; result: BattleResult }
   | { type: 'pickOffer'; index: number | null }

@@ -31,7 +31,8 @@ export const randomBot: Bot = (state, content, rng) => {
           }
         }
       });
-      return options.length === 0 ? { type: 'skip' } : rng.pick(options);
+      // Không có nước đi hợp lệ nghĩa là không lá nào chơi được: startBattle hợp lệ.
+      return options.length === 0 ? { type: 'startBattle' } : rng.pick(options);
     }
     case 'reward': {
       const count = state.offers?.cardIds.length ?? 0;

@@ -93,7 +93,7 @@ describe('newRun', () => {
   });
 });
 
-describe('play / skip', () => {
+describe('play / discard', () => {
   const hand: CardId[] = ['wheat_militia', 'neutral_barracks', 'neutral_move'];
 
   it('places a troop, keeps the other cards in hand and discards the played one', () => {
@@ -145,12 +145,26 @@ describe('play / skip', () => {
     expect(swapped.state.plots[7]!.building).toEqual(b6);
   });
 
-  it('skip moves the whole hand to the discard pile', () => {
+  it('discard sells exactly the chosen card, keeps the others and counts as the action', () => {
     const s = runState({ hand });
-    const r = ok(applyCommand(s, { type: 'skip' }, CONTENT));
+    const before = structuredClone(s);
+    const r = ok(applyCommand(s, { type: 'discard', handIndex: 1 }, CONTENT));
+    expect(s).toEqual(before);
     expect(r.state.played).toBe(true);
-    expect(r.state.hand).toEqual([]);
-    expect(r.state.discardPile).toEqual([...s.discardPile, ...hand]);
+    expect(r.state.hand).toEqual(['wheat_militia', 'neutral_move']);
+    expect(r.state.discardPile).toEqual([...s.discardPile, 'neutral_barracks']);
+    expect(r.state.plots).toEqual(s.plots);
+  });
+
+  it('discard rejects a bad index, a second action and a wrong phase', () => {
+    expect(errorOf(runState({ hand }), { type: 'discard', handIndex: 3 })).toBe('badTarget');
+    expect(errorOf(runState({ hand }), { type: 'discard', handIndex: -1 })).toBe('badTarget');
+    expect(errorOf(runState({ hand, played: true }), { type: 'discard', handIndex: 0 })).toBe(
+      'alreadyPlayed',
+    );
+    expect(errorOf(runState({ hand, phase: 'reward' }), { type: 'discard', handIndex: 0 })).toBe(
+      'wrongPhase',
+    );
   });
 });
 
@@ -166,8 +180,6 @@ describe('errors', () => {
     expect(errorOf(runState({ hand }), { type: 'battleResult', result: result(true) })).toBe(
       'wrongPhase',
     );
-    expect(errorOf(runState({ hand, played: true }), { type: 'skip' })).toBe('alreadyPlayed');
-    expect(errorOf(runState({ hand, phase: 'reward' }), { type: 'skip' })).toBe('wrongPhase');
     expect(errorOf(runState({ hand, phase: 'yearEnd' }), { type: 'startBattle' })).toBe(
       'wrongPhase',
     );
@@ -202,11 +214,49 @@ describe('errors', () => {
   });
 });
 
+describe('startBattle legality and auto-fire setting', () => {
+  const allOpen = (): RunState => {
+    const s = runState({ hand: ['neutral_clear_land'] });
+    return { ...s, plots: s.plots.map((p) => ({ ...p, unlocked: true })) };
+  };
+
+  it('is allowed without an action when no card in hand has a target', () => {
+    const r = ok(applyCommand(allOpen(), { type: 'startBattle' }, CONTENT));
+    expect(r.state.phase).toBe('battle');
+  });
+
+  it('still needs an action while some card in hand is playable', () => {
+    expect(errorOf(runState({ hand: ['wheat_militia'] }), { type: 'startBattle' })).toBe('notPlayed');
+  });
+
+  it('setAutoFire flips the flag in any phase except ended and survives the next year', () => {
+    const s = runState();
+    expect(s.autoFire).toBe(false);
+    const on = ok(applyCommand(s, { type: 'setAutoFire', on: true }, CONTENT)).state;
+    expect(on.autoFire).toBe(true);
+    const inBattle = ok(
+      applyCommand({ ...on, hand: [], played: true, phase: 'battle' }, { type: 'setAutoFire', on: false }, CONTENT),
+    ).state;
+    expect(inBattle.autoFire).toBe(false);
+    expect(errorOf(runState({ phase: 'ended' }), { type: 'setAutoFire', on: true })).toBe('wrongPhase');
+
+    const lost = ok(
+      applyCommand(
+        { ...on, hand: [], played: true, phase: 'battle' },
+        { type: 'battleResult', result: result(false) },
+        CONTENT,
+      ),
+    ).state;
+    const next = ok(applyCommand(lost, { type: 'advance' }, CONTENT)).state;
+    expect(next.autoFire).toBe(true);
+  });
+});
+
 describe('battle flow', () => {
   const planned = (over: Partial<RunState> = {}): RunState =>
     runState({ hand: [], played: true, ...over });
 
-  it('startBattle after skip', () => {
+  it('startBattle after the action', () => {
     const r = ok(applyCommand(planned(), { type: 'startBattle' }, CONTENT));
     expect(r.state.phase).toBe('battle');
   });
@@ -314,7 +364,7 @@ describe('full run', () => {
     };
     for (let guard = 0; guard < 100 && s.phase !== 'ended'; guard++) {
       if (s.phase === 'planning') {
-        step({ type: 'skip' });
+        step({ type: 'discard', handIndex: 0 });
         step({ type: 'startBattle' });
       } else if (s.phase === 'battle') {
         step({ type: 'battleResult', result: result(true) });
@@ -401,7 +451,7 @@ describe('extra error branches', () => {
       [runState({ phase: 'ended' }), { type: 'advance' }],
       [runState({ phase: 'reward' }), { type: 'advance' }],
       [runState({ phase: 'ended', played: true }), { type: 'startBattle' }],
-      [runState({ phase: 'ended' }), { type: 'skip' }],
+      [runState({ phase: 'ended' }), { type: 'discard', handIndex: 0 }],
     ];
     for (const [s, cmd] of cases) expect(errorOf(s, cmd)).toBe('wrongPhase');
   });

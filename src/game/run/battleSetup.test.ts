@@ -33,6 +33,7 @@ function makeState(army: ArmyPlan | null): RunState {
     hand: [],
     drawPile: [],
     discardPile: [],
+    autoFire: false,
     played: true,
     army,
     offers: null,
@@ -48,6 +49,11 @@ const army1 = composeArmy(roster, armyBudget(1, 0.8), 1, 42);
 describe('buildBattleSetup', () => {
   const state = makeState(army1);
   const setup = buildBattleSetup(state, CONTENT);
+
+  it('copies the auto-fire setting into the setup', () => {
+    expect(setup.autoFire).toBe(false);
+    expect(buildBattleSetup({ ...state, autoFire: true }, CONTENT).autoFire).toBe(true);
+  });
 
   it('orders structures by plot and keeps uids', () => {
     expect(setup.structures.map((s) => s.plot)).toEqual([7, 11, 13]);

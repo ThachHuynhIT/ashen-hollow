@@ -2,7 +2,8 @@ import type { CardId } from './types';
 
 export const RUN = { startLives: 3, handSize: 3, maxLevel: 5 } as const;
 
-export const RULES_G1 = { years: 10, calendar: 'raiders' } as const;
+/** `autoStart`: trận tự bắt đầu sau khi chơi/bán thẻ (spec §3.2); từ G2 tắt để còn đổi bài, mua ô. */
+export const RULES_G1 = { years: 10, calendar: 'raiders', autoStart: true } as const;
 
 /** Bộ bài khởi đầu cố định G1 (11 bản). */
 export const START_DECK_G1: readonly CardId[] = [

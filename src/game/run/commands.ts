@@ -4,6 +4,7 @@ import { RULES_G1 } from '../../data/run';
 import type { CardId } from '../../data/types';
 import type { Content } from '../cards/registry';
 import { checkPlay, moveBuilding, placeBuilding, unlockPlot } from './board';
+import { hasPlayableCard } from './playable';
 import { rollOffers } from './rewards';
 import type { IllegalReason, RunCommand, RunState } from './state';
 import { startYear } from './yearFlow';
@@ -64,17 +65,26 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       return { state, events };
     }
 
-    case 'skip':
+    case 'discard': {
       if (state.phase !== 'planning') return fail('wrongPhase');
       if (state.played) return fail('alreadyPlayed');
-      state.discardPile.push(...state.hand);
-      state.hand = [];
+      const { handIndex } = cmd;
+      const sold = Number.isInteger(handIndex) ? state.hand[handIndex] : undefined;
+      if (sold === undefined) return fail('badTarget');
+      state.hand.splice(handIndex, 1);
+      state.discardPile.push(sold);
       state.played = true;
+      return { state, events };
+    }
+
+    case 'setAutoFire':
+      if (state.phase === 'ended') return fail('wrongPhase');
+      state.autoFire = cmd.on;
       return { state, events };
 
     case 'startBattle':
       if (state.phase !== 'planning') return fail('wrongPhase');
-      if (!state.played) return fail('notPlayed');
+      if (!state.played && hasPlayableCard(state, content)) return fail('notPlayed');
       state.phase = 'battle';
       return { state, events };
 

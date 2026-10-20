@@ -104,5 +104,6 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
     throne: structureFor(THRONE_PLOT, throneBuilding, content),
     structures,
     waves,
+    autoFire: state.autoFire,
   };
 }

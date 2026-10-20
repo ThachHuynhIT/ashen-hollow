@@ -283,8 +283,15 @@ export class PlanningHudScene extends Phaser.Scene {
     this.bus.emit('ui:select-card', { handIndex: next });
   }
 
-  private command(type: 'skip' | 'startBattle'): void {
+  private command(type: 'startBattle'): void {
     this.bus.emit('ui:command', { command: { type } });
+  }
+
+  /** Bán/bỏ lá đang chọn (hoặc lá đầu tiên khi chưa chọn); Task A6 hoàn thiện nút này. */
+  private sell(): void {
+    const handIndex = this.pending.handIndex ?? 0;
+    if (this.controller.state.hand[handIndex] === undefined) return;
+    this.bus.emit('ui:command', { command: { type: 'discard', handIndex } });
   }
 
   private onKey(event: KeyboardEvent): void {
@@ -307,7 +314,7 @@ export class PlanningHudScene extends Phaser.Scene {
         break;
       case 's':
       case 'S':
-        if (!state.played) this.command('skip');
+        if (!state.played) this.sell();
         break;
       case 'Enter':
         if (this.pending.ready) this.bus.emit('ui:confirm-play', {});
@@ -420,7 +427,7 @@ export class PlanningHudScene extends Phaser.Scene {
       width: w,
       height: h,
       fontSize: 16,
-      onClick: () => this.command('skip'),
+      onClick: () => this.sell(),
       tooltip: {
         host: this.tooltip,
         content: () => textContent(['Bỏ lượt (S)', 'Không chơi thẻ năm nay.']),

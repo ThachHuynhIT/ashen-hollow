@@ -54,6 +54,7 @@ export function newRun(seed: number, kingId: KingId, content: Content): RunState
     hand: [],
     drawPile: [],
     discardPile: [...START_DECK_G1],
+    autoFire: false,
     played: false,
     army: null,
     offers: null,

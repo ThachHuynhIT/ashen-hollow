@@ -59,6 +59,8 @@ export class RealmScene extends Phaser.Scene {
   private fx: FxRenderer | null = null;
   private pending: PendingPlay | null = null;
   private inBattle = false;
+  /** The controller's auto-start check runs once, on the first frame after the HUD is up. */
+  private kicked = false;
   /** The press that may become a board click (only that pointer's release counts). */
   private down: { id: number; x: number; y: number } | null = null;
 
@@ -70,6 +72,7 @@ export class RealmScene extends Phaser.Scene {
     // Scene instances are reused: reset every per-run field first.
     this.pending = null;
     this.inBattle = false;
+    this.kicked = false;
     this.down = null;
     const seed = data.seed ?? 1;
 
@@ -102,6 +105,10 @@ export class RealmScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     // Taken before update: the tick that ends the battle drops the runner, and that final
     // state (deaths included) must still be drawn.
+    if (!this.kicked) {
+      this.kicked = true;
+      this.controller.kickoff(); // starts the battle at once when no card in hand is playable
+    }
     const runner = this.controller.runner;
     this.controller.update(delta);
     if (runner && this.units && this.fx) {
@@ -156,7 +163,8 @@ export class RealmScene extends Phaser.Scene {
       this.relaunchPlanningHud(); // shows the RewardModal
     } else if (state.phase === 'yearEnd') {
       this.bus.emit('ui:command', { command: { type: 'advance' } });
-      this.relaunchPlanningHud();
+      // advancing may start the next battle at once (nothing playable): keep the battle HUD
+      if (this.controller.state.phase === 'planning') this.relaunchPlanningHud();
     } else if (state.phase === 'ended') {
       const data: RunEndData = { state };
       this.scene.start(SCENES.runEnd, data);
