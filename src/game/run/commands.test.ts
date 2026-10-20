@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, hashSeed } from '../../core/random';
-import { RULES_G1 } from '../../data/rules';
+import { RULES_G1, RULES_G2 } from '../../data/rules';
 import { START_DECK_G1 } from '../../data/run';
 import { SLOT_MULT } from '../../data/battle';
 import { armyBudget, composeArmy } from '../battle/compose';
@@ -12,6 +12,7 @@ import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
 import type { IllegalReason, PlayTarget, RunCommand, RunState } from './state';
 import { refillHand } from './deck';
+import { startDeck } from './calendar';
 import { newRun } from './yearFlow';
 
 const sorted = (arr: readonly CardId[]): CardId[] => [...arr].sort();
@@ -53,6 +54,44 @@ const play = (handIndex: number, target: PlayTarget): RunCommand => ({
   type: 'play',
   handIndex,
   target,
+});
+
+describe('newRun under the G2 rules', () => {
+  const s = newRun(7, 'wheat', CONTENT, RULES_G2);
+
+  it('starts with gold, the rules, no conquests and the chosen deck', () => {
+    expect(s.rules).toEqual(RULES_G2);
+    expect(s.gold).toBe(5);
+    expect(s.rerollsThisYear).toBe(0);
+    expect(s.purchasedPlots).toBe(0);
+    expect(s.idleUids).toEqual([]);
+    expect(s.stats).toMatchObject({ goldEarned: 0, conquered: 0 });
+    expect(s.deck).toEqual(startDeck(CONTENT.king('wheat')));
+    expect(sorted([...s.hand, ...s.drawPile, ...s.discardPile])).toEqual(sorted(s.deck));
+  });
+
+  it('picks two enemy kings that are not the player and marks them pending', () => {
+    expect(s.enemyKings).toHaveLength(2);
+    expect(s.enemyKings).not.toContain('wheat');
+    for (const k of s.enemyKings) expect(s.enemies[k]).toEqual({ attacks: 0, status: 'pending' });
+    expect(Object.keys(s.enemies).sort()).toEqual([...s.enemyKings].sort());
+    expect(typeof s.rng.calendar).toBe('number');
+  });
+
+  it('gives the throne an empty enchant list and no permanent bonuses', () => {
+    expect(s.plots[12]!.building).toMatchObject({ enchants: [], permanent: {} });
+  });
+
+  it('is deterministic per seed', () => {
+    expect(newRun(7, 'wheat', CONTENT, RULES_G2)).toEqual(s);
+  });
+
+  it('keeps the G1 rules (and no enemy kings) by default', () => {
+    const g1 = newRun(7, 'wheat', CONTENT);
+    expect(g1.rules).toEqual(RULES_G1);
+    expect(g1.enemyKings).toEqual([]);
+    expect(g1.deck).toEqual([...START_DECK_G1]);
+  });
 });
 
 describe('newRun', () => {
@@ -106,7 +145,7 @@ describe('play / discard', () => {
       uid: 1,
       cardId: 'wheat_militia',
       level: 1,
-      placedYear: s.year,
+      enchants: [], placedYear: s.year, permanent: {}
     });
     expect(r.state.nextUid).toBe(2);
     expect(r.state.hand).toEqual(['neutral_barracks', 'neutral_move']);
@@ -132,8 +171,8 @@ describe('play / discard', () => {
 
   it('move relocates and swaps', () => {
     const base = runState({ hand: ['neutral_move'] });
-    const b7 = { uid: 1, cardId: 'wheat_militia' as CardId, level: 1 as const, placedYear: 1 };
-    const b6 = { uid: 2, cardId: 'neutral_barracks' as CardId, level: 1 as const, placedYear: 1 };
+    const b7 = { uid: 1, cardId: 'wheat_militia' as CardId, level: 1 as const, enchants: [], placedYear: 1, permanent: {} };
+    const b6 = { uid: 2, cardId: 'neutral_barracks' as CardId, level: 1 as const, enchants: [], placedYear: 1, permanent: {} };
     const plots = structuredClone(base.plots);
     plots[7]!.building = b7;
     const moved = ok(applyCommand({ ...base, plots }, play(0, two(7, 6)), CONTENT));
@@ -207,7 +246,7 @@ describe('errors', () => {
     expect(errorOf(s, play(0, { kind: 'none' }))).toBe('badTarget');
     expect(errorOf(s, play(2, two(7, 6)))).toBe('noTarget');
     const occ = runState({ hand });
-    occ.plots[6]!.building = { uid: 1, cardId: 'wheat_militia', level: 1, placedYear: 1 };
+    occ.plots[6]!.building = { uid: 1, cardId: 'wheat_militia', level: 1, enchants: [], placedYear: 1, permanent: {} };
     expect(errorOf(occ, play(0, plot(6)))).toBe('occupied');
     expect(errorOf(occ, play(2, two(7, 6)))).toBe('noBuilding');
     const clear = runState({ hand: ['neutral_clear_land'] });
@@ -263,7 +302,7 @@ describe('a hand with no playable card', () => {
     });
     const plots = s.plots.map((p, i) =>
       p.unlocked && i !== 12
-        ? { ...p, building: { uid: i + 10, cardId: 'wheat_militia' as const, level: 1 as const, placedYear: 1 } }
+        ? { ...p, building: { uid: i + 10, cardId: 'wheat_militia' as const, level: 1 as const, enchants: [], placedYear: 1, permanent: {} } }
         : p,
     );
     return {

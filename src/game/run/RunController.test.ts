@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RULES_G1 } from '../../data/rules';
 import { CONTENT } from '../cards/registry';
 import { createGameBus } from '../events';
 import { runState } from '../testing/fixtures';
@@ -40,7 +41,11 @@ describe('RunController auto-start', () => {
 
   it('waits for startBattle when rules.autoStart is off', () => {
     const bus = createGameBus();
-    const controller = new RunController(bus, CONTENT, runState(), { autoStart: false });
+    const controller = new RunController(
+      bus,
+      CONTENT,
+      runState({ rules: { ...RULES_G1, autoStart: false } }),
+    );
     const started: number[] = [];
     bus.on('battle:started', (p) => started.push(p.setup.year));
     bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });

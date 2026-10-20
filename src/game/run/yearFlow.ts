@@ -1,11 +1,13 @@
 /** Khởi tạo ván và bước sang năm mới (spec §3.2, §5.5 bước 1, 6). Thuần, không sửa đầu vào. */
 import { Rng, hashSeed } from '../../core/random';
 import { SLOT_MULT } from '../../data/battle';
+import { RULES_G1, PLAYABLE_KINGS_G2, type Rules } from '../../data/rules';
 import { RUN, START_DECK_G1 } from '../../data/run';
 import type { KingId } from '../../data/types';
 import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
+import { pickEnemyKings, startDeck } from './calendar';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
 import { RUN_SAVE_VERSION } from './state';
@@ -39,20 +41,33 @@ export function startYear(state: RunState, content: Content): RunState {
     ...piles,
     played: false,
     offers: null,
+    rerollsThisYear: 0,
+    idleUids: [],
     rng: { ...state.rng, draw: rng.getState() },
   };
 }
 
-export function newRun(seed: number, kingId: KingId, content: Content): RunState {
+/** Mặc định `RULES_G1` cho tới khi G2c chuyển giao diện sang G2. */
+export function newRun(
+  seed: number,
+  kingId: KingId,
+  content: Content,
+  rules: Rules = RULES_G1,
+): RunState {
   const plots = initialPlots();
   plots[THRONE_PLOT]!.building = {
     uid: 0,
     cardId: content.king(kingId).throne.id,
     level: 1,
+    enchants: [],
     placedYear: 1,
+    permanent: {},
   };
+  const deck = rules.calendar === 'raiders' ? [...START_DECK_G1] : startDeck(content.king(kingId));
+  const enemyKings = rules.calendar === 'raiders' ? [] : pickEnemyKings(seed, kingId, PLAYABLE_KINGS_G2);
   const base: RunState = {
     version: RUN_SAVE_VERSION,
+    rules,
     seed,
     kingId,
     year: 0,
@@ -60,16 +75,26 @@ export function newRun(seed: number, kingId: KingId, content: Content): RunState
     lives: RUN.startLives,
     plots,
     throneLevel: 1,
-    deck: [...START_DECK_G1],
+    deck,
     hand: [],
     drawPile: [],
-    discardPile: [...START_DECK_G1],
+    discardPile: [...deck],
     autoFire: false,
+    gold: RUN.startGold,
+    rerollsThisYear: 0,
+    purchasedPlots: 0,
+    idleUids: [],
+    enemyKings,
+    enemies: Object.fromEntries(enemyKings.map((k) => [k, { attacks: 0, status: 'pending' as const }])),
     played: false,
     army: null,
     offers: null,
-    rng: { draw: hashSeed(`${seed}:draw`), reward: hashSeed(`${seed}:reward`) },
-    stats: { kills: 0, battlesWon: 0, battlesLost: 0 },
+    rng: {
+      draw: hashSeed(`${seed}:draw`),
+      reward: hashSeed(`${seed}:reward`),
+      calendar: hashSeed(`${seed}:calendar`),
+    },
+    stats: { kills: 0, battlesWon: 0, battlesLost: 0, goldEarned: 0, conquered: 0 },
     nextUid: 1,
     won: null,
   };

@@ -23,7 +23,7 @@ const bld = (uid: number, cardId: BuildingState['cardId'] = 'neutral_barracks'):
   uid,
   cardId,
   level: 1,
-  placedYear: 1,
+  enchants: [], placedYear: 1, permanent: {}
 });
 
 const withThrone = (): PlotState[] =>

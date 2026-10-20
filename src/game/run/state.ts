@@ -1,14 +1,19 @@
 /** Trạng thái ván G1 (spec §5.1) — JSON thuần, không hàm, không Map/Set. */
-import type { CardId, KingId, Level } from '../../data/types';
+import type { Rules } from '../../data/rules';
+import type { CardId, KingId, Level, StatKey } from '../../data/types';
 import type { ArmyPlan, BattleResult } from '../battle/types';
 
-export const RUN_SAVE_VERSION = 2;
+export const RUN_SAVE_VERSION = 3;
 
 export interface BuildingState {
   uid: number;
   cardId: CardId;
   level: Level;
+  /** Bùa đang gắn, theo thứ tự gắn lần đầu (spec §4.3). */
+  enchants: { cardId: CardId; stacks: number }[];
   placedYear: number;
+  /** % vĩnh viễn từ sách phép (Khắc Ấn Núi…). */
+  permanent: Partial<Record<StatKey, number>>;
 }
 
 export interface PlotState {
@@ -16,8 +21,14 @@ export interface PlotState {
   building: BuildingState | null;
 }
 
-export type RunPhase = 'planning' | 'battle' | 'reward' | 'yearEnd' | 'ended';
-export type RngStream = 'draw' | 'reward';
+export type RunPhase = 'planning' | 'battle' | 'reward' | 'conquest' | 'yearEnd' | 'ended';
+export type RngStream = 'draw' | 'reward' | 'calendar';
+
+/** Số lần một vua địch đã tấn công và kết cục (spec §3.7). */
+export interface EnemyKingState {
+  attacks: number;
+  status: 'pending' | 'conquered' | 'fled';
+}
 
 export interface OfferState {
   kind: 'reward';
@@ -28,10 +39,13 @@ export interface RunStats {
   kills: number;
   battlesWon: number;
   battlesLost: number;
+  goldEarned: number;
+  conquered: number;
 }
 
 export interface RunState {
   version: number;
+  rules: Rules;
   seed: number;
   kingId: KingId;
   year: number;
@@ -46,6 +60,15 @@ export interface RunState {
   discardPile: CardId[];
   /** Đá Tảng tự bắn (spec §7.4); giữ qua các trận và các năm. */
   autoFire: boolean;
+  gold: number;
+  rerollsThisYear: number;
+  /** Số ô đã MUA bằng vàng (giá ô kế tiếp, spec §3.11). */
+  purchasedPlots: number;
+  /** Uid công trình không trả được phí duy trì năm nay; tính lại mỗi `startYear`. */
+  idleUids: number[];
+  /** Hai vua địch K1, K2 (G2); rỗng ở lịch toàn Thổ Phỉ. */
+  enemyKings: KingId[];
+  enemies: Partial<Record<KingId, EnemyKingState>>;
   played: boolean;
   army: ArmyPlan | null;
   offers: OfferState | null;

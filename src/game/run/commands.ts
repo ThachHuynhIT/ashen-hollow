@@ -52,7 +52,9 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
           uid: state.nextUid,
           cardId,
           level: 1,
+          enchants: [],
           placedYear: state.year,
+          permanent: {},
         });
         state.nextUid += 1;
       } else {

@@ -12,7 +12,7 @@ const bld = (uid: number, cardId: BuildingState['cardId'] = 'neutral_barracks'):
   uid,
   cardId,
   level: 1,
-  placedYear: 1,
+  enchants: [], placedYear: 1, permanent: {}
 });
 
 /** Throne on 12 and a barracks on 7 (both in the opening 3×3). */
