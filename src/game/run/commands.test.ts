@@ -252,6 +252,47 @@ describe('startBattle legality and auto-fire setting', () => {
   });
 });
 
+describe('a hand with no playable card', () => {
+  const stuck = (): RunState => {
+    // Every free plot is built on, so the three building cards in hand have no target.
+    const s = runState({
+      phase: 'yearEnd',
+      hand: ['wheat_militia', 'neutral_barracks', 'neutral_archer_tower'],
+      played: true,
+    });
+    const plots = s.plots.map((p, i) =>
+      p.unlocked && i !== 12
+        ? { ...p, building: { uid: i + 10, cardId: 'wheat_militia' as const, level: 1 as const, placedYear: 1 } }
+        : p,
+    );
+    return {
+      ...s,
+      plots,
+      drawPile: ['neutral_clear_land', 'neutral_move', 'wheat_scarecrow'],
+      discardPile: [],
+    };
+  };
+
+  it('is recycled into the discard pile at the next year so other cards can reach the hand', () => {
+    const s = stuck();
+    const next = ok(applyCommand(s, { type: 'advance' }, CONTENT)).state;
+    expect(sorted(next.hand)).toEqual(sorted(['neutral_clear_land', 'neutral_move', 'wheat_scarecrow']));
+    expect(sorted(next.discardPile)).toEqual(
+      sorted(['wheat_militia', 'neutral_barracks', 'neutral_archer_tower']),
+    );
+    expect(sorted([...next.hand, ...next.drawPile, ...next.discardPile])).toEqual(
+      sorted([...s.hand, ...s.drawPile, ...s.discardPile]),
+    );
+  });
+
+  it('keeps a hand in which at least one card is playable', () => {
+    const s = { ...stuck(), hand: ['wheat_militia', 'neutral_clear_land'] as CardId[], drawPile: ['neutral_move', 'wheat_scarecrow'] as CardId[] };
+    const next = ok(applyCommand(s, { type: 'advance' }, CONTENT)).state;
+    expect(next.hand.slice(0, 2)).toEqual(['wheat_militia', 'neutral_clear_land']);
+    expect(next.discardPile).toEqual([]);
+  });
+});
+
 describe('battle flow', () => {
   const planned = (over: Partial<RunState> = {}): RunState =>
     runState({ hand: [], played: true, ...over });
