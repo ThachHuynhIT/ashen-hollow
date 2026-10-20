@@ -3,6 +3,7 @@ import { CARD_LIFT, type Rect, type Size } from '../hud/layout';
 import {
   PLANNING_ZOOM,
   battleCamera,
+  centerHand,
   battleLayout,
   battleWorldAt,
   battleZoom,
@@ -136,6 +137,39 @@ describe('plotScreenRect', () => {
     expect(plotScreenRect(l, 12)).toEqual({ x: 608, y: 328, w: 64, h: 64 });
     expect(plotScreenRect(l, 0)).toEqual({ x: l.board.x, y: l.board.y, w: 64, h: 64 });
     expect(plotScreenRect(l, 24)).toEqual({ x: 480 + 256, y: 200 + 256, w: 64, h: 64 });
+  });
+});
+
+describe('centerHand', () => {
+  for (const [name, screen] of [
+    ['desktop', DESKTOP],
+    ['mobile', MOBILE],
+  ] as const) {
+    it(`centres 1–3 cards on the hand row and keeps them apart and on screen (${name})`, () => {
+      const slots = planningLayout(screen).hand;
+      const rowCentre = (slots[0]!.x + slots[2]!.x + slots[2]!.w) / 2;
+      expect(centerHand(slots, 3)).toEqual([...slots]);
+      for (const n of [2, 1]) {
+        const placed = centerHand(slots, n);
+        expect(placed).toHaveLength(n);
+        const left = placed[0]!.x;
+        const right = placed[n - 1]!.x + placed[n - 1]!.w;
+        expect(Math.abs((left + right) / 2 - rowCentre)).toBeLessThanOrEqual(0.5);
+        placed.forEach((r, i) => {
+          expect(r.y).toBe(slots[i]!.y);
+          expect(r.w).toBe(slots[i]!.w);
+          expect(inside(r, screen)).toBe(true);
+        });
+        if (n === 2) expect(placed[1]!.x - (placed[0]!.x + placed[0]!.w)).toBe(slots[1]!.x - (slots[0]!.x + slots[0]!.w));
+      }
+    });
+  }
+
+  it('returns no slots for an empty hand and never more than the row holds', () => {
+    const slots = planningLayout(DESKTOP).hand;
+    expect(centerHand(slots, 0)).toEqual([]);
+    expect(centerHand(slots, 7)).toEqual([...slots]);
+    expect(centerHand([], 2)).toEqual([]);
   });
 });
 

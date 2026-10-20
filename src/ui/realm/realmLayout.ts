@@ -76,6 +76,23 @@ const handRow = (screen: Size, card: { w: number; h: number; gap: number }): Rec
   return [0, 1, 2].map((i) => ({ x: x0 + i * (card.w + card.gap), y, w: card.w, h: card.h }));
 };
 
+/**
+ * Slots for the first `count` cards of a hand that may hold fewer than the row's slots: the
+ * same size, spacing and y, shifted so the cards sit centred on the row.
+ */
+export const centerHand = (slots: readonly Rect[], count: number): Rect[] => {
+  const n = Math.max(0, Math.min(count, slots.length));
+  if (n === 0) return [];
+  const first = slots[0]!;
+  const last = slots[slots.length - 1]!;
+  const rowCentre = (first.x + last.x + last.w) / 2;
+  const used = slots.slice(0, n);
+  const left = used[0]!.x;
+  const right = used[n - 1]!.x + used[n - 1]!.w;
+  const shift = Math.round(rowCentre - (left + right) / 2);
+  return used.map((r) => ({ ...r, x: r.x + shift }));
+};
+
 /** The 200×56 "Ra trận" button, centred on the hand row it replaces. */
 const fightOver = (screen: Size, hand: readonly Rect[]): Rect => {
   const row = hand[0] ?? { x: 0, y: screen.h - FIGHT.h - HAND_BOTTOM, w: 0, h: FIGHT.h };

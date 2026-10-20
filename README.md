@@ -22,11 +22,11 @@ npm run dev        # http://localhost:5173 (cũng mở được từ điện tho
 
 ## Điều khiển
 
-Menu chính → **Ván mới** vào thẳng Vua Lúa Mì (seed ngẫu nhiên), ván 10 năm: mỗi năm rút 3 thẻ, chơi 1 thẻ lên bàn 5×5 (hoặc bỏ lượt), bấm **Ra trận** rồi xem quân tự đánh; có thể **Can Thiệp** giữa trận; mất hết 3 mạng thì thua, qua năm 10 thì thắng.
+Menu chính → **Ván mới** vào thẳng Vua Lúa Mì (seed ngẫu nhiên), ván 10 năm: mỗi năm rút 3 thẻ, chơi 1 thẻ lên bàn 5×5 (hoặc bỏ 1 thẻ), trận tự bắt đầu ngay rồi xem quân tự đánh; thẻ chưa dùng ở lại tay sang năm sau (chỉ rút thêm cho đủ 3 lá); có thể **Can Thiệp** giữa trận; mất hết 3 mạng thì thua, qua năm 10 thì thắng.
 
 Phím tắt:
 
-- **Vương quốc (lên kế hoạch):** `1` `2` `3` chọn thẻ · `S` bỏ lượt · `Enter` xác nhận ✓ khi đã ngắm ô, hoặc **Ra trận** khi đã chơi thẻ · `Esc` huỷ thẻ đang chọn (hoặc đóng bảng thám báo) · `Enter` nhận phần thưởng khi bảng thưởng mở.
+- **Vương quốc (lên kế hoạch):** `1` `2` `3` chọn thẻ · `S` bỏ lá đang chọn (nút **Bỏ bài**) · `Enter` xác nhận ✓ khi đã ngắm ô · `Esc` huỷ thẻ đang chọn (hoặc đóng bảng thám báo) · `Enter` nhận phần thưởng khi bảng thưởng mở.
 - **Trận:** `P` tạm dừng · `1` `2` `3` tốc độ · `Space` hoặc `B` bật/tắt ngắm **Can Thiệp** · `Esc` huỷ ngắm · `Enter` hoặc `Space` tiếp tục khi có bảng tổng kết.
 - **Kết thúc ván:** `Enter` ván mới · `Esc` về menu.
 
