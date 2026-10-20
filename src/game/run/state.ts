@@ -31,8 +31,10 @@ export interface EnemyKingState {
 }
 
 export interface OfferState {
-  kind: 'reward';
+  kind: 'reward' | 'conquest';
   cardIds: CardId[];
+  /** Vua bại trận (chỉ có ở `conquest`). */
+  king?: KingId;
 }
 
 export interface RunStats {
@@ -69,6 +71,8 @@ export interface RunState {
   /** Hai vua địch K1, K2 (G2); rỗng ở lịch toàn Thổ Phỉ. */
   enemyKings: KingId[];
   enemies: Partial<Record<KingId, EnemyKingState>>;
+  /** Vua vừa bị chinh phục, chờ bước chinh phục sau bước thưởng (spec §3.2). */
+  pendingConquest: KingId | null;
   played: boolean;
   army: ArmyPlan | null;
   offers: OfferState | null;

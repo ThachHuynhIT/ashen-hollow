@@ -42,6 +42,7 @@ function makeState(army: ArmyPlan | null): RunState {
     idleUids: [],
     enemyKings: [],
     enemies: {},
+    pendingConquest: null,
     played: true,
     army,
     offers: null,

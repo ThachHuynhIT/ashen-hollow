@@ -1,8 +1,7 @@
 /** Lệnh người chơi lên RunState (spec §5.1, §5.5). Thuần: làm việc trên bản sao, không sửa đầu vào. */
 import { Rng } from '../../core/random';
-import { RULES_G1 } from '../../data/rules';
 import { RUN, battleGold, rerollCost, unlockCost } from '../../data/run';
-import type { CardId } from '../../data/types';
+import type { CardId, KingId } from '../../data/types';
 import { CUSTOM_TOME_HANDLERS } from '../cards/custom';
 import type { Content } from '../cards/registry';
 import {
@@ -19,7 +18,7 @@ import {
 } from './board';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
-import { rollOffers } from './rewards';
+import { rollConquestOffers, rollOffers } from './rewards';
 import type { IllegalReason, RunCommand, RunState } from './state';
 import { startYear } from './yearFlow';
 
@@ -194,7 +193,26 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
         state.lives -= 1;
       }
 
-      const finalYear = state.year >= RULES_G1.years;
+      // Chinh phục (spec §3.7): lần tấn công thứ 3 của một vua — thắng thì bị chinh phục, thua thì rút lui.
+      let conquered: KingId | null = null;
+      const attacker = state.army?.attacker;
+      const enemy = attacker && attacker !== 'raiders' ? state.enemies[attacker] : undefined;
+      if (attacker && attacker !== 'raiders' && enemy) {
+        enemy.attacks += 1;
+        if (enemy.attacks >= 3 && enemy.status === 'pending') {
+          if (result.won) {
+            enemy.status = 'conquered';
+            conquered = attacker;
+            state.gold += RUN.conquestGold;
+            state.stats.goldEarned += RUN.conquestGold;
+            state.stats.conquered += 1;
+          } else {
+            enemy.status = 'fled';
+          }
+        }
+      }
+
+      const finalYear = state.year >= state.rules.years;
       if (state.lives <= 0 || finalYear) {
         // §3.10: sau trận năm cuối, còn mạng thì thắng ván (thắng hay thua trận đều vậy).
         state.lives = Math.max(state.lives, 0);
@@ -210,6 +228,7 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
         });
         state.rng.reward = rng.getState();
         state.offers = { kind: 'reward', cardIds };
+        state.pendingConquest = conquered;
         state.phase = 'reward';
       } else {
         state.offers = null;
@@ -219,8 +238,12 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
     }
 
     case 'pickOffer': {
-      if (state.phase !== 'reward' || state.offers === null) return fail('wrongPhase');
+      if ((state.phase !== 'reward' && state.phase !== 'conquest') || state.offers === null) {
+        return fail('wrongPhase');
+      }
       const { index } = cmd;
+      const conquest = state.phase === 'conquest';
+      if (conquest && index === null) return fail('badTarget'); // bắt buộc chọn một thẻ
       let { deck, discardPile } = state;
       let gold = state.gold;
       let goldEarned = state.stats.goldEarned;
@@ -234,7 +257,24 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
         discardPile = [...discardPile, picked];
       }
       const stats = { ...state.stats, goldEarned };
-      return { state: begin({ ...state, deck, discardPile, gold, stats }, content, events), events };
+      const picked = { ...state, deck, discardPile, gold, stats };
+      if (!conquest && state.pendingConquest !== null) {
+        // Sau thưởng tới chinh phục: ba thẻ của vua bại trận, bắt buộc chọn một.
+        const king = content.king(state.pendingConquest);
+        const rng = new Rng(state.rng.reward);
+        const cardIds = rollConquestOffers(rng, king);
+        return {
+          state: {
+            ...picked,
+            phase: 'conquest',
+            pendingConquest: null,
+            offers: { kind: 'conquest', cardIds, king: king.id },
+            rng: { ...state.rng, reward: rng.getState() },
+          },
+          events,
+        };
+      }
+      return { state: begin({ ...picked, pendingConquest: null }, content, events), events };
     }
 
     case 'advance':

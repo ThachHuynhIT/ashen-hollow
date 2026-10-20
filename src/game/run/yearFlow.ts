@@ -105,6 +105,7 @@ export function newRun(
     purchasedPlots: 0,
     idleUids: [],
     enemyKings,
+    pendingConquest: null,
     enemies: Object.fromEntries(enemyKings.map((k) => [k, { attacks: 0, status: 'pending' as const }])),
     played: false,
     army: null,
