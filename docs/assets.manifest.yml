@@ -1,3 +1,87 @@
 # Machine-readable asset register. Schema and rules: docs/ASSET_MANIFEST.md
 # Add an entry only after the license check in docs/ASSET_LICENSES.md passes.
-assets: []
+assets:
+  - id: ui_kenney_ancient_tan
+    path: public/assets/ui/kenney-pixel-ui/ancient_tan.png
+    category: ui
+    origin: external
+    source: https://kenney.nl/assets/pixel-ui-pack
+    creator: Kenney Vleugels (Kenney)
+    license: CC0-1.0
+    attribution: false
+    redistribute: true
+    evidence: docs/licenses/kenney-pixel-ui-pack/
+    modified: false
+    nativeSize: 48x48
+    finalSize: 48x48
+    notes: 9-slice (slice 8). Ancient/tan: panel, tooltip, button, card; see src/render/uiKit.ts
+  - id: ui_kenney_ancient_white
+    path: public/assets/ui/kenney-pixel-ui/ancient_white.png
+    category: ui
+    origin: external
+    source: https://kenney.nl/assets/pixel-ui-pack
+    creator: Kenney Vleugels (Kenney)
+    license: CC0-1.0
+    attribution: false
+    redistribute: true
+    evidence: docs/licenses/kenney-pixel-ui-pack/
+    modified: false
+    nativeSize: 48x48
+    finalSize: 48x48
+    notes: 9-slice (slice 8). Ancient/white: buttonHover; see src/render/uiKit.ts
+  - id: ui_kenney_ancient_tan_pressed
+    path: public/assets/ui/kenney-pixel-ui/ancient_tan_pressed.png
+    category: ui
+    origin: external
+    source: https://kenney.nl/assets/pixel-ui-pack
+    creator: Kenney Vleugels (Kenney)
+    license: CC0-1.0
+    attribution: false
+    redistribute: true
+    evidence: docs/licenses/kenney-pixel-ui-pack/
+    modified: false
+    nativeSize: 48x48
+    finalSize: 48x48
+    notes: 9-slice (slice 8). Ancient/tan_pressed: buttonDown; see src/render/uiKit.ts
+  - id: ui_kenney_outline_yellow
+    path: public/assets/ui/kenney-pixel-ui/outline_yellow.png
+    category: ui
+    origin: external
+    source: https://kenney.nl/assets/pixel-ui-pack
+    creator: Kenney Vleugels (Kenney)
+    license: CC0-1.0
+    attribution: false
+    redistribute: true
+    evidence: docs/licenses/kenney-pixel-ui-pack/
+    modified: false
+    nativeSize: 48x48
+    finalSize: 48x48
+    notes: 9-slice (slice 8). Outline/yellow: buttonActive, cardRare; see src/render/uiKit.ts
+  - id: ui_kenney_outline_green
+    path: public/assets/ui/kenney-pixel-ui/outline_green.png
+    category: ui
+    origin: external
+    source: https://kenney.nl/assets/pixel-ui-pack
+    creator: Kenney Vleugels (Kenney)
+    license: CC0-1.0
+    attribution: false
+    redistribute: true
+    evidence: docs/licenses/kenney-pixel-ui-pack/
+    modified: false
+    nativeSize: 48x48
+    finalSize: 48x48
+    notes: 9-slice (slice 8). Outline/green: cardUncommon; see src/render/uiKit.ts
+  - id: ui_kenney_outline_red
+    path: public/assets/ui/kenney-pixel-ui/outline_red.png
+    category: ui
+    origin: external
+    source: https://kenney.nl/assets/pixel-ui-pack
+    creator: Kenney Vleugels (Kenney)
+    license: CC0-1.0
+    attribution: false
+    redistribute: true
+    evidence: docs/licenses/kenney-pixel-ui-pack/
+    modified: false
+    nativeSize: 48x48
+    finalSize: 48x48
+    notes: 9-slice (slice 8). Outline/red: cardSelected; see src/render/uiKit.ts

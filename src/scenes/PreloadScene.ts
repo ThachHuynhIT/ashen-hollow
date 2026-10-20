@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { UI_PALETTE } from '../data/uiPalette';
 import { CONTENT } from '../game/cards/registry';
 import { buildSpritesTexture, buildUiTexture } from '../render/atlas';
+import type { UiFrame } from '../render/uiArt';
+import { UI_KIT_DIR, UI_KIT_FILES, kitTextureKey } from '../render/uiKit';
 import { textStyle } from '../ui/theme';
 import { SCENES } from './keys';
 
@@ -21,6 +23,10 @@ export class PreloadScene extends Phaser.Scene {
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => {
       label.setText(`${LOADING_LABEL} ${Math.round(p * 100)}%`);
     });
+    // Kenney Pixel UI Pack frames (CC0); a file that fails to load leaves the generated frame.
+    for (const [frame, file] of Object.entries(UI_KIT_FILES) as [UiFrame, string][]) {
+      this.load.image(kitTextureKey(frame), UI_KIT_DIR + file);
+    }
     // Real assets (atlases, audio) will be queued here with this.load.*.
   }
 
