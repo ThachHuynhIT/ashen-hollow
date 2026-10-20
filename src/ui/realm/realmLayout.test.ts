@@ -11,7 +11,10 @@ import {
   isDesktop,
   planningLayout,
   plotAtScreen,
+  planningZoom,
   plotScreenRect,
+  realmCamera,
+  realmCameraMix,
   screenToWorld,
 } from './realmLayout';
 
@@ -49,7 +52,8 @@ describe('planningLayout', () => {
     expect(l.desktop).toBe(true);
     expect(l.lives).toEqual({ x: 10, y: 10, w: 120, h: 52 });
     expect(l.year).toEqual({ x: 560, y: 10, w: 160, h: 52 });
-    expect(l.board).toEqual({ x: 480, y: 180, w: 320, h: 320 });
+    expect(l.board).toEqual({ x: 480, y: 200, w: 320, h: 320 });
+    expect(l.zoom).toBe(2);
     expect(l.scout.x).toBe(1010);
     expect(l.scout.w).toBe(260);
     expect(l.hand).toHaveLength(3);
@@ -66,6 +70,7 @@ describe('planningLayout', () => {
     expect(l.year.x).toBe(110);
     expect(l.year.x + l.year.w).toBe(365);
     expect(l.board).toEqual({ x: 28, y: 124, w: 320, h: 320 });
+    expect(l.zoom).toBe(2);
     expect(l.hand).toHaveLength(3);
     expect(l.hand[0]).toEqual({ x: 18, y: 650, w: 108, h: 152 });
     expect(l.hand[1]!.x).toBe(134);
@@ -116,6 +121,7 @@ describe('planningLayout', () => {
       { w: 0, h: 0 },
       { w: 100, h: 100 },
       { w: 768, h: 600 },
+      { w: 900, h: 600 },
       { w: 1920, h: 1080 },
       { w: 600, h: 1400 },
     ])
@@ -127,10 +133,94 @@ describe('plotScreenRect', () => {
   it('maps plots to 64 px screen cells of the board', () => {
     const l = planningLayout(DESKTOP);
     expect(PLANNING_ZOOM).toBe(2);
-    expect(plotScreenRect(l, 12)).toEqual({ x: 608, y: 308, w: 64, h: 64 });
+    expect(plotScreenRect(l, 12)).toEqual({ x: 608, y: 328, w: 64, h: 64 });
     expect(plotScreenRect(l, 0)).toEqual({ x: l.board.x, y: l.board.y, w: 64, h: 64 });
-    expect(plotScreenRect(l, 24)).toEqual({ x: 480 + 256, y: 180 + 256, w: 64, h: 64 });
+    expect(plotScreenRect(l, 24)).toEqual({ x: 480 + 256, y: 200 + 256, w: 64, h: 64 });
   });
+});
+
+describe('planningZoom / realmCamera', () => {
+  it('uses the battle zoom on desktop and zoom 2 on mobile', () => {
+    expect(planningZoom(DESKTOP)).toBe(2);
+    expect(planningZoom({ w: 1920, h: 1080 })).toBe(3);
+    expect(planningZoom(MOBILE)).toBe(PLANNING_ZOOM);
+  });
+
+  for (const screen of [DESKTOP, { w: 1920, h: 1080 }, { w: 1024, h: 768 }]) {
+    it(`gives planning and battle the same camera on desktop ${screen.w}×${screen.h}`, () => {
+      const planning = realmCamera(screen, 'planning');
+      const battle = realmCamera(screen, 'battle');
+      expect(planning.zoom).toBe(battle.zoom);
+      expect(planning.scroll.x).toBeCloseTo(battle.scroll.x, 9);
+      expect(planning.scroll.y).toBeCloseTo(battle.scroll.y, 9);
+    });
+
+    it(`centres the board on the screen and clear of the hand on ${screen.w}×${screen.h}`, () => {
+      const l = planningLayout(screen);
+      expect(l.board.x + l.board.w / 2).toBeCloseTo(screen.w / 2, 9);
+      expect(l.board.y + l.board.h / 2).toBeCloseTo(screen.h / 2, 9);
+      expect(l.board.y + l.board.h).toBeLessThanOrEqual(l.hand[0]!.y);
+    });
+  }
+
+  it('keeps zoom 2 for planning and zoom 1 for the battle on mobile', () => {
+    expect(realmCamera(MOBILE, 'planning').zoom).toBe(2);
+    expect(realmCamera(MOBILE, 'battle').zoom).toBe(1);
+  });
+
+  it('puts the board centre (throne) where planningLayout drew the board', () => {
+    for (const screen of [DESKTOP, MOBILE, { w: 1920, h: 1080 }]) {
+      const l = planningLayout(screen);
+      const cam = realmCamera(screen, 'planning');
+      const p = screenToWorld({ x: l.board.x, y: l.board.y }, cam.scroll, screen, cam.zoom);
+      expect(p.x).toBeCloseTo(112, 6); // BATTLE.boardOrigin: the board's top-left corner
+      expect(p.y).toBeCloseTo(112, 6);
+    }
+  });
+});
+
+describe('realmCameraMix', () => {
+  it('equals the planning camera at 0 and the battle camera at 1', () => {
+    for (const screen of [DESKTOP, MOBILE]) {
+      const start = realmCameraMix(screen, 'planning', 'battle', 0);
+      const end = realmCameraMix(screen, 'planning', 'battle', 1);
+      const planning = realmCamera(screen, 'planning');
+      const battle = realmCamera(screen, 'battle');
+      expect(start.zoom).toBeCloseTo(planning.zoom, 9);
+      expect(start.scroll.x).toBeCloseTo(planning.scroll.x, 6);
+      expect(start.scroll.y).toBeCloseTo(planning.scroll.y, 6);
+      expect(end.zoom).toBeCloseTo(battle.zoom, 9);
+      expect(end.scroll.x).toBeCloseTo(battle.scroll.x, 6);
+      expect(end.scroll.y).toBeCloseTo(battle.scroll.y, 6);
+    }
+  });
+
+  it('eases the zoom between 2 and 1 on mobile and keeps the throne on screen', () => {
+    const mid = realmCameraMix(MOBILE, 'planning', 'battle', 0.5);
+    expect(mid.zoom).toBeCloseTo(1.5, 9);
+    const throne = screenToWorld({ x: MOBILE.w / 2, y: MOBILE.h / 2 }, mid.scroll, MOBILE, mid.zoom);
+    expect(Math.abs(throne.x - 192)).toBeLessThan(200);
+  });
+
+  it('is constant on desktop where both phases share the camera', () => {
+    const a = realmCameraMix(DESKTOP, 'planning', 'battle', 0.3);
+    const b = realmCamera(DESKTOP, 'battle');
+    expect(a.zoom).toBe(b.zoom);
+    expect(a.scroll.x).toBeCloseTo(b.scroll.x, 6);
+    expect(a.scroll.y).toBeCloseTo(b.scroll.y, 6);
+  });
+});
+
+describe('plotAtScreen over every plot', () => {
+  for (const screen of [DESKTOP, MOBILE, { w: 1920, h: 1080 }]) {
+    it(`inverts plotScreenRect for plots 0..24 on ${screen.w}×${screen.h}`, () => {
+      const l = planningLayout(screen);
+      for (let plot = 0; plot < 25; plot++) {
+        const r = plotScreenRect(l, plot);
+        expect(plotAtScreen(l, { x: r.x + r.w / 2, y: r.y + r.h / 2 })).toBe(plot);
+      }
+    });
+  }
 });
 
 describe('plotAtScreen', () => {

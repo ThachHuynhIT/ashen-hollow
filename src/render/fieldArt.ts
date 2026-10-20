@@ -123,3 +123,6 @@ export const paintField = (seed: number): PixelCanvas => {
   }
   return out;
 };
+
+/** A plain, fully painted grass tile; tiled under the field so the ground fills the whole screen. */
+export const paintGroundTile = (): PixelCanvas => paintFieldTile(0, 15, 0);

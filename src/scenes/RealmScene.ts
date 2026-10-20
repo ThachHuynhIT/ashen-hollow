@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
-import { BATTLE } from '../data/battle';
+import { PALETTE } from '../data/palette';
 import type { Edge } from '../game/battle/types';
 import { drainEvents } from '../game/battle/world';
 import { CONTENT } from '../game/cards/registry';
@@ -16,7 +16,7 @@ import { UnitRenderer } from '../render/UnitRenderer';
 import { buildSpritesTexture } from '../render/atlas';
 import { DRAG_SLOP, type Size } from '../ui/hud/layout';
 import { plotHighlights } from '../ui/planning/targetHints';
-import { PLANNING_ZOOM, battleCamera, cameraScroll, planningLayout } from '../ui/realm/realmLayout';
+import { realmCamera, realmCameraMix } from '../ui/realm/realmLayout';
 import { SCENES } from './keys';
 import type { RunEndData } from './RunEndScene';
 
@@ -39,11 +39,8 @@ interface PendingPlay {
 /** Toast shown when the battle reaches the rage tick (§10.7). */
 export const RAGE_TEXT = 'Quân địch nổi cơn cuồng nộ!';
 
-/** Centre of the 5×5 board in world px (the board spans boardOrigin … +5 plots). */
-const BOARD_CENTRE = {
-  x: BATTLE.boardOrigin + (BATTLE.plot * 5) / 2,
-  y: BATTLE.boardOrigin + (BATTLE.plot * 5) / 2,
-};
+/** Duration of the planning → battle camera ease (only when the two zooms differ, i.e. mobile). */
+const CAMERA_EASE_MS = 400;
 
 /**
  * The world of a run (§10.4, §10.7, §12.1): field, board, units and effects in both phases.
@@ -61,6 +58,9 @@ export class RealmScene extends Phaser.Scene {
   private inBattle = false;
   /** The controller's auto-start check runs once, on the first frame after the HUD is up. */
   private kicked = false;
+  private readonly onResize = (): void => this.placeCamera();
+  /** The running planning ↔ battle camera ease, if any. */
+  private cameraEase: Phaser.Tweens.Tween | null = null;
   /** The press that may become a board click (only that pointer's release counts). */
   private down: { id: number; x: number; y: number } | null = null;
 
@@ -73,12 +73,14 @@ export class RealmScene extends Phaser.Scene {
     this.pending = null;
     this.inBattle = false;
     this.kicked = false;
+    this.cameraEase = null;
     this.down = null;
     const seed = data.seed ?? 1;
 
     buildSpritesTexture(this.textures, CONTENT); // no-op once PreloadScene built it
     this.bus = createGameBus();
     this.controller = new RunController(this.bus, CONTENT, newRun(seed, 'wheat', CONTENT));
+    this.cameras.main.setBackgroundColor(PALETTE.grass);
     this.field = new FieldRenderer(this, seed);
     this.board = new BoardRenderer(this, CONTENT);
     this.units = new UnitRenderer(this);
@@ -94,7 +96,7 @@ export class RealmScene extends Phaser.Scene {
 
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
     this.input.on(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
-    this.scale.on(Phaser.Scale.Events.RESIZE, this.placeCamera, this);
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.teardown, this);
 
     this.showPlanning(this.controller.state);
@@ -150,7 +152,7 @@ export class RealmScene extends Phaser.Scene {
     this.setPending(null);
     this.board?.setEdgeArrows([]);
     this.board?.setBuildingsVisible(false);
-    this.placeCamera();
+    this.placeCamera(true);
     this.scene.stop(SCENES.planningHud);
     const hud: RealmHudData = { bus: this.bus, controller: this.controller };
     this.scene.launch(SCENES.battleHud, hud);
@@ -263,23 +265,41 @@ export class RealmScene extends Phaser.Scene {
 
   // ---- camera ----------------------------------------------------------------------------
 
-  /** Planning: zoom 2 with the board on planningLayout().board; battle: §10.7 zoom on the throne. */
-  private placeCamera(): void {
+  /**
+   * One camera for both phases (§10.4, §10.7). `ease` slides from the planning to the battle
+   * camera when their zooms differ (mobile); a resize or any other call sets it at once.
+   */
+  private placeCamera(ease = false): void {
     const screen: Size = { w: this.scale.width, h: this.scale.height };
     const cam = this.cameras.main;
-    if (this.inBattle) {
-      const { zoom, scroll } = battleCamera(screen);
-      cam.setZoom(zoom).setScroll(scroll.x, scroll.y);
+    this.cameraEase?.stop();
+    this.cameraEase = null;
+    const phase = this.inBattle ? 'battle' : 'planning';
+    const target = realmCamera(screen, phase);
+    if (!ease || realmCamera(screen, 'planning').zoom === target.zoom) {
+      cam.setZoom(target.zoom).setScroll(target.scroll.x, target.scroll.y);
       return;
     }
-    const board = planningLayout(screen).board;
-    const target = { x: board.x + board.w / 2, y: board.y + board.h / 2 };
-    const s = cameraScroll(BOARD_CENTRE, target, screen, PLANNING_ZOOM);
-    cam.setZoom(PLANNING_ZOOM).setScroll(s.x, s.y);
+    this.cameraEase = this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: CAMERA_EASE_MS,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        const now = realmCameraMix(screen, 'planning', 'battle', tween.getValue() ?? 1);
+        cam.setZoom(now.zoom).setScroll(now.scroll.x, now.scroll.y);
+      },
+      onComplete: () => {
+        cam.setZoom(target.zoom).setScroll(target.scroll.x, target.scroll.y);
+        this.cameraEase = null;
+      },
+    });
   }
 
   private teardown(): void {
-    this.scale.off(Phaser.Scale.Events.RESIZE, this.placeCamera, this);
+    this.cameraEase?.stop();
+    this.cameraEase = null;
+    this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
     this.scene.stop(SCENES.planningHud);
