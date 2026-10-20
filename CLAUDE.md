@@ -34,6 +34,10 @@ Run `npm run lint && npm run typecheck && npm test && npm run build` before call
 - **UI:** frames are nine-slices from the generated `ui` texture referenced by name (`UI_FRAMES` in `src/render/uiArt.ts`); size them in logical px with `createPanel` (`src/ui/theme.ts`), never with raw `Rectangle` backgrounds. Buttons come from `createButton`, tooltips from `Tooltip` (hover, or 400 ms long-press on touch), self-sizing boxes from `ContentBox`. Pure UI maths lives in `src/ui/hud/layout.ts` and `src/ui/menuLayout.ts` (tested). Every touch target is ≥ 44×44 logical px; recompute positions in `layout()` on resize; "desktop" = 1280×720, "mobile" = 375×812, `width ≥ 768` uses the desktop layout.
 - **HUD text:** use `FONT_UI` — it must cover Vietnamese precomposed glyphs (Georgia does not). Player-facing text is Vietnamese; ids in code are English.
 
+## Git workflow
+
+`main` is release-only: it only receives a **release PR from `develop`**. Flow: feature branch → PR into `develop` → (when releasing) PR `develop` → `main`. Never open a feature PR against `main`, and never push directly to `main` or `develop`. Branch feature work from `develop`; after a release merge `develop` already contains `main`, so keep `develop` ahead of or equal to `main`.
+
 ## Phaser 4 notes
 
 Official Phaser 4 agent skills live in `.claude/skills/*/SKILL.md` (also shipped in `node_modules/phaser/skills/`) — v3→v4 migration, cameras, input, tilemaps, sprites (NineSlice)… Read those instead of relying on Phaser 3 knowledge, and check signatures in `node_modules/phaser/types/phaser.d.ts`. Notable: `roundPixels` defaults false (set via `pixelArt: true`), FX/masks are now filters, `Geom.Point` → `Vector2`, `TileSprite` was rewritten (no texture cropping, supports atlas frames).
