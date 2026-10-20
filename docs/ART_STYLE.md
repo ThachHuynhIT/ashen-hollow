@@ -73,7 +73,7 @@ Khung thẻ theo độ hiếm (thêm vào texture `ui` từ G1): thường = vi�
 
 ## Pipeline art sinh bằng code
 
-- Giữ `PixelCanvas`/`pixelHash` (`pixel.ts`), `paintBitmap` (`bitmap.ts`), `dualGrid.ts`. Module mới (thuần TS, có test màu) đến từ G1: `fieldArt.ts`, `plotArt.ts`, `buildingArt.ts`, `unitArt.ts`, `cardArt.ts` (chỉ `UI_PALETTE`), `iconArt.ts`, `fxArt.ts`, `portraitArt.ts`.
+- Giữ `PixelCanvas`/`pixelHash` (`pixel.ts`), `paintBitmap` (`bitmap.ts`), `dualGrid.ts`. Module mới (thuần TS, có test màu) đến từ G1: `fieldArt.ts`, `plotArt.ts`, `buildingArt.ts`, `unitArt.ts`, `cardArt.ts` (chỉ `UI_PALETTE`), `iconArt.ts`, `fxArt.ts` (đã có từ G1); `portraitArt.ts` chưa làm (G2+).
 - `atlas.ts` dựng texture `ui` (G0), `field-tiles` và `sprites` (một atlas cho mọi sprite thế giới, từ G1), frame theo tên: `building_<cardId>`, `unit_<id>_<team>_<anim><n>`, `card_art_<cardId>`, `icon_<id>`, `fx_<id>`.
 
 ## Ranh giới thay art thật

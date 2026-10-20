@@ -1,0 +1,71 @@
+/** Nối bus với RunState + BattleRunner: nhận `ui:command`, phát `run:*` / `battle:*` (spec §12.5). */
+import type { EventBus } from '../../core/events';
+import { BattleRunner } from '../battle/BattleRunner';
+import type { Content } from '../cards/registry';
+import type { GameEvents } from '../events';
+import { buildBattleSetup } from './battleSetup';
+import { applyCommand } from './commands';
+import type { RunCommand, RunState } from './state';
+
+export class RunController {
+  private current: RunState;
+  private active: BattleRunner | null = null;
+  private readonly unsubscribe: (() => void)[];
+
+  constructor(
+    private readonly bus: EventBus<GameEvents>,
+    private readonly content: Content,
+    initial: RunState,
+  ) {
+    this.current = initial;
+    this.unsubscribe = [
+      bus.on('ui:command', ({ command }) => this.handle(command)),
+      bus.on('battle:ended', ({ result }) => {
+        if (this.active === null) return; // stray event: no battle in progress
+        this.active?.dispose();
+        this.active = null;
+        this.handle({ type: 'battleResult', result });
+      }),
+    ];
+  }
+
+  get state(): RunState {
+    return this.current;
+  }
+
+  get runner(): BattleRunner | null {
+    return this.active;
+  }
+
+  update(deltaMs: number): void {
+    this.active?.update(deltaMs);
+  }
+
+  dispose(): void {
+    for (const off of this.unsubscribe) off();
+    this.unsubscribe.length = 0;
+    this.active?.dispose();
+    this.active = null;
+  }
+
+  private handle(command: RunCommand): void {
+    const result = applyCommand(this.current, command, this.content);
+    if ('error' in result) {
+      this.bus.emit('run:illegal', { reason: result.error });
+      return;
+    }
+    this.current = result.state;
+    this.bus.emit('run:state', { state: this.current });
+    for (const event of result.events) {
+      if (event.type === 'runEnded') {
+        // G4 (meta-progression) fills crownPoints and unlocks.
+        this.bus.emit('run:ended', { won: event.won, crownPoints: 0, unlocks: [] });
+      }
+    }
+    if (command.type === 'startBattle') {
+      const setup = buildBattleSetup(this.current, this.content);
+      this.active = new BattleRunner(setup, this.bus);
+      this.bus.emit('battle:started', { setup });
+    }
+  }
+}

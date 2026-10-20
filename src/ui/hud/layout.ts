@@ -14,6 +14,8 @@ export const LONG_PRESS_MS = 400;
 export const MAP_DWELL_MS = 300;
 /** A press that moved further than this (screen px) is a drag, not a click. */
 export const DRAG_SLOP = 8;
+/** A selected card rises this far above its slot (hand and reward picker). */
+export const CARD_LIFT = 12;
 export const TOOLTIP_MAX_W = 220;
 export const TOOLTIP_OFFSET = 16;
 export const TOOLTIP_EDGE = 4;

@@ -22,20 +22,28 @@ npm run dev        # http://localhost:5173 (cũng mở được từ điện tho
 
 ## Điều khiển
 
-Hiện mới có menu chính: nút **Ván mới** đang hiện "Sắp có" (mở ở G1). Bảng phím tắt của vương quốc và trận nằm trong spec §10.4 và §10.7 và sẽ được ghi vào đây khi các màn đó có.
+Menu chính → **Ván mới** vào thẳng Vua Lúa Mì (seed ngẫu nhiên), ván 10 năm: mỗi năm rút 3 thẻ, chơi 1 thẻ lên bàn 5×5 (hoặc bỏ lượt), bấm **Ra trận** rồi xem quân tự đánh; có thể **Can Thiệp** giữa trận; mất hết 3 mạng thì thua, qua năm 10 thì thắng.
+
+Phím tắt:
+
+- **Vương quốc (lên kế hoạch):** `1` `2` `3` chọn thẻ · `S` bỏ lượt · `Enter` xác nhận ✓ khi đã ngắm ô, hoặc **Ra trận** khi đã chơi thẻ · `Esc` huỷ thẻ đang chọn (hoặc đóng bảng thám báo) · `Enter` nhận phần thưởng khi bảng thưởng mở.
+- **Trận:** `P` tạm dừng · `1` `2` `3` tốc độ · `Space` hoặc `B` bật/tắt ngắm **Can Thiệp** · `Esc` huỷ ngắm · `Enter` hoặc `Space` tiếp tục khi có bảng tổng kết.
+- **Kết thúc ván:** `Enter` ván mới · `Esc` về menu.
 
 ## Kiến trúc
 
 ```
 src/
   core/       Hạ tầng thuần: EventBus, Rng/hashSeed, SimClock, SpatialHash, geom, noise — không phụ thuộc Phaser
-  data/       Dữ liệu và kiểu: bảng màu thế giới Hearth 32, bảng màu UI (từ G1: vua, thẻ, đơn vị, hằng số ván/trận)
-  game/       Luật: trận (separation trong battle/steering.ts; từ G1: ván, thẻ, trận đầy đủ, lưu) — deterministic, không Phaser
+  data/       Dữ liệu và kiểu: bảng màu thế giới Hearth 32, bảng màu UI (vua, thẻ, đơn vị, hằng số ván/trận)
+  game/       Luật: run/ (ván), cards/, battle/ (trận), sim/ (headless + bot), testing/ — deterministic, không Phaser; từ G3: lưu ván
   render/     Art sinh bằng code (pixel, bitmap, dual-grid, art UI) và texture atlas
   ui/         Theme (khung 9-slice, nút gỗ), ContentBox, Tooltip, logic bố cục thuần
-  scenes/     Boot → Preload → MainMenu (từ G1: KingSelect, Realm + HUD, RunEnd…)
+  scenes/     Boot → Preload → MainMenu → Realm + PlanningHud/BattleHud → RunEnd (từ G2: KingSelect…)
 docs/         GDD, ART_STYLE, ROADMAP, spec và plan (docs/superpowers)
 ```
+
+Chạy một ván không giao diện (bot `random`): `runHeadless({ seed: 1, kingId: 'wheat' })` trong `src/game/sim/headless.ts` (xem `headless.test.ts`).
 
 Nguyên tắc: **luật tách khỏi hiển thị**, tick cố định 10/s, deterministic theo seed. Chi tiết ở [docs/GDD.md](docs/GDD.md) và [spec tổng](docs/superpowers/specs/2026-10-16-crowned-kingdoms-design.md).
 
@@ -48,7 +56,7 @@ Nguyên tắc: **luật tách khỏi hiển thị**, tick cố định 10/s, det
 ## Trạng thái
 
 - [x] **G0** — nền UI & dọn dẹp: xoá colony sim, hạ tầng chuyển sang `src/core`, UI kiểu Stardew, menu chính, bảng màu Hearth 32, ESLint deterministic.
-- [ ] **G1** — lõi chơi được (ván ngắn 10 năm).
+- [x] **G1** — lõi chơi được (ván 10 năm, Vua Lúa Mì, trận tự động + can thiệp, headless + bot `random`).
 - [ ] **G2** — bùa, lân cận, cấp, vàng, 3 vua, chinh phục.
 - [ ] **G3** — ván đầy đủ 30 năm: hội đồng, nhiệm vụ, boss, lưu ván.
 - [ ] **G4** — đủ 9 vua, perk, meta-progression.

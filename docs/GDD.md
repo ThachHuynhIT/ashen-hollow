@@ -40,4 +40,4 @@ Bạn là vua của một vương quốc nhỏ trên bàn cờ 5×5. Mỗi năm 
 
 ## Trạng thái
 
-G0 (nền UI & dọn dẹp) xong: colony sim đã xoá, hạ tầng chuyển sang `src/core`, UI kiểu Stardew (khung gỗ, tooltip), menu chính, bảng màu Hearth 32. Chưa chơi được — "Ván mới" mở ở G1. Xem [ROADMAP.md](ROADMAP.md).
+G0 (nền UI & dọn dẹp) và G1 (lõi chơi được) xong: "Ván mới" vào Vua Lúa Mì, ván 10 năm (rút 3 thẻ, chơi 1 lên bàn 5×5, trận tự động + Can Thiệp, thắng/thua ở màn kết thúc), headless + bot `random`. Tiếp theo: G2. Xem [ROADMAP.md](ROADMAP.md).

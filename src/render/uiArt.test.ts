@@ -46,6 +46,10 @@ const CORE: Record<UiFrame, number> = {
   slotSelected: UI_PALETTE.cream,
   tooltip: UI_PALETTE.creamLight,
   bar: UI_PALETTE.woodDark,
+  card: UI_PALETTE.cream,
+  cardUncommon: UI_PALETTE.cream,
+  cardRare: UI_PALETTE.cream,
+  cardSelected: UI_PALETTE.cream,
 };
 
 describe('uiArt frames', () => {
@@ -114,6 +118,18 @@ describe('uiArt frames', () => {
     const active = paintUiFrame('buttonActive');
     expect(colorAt(active, 4, 8)).toBe(UI_PALETTE.gold);
     expect(colorAt(active, 11, 8)).toBe(UI_PALETTE.gold);
+  });
+});
+
+describe('card frames', () => {
+  it('marks rarity and selection on the border', () => {
+    expect(colorAt(paintUiFrame('card'), 1, 16)).toBe(UI_PALETTE.woodLight);
+    expect(colorAt(paintUiFrame('cardUncommon'), 4, 16)).toBe(UI_PALETTE.woodLight);
+    expect(colorAt(paintUiFrame('cardRare'), 4, 16)).toBe(UI_PALETTE.gold);
+    const selected = paintUiFrame('cardSelected');
+    expect(colorAt(selected, 0, 16)).toBe(UI_PALETTE.select);
+    expect(colorAt(selected, 1, 16)).toBe(UI_PALETTE.select);
+    expect(UI_FRAMES.cardSelected.border).toBe(5);
   });
 });
 
