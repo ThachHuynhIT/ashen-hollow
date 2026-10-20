@@ -4,6 +4,7 @@ import { UI_PALETTE } from '../../data/uiPalette';
 import { describeCard } from '../../game/cards/describe';
 import type { Content } from '../../game/cards/registry';
 import { SPRITES_KEY, cardArtFrame, iconFrame } from '../../render/atlas';
+import type { IconId } from '../../render/iconArt';
 import { CARD_ART } from '../../render/cardArt';
 import type { UiFrame } from '../../render/uiArt';
 import { CARD_LIFT, ellipsize, type Size, type TooltipContent } from '../hud/layout';
@@ -22,6 +23,17 @@ const DIMMED_ALPHA = 0.55;
 /** Space between the frame border and the card's contents. */
 const PAD = 2;
 const ICON = 16;
+
+/** Icon of each card kind until G2c adds dedicated art for the new kinds. */
+const KIND_ICON: Record<CardDef['kind'], IconId> = {
+  throne: 'throne',
+  troop: 'troop',
+  tower: 'tower',
+  economy: 'crown',
+  support: 'tower',
+  enchantment: 'tome',
+  tome: 'tome',
+};
 const MAX_ART_SCALE = 3;
 
 const RARITY_FRAME: Record<CardDef['rarity'], UiFrame> = {
@@ -169,7 +181,7 @@ export class CardView {
     name.setText(ellipsize(def.nameVi, Math.max(1, inner - 2 * (ICON + PAD)), measureName));
     this.add(name);
 
-    const icon = this.addImage(iconFrame(def.kind), inset, inset)?.setOrigin(0, 0);
+    const icon = this.addImage(iconFrame(KIND_ICON[def.kind]), inset, inset)?.setOrigin(0, 0);
     const bandBottom = inset + Math.max(name.height, icon?.displayHeight ?? 0) + PAD;
 
     // Picture: largest integer scale (≤ 3) that fits the inner width.

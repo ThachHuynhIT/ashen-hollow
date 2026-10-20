@@ -1,6 +1,6 @@
 /** Thẻ thưởng sau trận thắng (spec §3.8). Thuần: chỉ đọc đầu vào, ngẫu nhiên qua `Rng`. */
 import { REWARD, rewardRarityWeights } from '../../data/run';
-import type { CardDef, CardId, Rarity } from '../../data/types';
+import type { CardDef, CardId, KingDef, Rarity } from '../../data/types';
 import type { Rng } from '../../core/random';
 
 export interface RewardPools {
@@ -58,4 +58,19 @@ export function rollOffers(
     picked.push(candidates[Math.floor(rng.next() * candidates.length)]!.id);
   }
   return picked;
+}
+
+/**
+ * Ba thẻ khác nhau của vua bại trận để chọn một (spec §3.7): xáo `king.cards` (không gồm Ngai)
+ * bằng `Rng` rồi lấy 3; vua có ít hơn 3 thẻ thì trả hết.
+ */
+export function rollConquestOffers(rng: Rng, king: KingDef, count: number = REWARD.choices): CardId[] {
+  const pool = king.cards.map((c) => c.id);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    const tmp = pool[i]!;
+    pool[i] = pool[j]!;
+    pool[j] = tmp;
+  }
+  return pool.slice(0, count);
 }

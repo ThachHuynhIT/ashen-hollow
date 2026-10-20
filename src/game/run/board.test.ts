@@ -19,11 +19,11 @@ const troop = CONTENT.card('neutral_barracks');
 const clearLand = CONTENT.card('neutral_clear_land');
 const move = CONTENT.card('neutral_move');
 
-const bld = (uid: number, cardId: BuildingState['cardId'] = 'neutral_barracks'): BuildingState => ({
+const bld = (uid: number, cardId: BuildingState['cardId'] = 'wheat_scarecrow'): BuildingState => ({
   uid,
   cardId,
   level: 1,
-  placedYear: 1,
+  enchants: [], placedYear: 1, permanent: {}
 });
 
 const withThrone = (): PlotState[] =>

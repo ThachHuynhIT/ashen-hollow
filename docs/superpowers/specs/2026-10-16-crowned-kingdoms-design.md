@@ -126,7 +126,7 @@ Ví dụ kiểm tra (dùng trong test): `battleGold(1) = 3`, `battleGold(10) = 6
 ### 3.4 Bộ bài, tay bài và đổi bài
 
 - **Bộ bài (deck)** là danh sách `CardId` có thể trùng (mỗi phần tử là một "bản"). Bộ khởi đầu của vua = mỗi thẻ thường (`common`) ×2 + mỗi thẻ vừa (`uncommon`) ×1 = 11 bản; thẻ hiếm (`rare`) chỉ có qua thưởng. Thẻ Ngai không nằm trong bộ bài.
-- **Rút bài:** `RunState` có chồng rút `drawPile` và chồng bỏ `discardPile`; `hand ∪ drawPile ∪ discardPile` luôn bằng `deck` (theo từng bản). Tay bài **giữ** giữa các năm: đầu năm chỉ rút thêm từ `drawPile` cho đủ `RUN.handSize`; `drawPile` hết thì xáo `discardPile` (bằng `Rng(stream 'draw')`) làm chồng rút mới. Thẻ đã chơi, thẻ bỏ và thẻ thưởng/chinh phục nhận được vào `discardPile`. Bộ bài ít hơn số cần rút thì rút hết, không lỗi. Tay bài và hai chồng lưu trong save (đổi bài không gian lận được bằng cách tải lại).
+- **Rút bài:** `RunState` có chồng rút `drawPile` và chồng bỏ `discardPile`; `hand ∪ drawPile ∪ discardPile` luôn bằng `deck` (theo từng bản). Tay bài **giữ** giữa các năm: đầu năm chỉ rút thêm từ `drawPile` cho đủ `RUN.handSize`; `drawPile` hết thì xáo `discardPile` (bằng `Rng(stream 'draw')`) làm chồng rút mới. Thẻ đã chơi và thẻ bỏ vào `discardPile`; thẻ thưởng/chinh phục nhận được vào **đầu `drawPile`** để có ngay trên tay năm sau. Bộ bài ít hơn số cần rút thì rút hết, không lỗi. Tay bài và hai chồng lưu trong save (đổi bài không gian lận được bằng cách tải lại).
 - **Đổi bài:** bỏ cả tay vào `discardPile`, rút lại `RUN.handSize` bản mới theo cùng luật, trả `rerollCost(n)` với `n` = số lần đã đổi trong năm + 1. Bộ đếm về 0 mỗi đầu năm.
 - **Bán/bỏ thẻ (`discard`):** bỏ đúng một thẻ đã chọn vào `discardPile` thay cho việc chơi thẻ (tay còn lại giữ nguyên), nhận `RUN.skipPlayGold` (G2+; G1 chưa có vàng).
 - Thẻ không được chơi không mất khỏi bộ bài (ở lại tay hoặc vào `discardPile`).
@@ -441,6 +441,8 @@ export interface KingDef {
 ```
 
 `PerkEffect` và `BannerEffect` là union cùng cách viết: `{ type: 'stat'; … }` (dùng lại dạng `stat` của `EffectDef`, scope `'board'`), `{ type: 'startGold'; amount }`, `{ type: 'startBuilding'; card; plot }`, `{ type: 'startUnlocked'; plots }`, `{ type: 'startLives'; lives }`, `{ type: 'freeReroll' }`, `{ type: 'interventionCooldownPct'; pct }`, `{ type: 'maxEnchantStacks'; value }`, `{ type: 'custom'; id }`. Danh sách `id` custom đóng (`CustomEffectId`, union chuỗi) để TS bắt lỗi chính tả.
+
+**Mở rộng ở G2** (kế hoạch G2a): `EffectDef` thêm `{ type: 'goldPerNeighbour'; cardId; amount: Scalar }` (vàng đầu năm cho mỗi công trình `cardId` lân cận); `StatKey` thêm `'gold'`; `stat.mode` thêm `'flatPost'` (cộng sau mọi %, dùng cho Bùa Tia Lửa); `OnHitDef` thêm `{ type: 'stun'; ticks }` và `{ type: 'rampSameTarget'; pctPerHit; cap }`; `BannerEffect` gồm `enemyCostPct`, `enemyStat` (hp/speed), `enemyShieldPct`; `Rules = { years; calendar; autoStart }` nằm trong `RunState.rules`.
 
 **Trạng thái ván** (`src/game/run/state.ts`) là dữ liệu JSON thuần (lưu được bằng `structuredClone`):
 

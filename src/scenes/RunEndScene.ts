@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { toCss } from '../data/palette';
-import { RULES_G1 } from '../data/run';
+import { RULES_G1 } from '../data/rules';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { RunState } from '../game/run/state';
 import { RESULT_BUTTON, resultLayout } from '../ui/modals/modalLayout';

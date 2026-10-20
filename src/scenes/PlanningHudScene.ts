@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
-import { RULES_G1 } from '../data/run';
+import { RULES_G1 } from '../data/rules';
 import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
@@ -45,6 +45,10 @@ export const ILLEGAL_TEXT: Record<IllegalReason, string> = {
   noBuilding: 'Ô này chưa có công trình.',
   noTarget: 'Không còn mục tiêu hợp lệ.',
   notAdjacent: 'Ô phải kề một ô đã mở.',
+  notEnoughGold: 'Không đủ vàng.',
+  maxLevel: 'Đã đạt cấp tối đa.',
+  wrongKind: 'Bùa này không gắn được lên loại công trình đó.',
+  stacksFull: 'Công trình đã đủ stack Bùa.',
   wrongPhase: 'Lúc này chưa dùng được.',
   alreadyPlayed: 'Năm nay bạn đã chơi hoặc bỏ thẻ.',
   notPlayed: 'Hãy chơi hoặc bỏ một thẻ trước.',

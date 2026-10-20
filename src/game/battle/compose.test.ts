@@ -20,6 +20,23 @@ describe('armyBudget', () => {
   });
 });
 
+describe('composeArmy attacker metadata', () => {
+  it('stays a plain raiders plan without metadata', () => {
+    const p = composeArmy(ROSTER, 10, 1, 7);
+    expect(p.attacker).toBe('raiders');
+    expect(p.attackNo).toBeUndefined();
+    expect(p.banner).toBeUndefined();
+  });
+
+  it('records a king attacker, its attack number and banner without changing the units', () => {
+    const plain = composeArmy(ROSTER, 30, 5, 3);
+    const king = composeArmy(ROSTER, 30, 5, 3, { attacker: 'stone', attackNo: 2, banner: 'stone_banner' });
+    expect(king).toMatchObject({ attacker: 'stone', attackNo: 2, banner: 'stone_banner' });
+    expect(king.waves).toEqual(plain.waves);
+    expect(king.budget).toBe(plain.budget);
+  });
+});
+
 describe('composeArmy', () => {
   it('never exceeds budget and leaves less than the cheapest unit', () => {
     for (let year = 1; year <= 10; year++) {

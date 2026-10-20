@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RULES_G1 } from '../../data/rules';
 import { ENEMY_LEVEL_STAT } from '../../data/battle';
 import { STRUCT_HP } from '../../data/scaling';
 import { composeArmy, armyBudget } from '../battle/compose';
@@ -16,12 +17,13 @@ const roster = CONTENT.raiderRoster().map((r) => ({
 
 function makeState(army: ArmyPlan | null): RunState {
   const plots = initialPlots();
-  plots[12]!.building = { uid: 0, cardId: 'wheat_throne', level: 1, placedYear: 1 };
-  plots[7]!.building = { uid: 3, cardId: 'wheat_militia', level: 1, placedYear: 1 };
-  plots[11]!.building = { uid: 5, cardId: 'neutral_archer_tower', level: 1, placedYear: 1 };
-  plots[13]!.building = { uid: 4, cardId: 'neutral_barracks', level: 1, placedYear: 2 };
+  plots[12]!.building = { uid: 0, cardId: 'wheat_throne', level: 1, enchants: [], placedYear: 1, permanent: {} };
+  plots[7]!.building = { uid: 3, cardId: 'wheat_militia', level: 1, enchants: [], placedYear: 1, permanent: {} };
+  plots[11]!.building = { uid: 5, cardId: 'neutral_archer_tower', level: 1, enchants: [], placedYear: 1, permanent: {} };
+  plots[13]!.building = { uid: 4, cardId: 'neutral_barracks', level: 1, enchants: [], placedYear: 2, permanent: {} };
   return {
     version: 1,
+    rules: RULES_G1,
     seed: 42,
     kingId: 'wheat',
     year: 1,
@@ -34,11 +36,18 @@ function makeState(army: ArmyPlan | null): RunState {
     drawPile: [],
     discardPile: [],
     autoFire: false,
+    gold: 0,
+    rerollsThisYear: 0,
+    purchasedPlots: 0,
+    idleUids: [],
+    enemyKings: [],
+    enemies: {},
+    pendingConquest: null,
     played: true,
     army,
     offers: null,
-    rng: { draw: 1, reward: 2 },
-    stats: { kills: 0, battlesWon: 0, battlesLost: 0 },
+    rng: { draw: 1, reward: 2, calendar: 3 },
+    stats: { kills: 0, battlesWon: 0, battlesLost: 0, goldEarned: 0, conquered: 0 },
     nextUid: 6,
     won: null,
   };
@@ -85,7 +94,7 @@ describe('buildBattleSetup', () => {
 
   it('maps slow on-hit for the scarecrow', () => {
     const s = makeState(army1);
-    s.plots[7]!.building = { uid: 9, cardId: 'wheat_scarecrow', level: 1, placedYear: 1 };
+    s.plots[7]!.building = { uid: 9, cardId: 'wheat_scarecrow', level: 1, enchants: [], placedYear: 1, permanent: {} };
     const t = buildBattleSetup(s, CONTENT).structures[0]!;
     expect(t.attack!.slowPct).toBe(20);
     expect(t.attack!.slowTicks).toBe(20);

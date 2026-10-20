@@ -20,6 +20,10 @@ const sy = new Float64Array(BATTLE.entityCap);
 const sr = new Float64Array(BATTLE.entityCap);
 const sFixed = new Uint8Array(BATTLE.entityCap);
 const sFlying = new Uint8Array(BATTLE.entityCap); // luôn 0 trong G1
+const sTeam = new Uint8Array(BATTLE.entityCap);
+const sAnchored = new Uint8Array(BATTLE.entityCap);
+/** Theo id: 1 nếu lính đang trong tầm mục tiêu ở bước đi vừa rồi (đứng yên đánh). */
+const engaged = new Uint8Array(BATTLE.entityCap);
 const outX = new Float64Array(BATTLE.entityCap);
 const outY = new Float64Array(BATTLE.entityCap);
 
@@ -35,6 +39,7 @@ const steer = (w: BattleWorld, i: number, rage: boolean): void => {
     const dy = w.prevY[t]! - py;
     const d = Math.sqrt(dx * dx + dy * dy);
     const gap = d - w.radius[i]! - w.radius[t]! - w.range[i]!;
+    if (gap <= 0) engaged[i] = 1;
     if (gap <= 0 || step <= 0) return; // đã trong tầm (d > 0 khi gap > 0)
     const len = Math.min(step, gap);
     w.x[i] = px + (dx / d) * len;
@@ -60,6 +65,7 @@ export const moveEntities = (world: BattleWorld): void => {
   world.prevY.set(world.y.subarray(0, n));
 
   const rage = isRage(world);
+  engaged.fill(0, 0, n);
   for (let i = 0; i < n; i++) {
     if (world.alive[i] === 1 && world.kind[i] === KIND_UNIT) steer(world, i, rage);
   }
@@ -74,13 +80,25 @@ export const moveEntities = (world: BattleWorld): void => {
     sr[m] = world.radius[i]!;
     sFixed[m] = world.kind[i] === KIND_UNIT ? 0 : 1;
     sFlying[m] = 0;
+    sTeam[m] = world.team[i]!;
+    sAnchored[m] = engaged[i]!;
     m += 1;
   }
   separationPush(
-    { count: m, x: sx, y: sy, radius: sr, fixed: sFixed, flying: sFlying },
+    {
+      count: m,
+      x: sx,
+      y: sy,
+      radius: sr,
+      fixed: sFixed,
+      flying: sFlying,
+      team: sTeam,
+      anchored: sAnchored,
+    },
     BATTLE.separationPushMax,
     outX,
     outY,
+    BATTLE.separationPushCross,
   );
 
   const lo = -BATTLE.fieldClampMargin;

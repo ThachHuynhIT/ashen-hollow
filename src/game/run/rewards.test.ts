@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/random';
 import type { CardDef } from '../../data/types';
 import { CONTENT } from '../cards/registry';
-import { rollOffers, type RewardPools } from './rewards';
+import { rollConquestOffers, rollOffers, type RewardPools } from './rewards';
 
 const king = CONTENT.king('wheat').cards;
 const neutral = CONTENT.neutralPool();
@@ -65,5 +65,42 @@ describe('rollOffers', () => {
     const share = kingCount / total;
     expect(share).toBeGreaterThan(0.55);
     expect(share).toBeLessThan(0.75);
+  });
+});
+
+describe('rollConquestOffers', () => {
+  const card = (n: number) =>
+    ({
+      id: `stone_c${n}`,
+      owner: 'stone',
+      nameVi: 'c',
+      name: 'c',
+      kind: 'troop',
+      rarity: 'common',
+      tags: [],
+      textVi: 'c',
+      effects: [],
+    }) as const;
+  const king = (n: number) => ({ cards: Array.from({ length: n }, (_, i) => card(i + 1)) }) as never;
+
+  it('rolls 3 distinct cards of the king', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const ids = rollConquestOffers(new Rng(seed), king(9));
+      expect(ids).toHaveLength(3);
+      expect(new Set(ids).size).toBe(3);
+      for (const id of ids) expect(id).toMatch(/^stone_c[1-9]$/);
+    }
+  });
+
+  it('is deterministic per seed and varies across seeds', () => {
+    expect(rollConquestOffers(new Rng(5), king(9))).toEqual(rollConquestOffers(new Rng(5), king(9)));
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 20; seed++) seen.add(rollConquestOffers(new Rng(seed), king(9)).join());
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('returns every card when the king has 3 or fewer', () => {
+    expect(rollConquestOffers(new Rng(1), king(2))).toHaveLength(2);
+    expect(rollConquestOffers(new Rng(1), king(0))).toEqual([]);
   });
 });

@@ -37,6 +37,7 @@ export const composeArmy = (
   budget: number,
   year: number,
   seed: number,
+  meta: { attacker?: ArmyPlan['attacker']; attackNo?: 1 | 2 | 3; banner?: string } = {},
 ): ArmyPlan => {
   const rng = new Rng(hashSeed(`${seed}:army:${year}`));
 
@@ -87,5 +88,8 @@ export const composeArmy = (
     waves.push({ spawnTick: WAVES.spawnTick[w]!, units });
   }
 
-  return { attacker: 'raiders', budget, level, statMult, waves };
+  const plan: ArmyPlan = { attacker: meta.attacker ?? 'raiders', budget, level, statMult, waves };
+  if (meta.attackNo !== undefined) plan.attackNo = meta.attackNo;
+  if (meta.banner !== undefined) plan.banner = meta.banner;
+  return plan;
 };

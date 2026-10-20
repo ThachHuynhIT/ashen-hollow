@@ -3,7 +3,6 @@ import type { EventBus } from '../../core/events';
 import { BattleRunner } from '../battle/BattleRunner';
 import type { Content } from '../cards/registry';
 import type { GameEvents } from '../events';
-import { RULES_G1 } from '../../data/run';
 import { buildBattleSetup } from './battleSetup';
 import { applyCommand } from './commands';
 import { hasPlayableCard } from './playable';
@@ -18,7 +17,6 @@ export class RunController {
     private readonly bus: EventBus<GameEvents>,
     private readonly content: Content,
     initial: RunState,
-    private readonly rules: { readonly autoStart: boolean } = RULES_G1,
   ) {
     this.current = initial;
     this.unsubscribe = [
@@ -87,7 +85,7 @@ export class RunController {
   private shouldAutoStart(): boolean {
     const s = this.current;
     return (
-      this.rules.autoStart &&
+      s.rules.autoStart &&
       s.phase === 'planning' &&
       (s.played || !hasPlayableCard(s, this.content))
     );

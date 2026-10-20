@@ -56,6 +56,8 @@ export const BATTLE = {
   spawnRowGap: 10,
   fieldClampMargin: 32, // đơn vị bị kẹp trong [−32, field + 32]
   separationPushMax: 1,
+  /** Trần đẩy giữa hai đơn vị khác phe: địch chen vào chỉ nhích lính ra, không hất văng. */
+  separationPushCross: 0.2,
   knockbackTicks: 3,
   maxSlowPct: 60,
   bossStunFactor: 0.5,

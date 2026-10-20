@@ -10,7 +10,7 @@ const building = (cardId: BuildingState['cardId'], level: BuildingState['level']
   uid: 1,
   cardId,
   level,
-  placedYear: 1,
+  enchants: [], placedYear: 1, permanent: {}
 });
 
 describe('buildingInfoLines', () => {

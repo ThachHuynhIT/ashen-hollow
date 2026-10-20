@@ -99,4 +99,10 @@ export const WHEAT: KingDef = {
     { unit: 'militia', weight: 50 },
     { unit: 'reaper', weight: 25 },
   ],
+  banner: {
+    id: 'wheat_banner',
+    nameVi: 'Đông Như Kiến',
+    textVi: 'Quân của vua này rẻ hơn 20% khi tính ngân sách, nên đông hơn.',
+    effects: [{ type: 'enemyCostPct', pct: -20 }],
+  },
 };
