@@ -31,6 +31,8 @@ function makeState(army: ArmyPlan | null): RunState {
     throneLevel: 1,
     deck: [],
     hand: [],
+    drawPile: [],
+    discardPile: [],
     played: true,
     army,
     offers: null,

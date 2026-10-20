@@ -2,7 +2,7 @@
 import type { CardId, KingId, Level } from '../../data/types';
 import type { ArmyPlan, BattleResult } from '../battle/types';
 
-export const RUN_SAVE_VERSION = 1;
+export const RUN_SAVE_VERSION = 2;
 
 export interface BuildingState {
   uid: number;
@@ -39,8 +39,11 @@ export interface RunState {
   lives: number;
   plots: PlotState[];
   throneLevel: Level;
+  /** Mọi thẻ đang sở hữu; `hand ∪ drawPile ∪ discardPile` luôn bằng `deck` (spec §3.4). */
   deck: CardId[];
   hand: CardId[];
+  drawPile: CardId[];
+  discardPile: CardId[];
   played: boolean;
   army: ArmyPlan | null;
   offers: OfferState | null;

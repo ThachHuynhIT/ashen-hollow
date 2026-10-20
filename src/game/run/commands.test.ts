@@ -10,8 +10,10 @@ import { runState } from '../testing/fixtures';
 import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
 import type { IllegalReason, PlayTarget, RunCommand, RunState } from './state';
-import { drawHand } from './deck';
+import { refillHand } from './deck';
 import { newRun } from './yearFlow';
+
+const sorted = (arr: readonly CardId[]): CardId[] => [...arr].sort();
 
 const roster = CONTENT.raiderRoster().map((r) => ({
   unit: r.unit.id,
@@ -64,6 +66,9 @@ describe('newRun', () => {
     expect(s.deck).toEqual([...START_DECK_G1]);
     expect(s.hand).toHaveLength(3);
     for (const c of s.hand) expect(s.deck).toContain(c);
+    expect(sorted([...s.hand, ...s.drawPile, ...s.discardPile])).toEqual(sorted(s.deck));
+    expect(s.discardPile).toEqual([]);
+    expect(s.drawPile).toHaveLength(s.deck.length - 3);
     expect(s.played).toBe(false);
     expect(s.nextUid).toBe(1);
     expect(s.won).toBeNull();
@@ -91,7 +96,7 @@ describe('newRun', () => {
 describe('play / skip', () => {
   const hand: CardId[] = ['wheat_militia', 'neutral_barracks', 'neutral_move'];
 
-  it('places a troop and consumes the hand', () => {
+  it('places a troop, keeps the other cards in hand and discards the played one', () => {
     const s = runState({ hand });
     const before = structuredClone(s);
     const r = ok(applyCommand(s, play(0, plot(6)), CONTENT));
@@ -103,7 +108,8 @@ describe('play / skip', () => {
       placedYear: s.year,
     });
     expect(r.state.nextUid).toBe(2);
-    expect(r.state.hand).toEqual([]);
+    expect(r.state.hand).toEqual(['neutral_barracks', 'neutral_move']);
+    expect(r.state.discardPile).toEqual([...s.discardPile, 'wheat_militia']);
     expect(r.state.played).toBe(true);
     expect(r.state.deck).toEqual(s.deck);
     expect(r.events).toContainEqual({ type: 'cardPlayed', cardId: 'wheat_militia' });
@@ -132,10 +138,12 @@ describe('play / skip', () => {
     expect(swapped.state.plots[7]!.building).toEqual(b6);
   });
 
-  it('skip consumes the hand', () => {
-    const r = ok(applyCommand(runState({ hand }), { type: 'skip' }, CONTENT));
+  it('skip moves the whole hand to the discard pile', () => {
+    const s = runState({ hand });
+    const r = ok(applyCommand(s, { type: 'skip' }, CONTENT));
     expect(r.state.played).toBe(true);
     expect(r.state.hand).toEqual([]);
+    expect(r.state.discardPile).toEqual([...s.discardPile, ...hand]);
   });
 });
 
@@ -271,6 +279,10 @@ describe('rewards', () => {
     const r = ok(applyCommand(s, { type: 'pickOffer', index: 0 }, CONTENT));
     expect(r.state.deck).toHaveLength(12);
     expect(r.state.deck[11]).toBe(s.offers!.cardIds[0]);
+    const picked = s.offers!.cardIds[0]!;
+    expect(
+      [...r.state.hand, ...r.state.drawPile, ...r.state.discardPile].filter((c) => c === picked),
+    ).toHaveLength(r.state.deck.filter((c) => c === picked).length);
     expect(r.state.phase).toBe('planning');
     expect(r.state.year).toBe(4);
     expect(r.state.offers).toBeNull();
@@ -332,11 +344,19 @@ describe('rng persistence', () => {
     expect(s.rng.reward).toBe(hashSeed('7:reward'));
   });
 
-  it('advance and pickOffer persist a new draw state', () => {
+  it('advance persists the draw state: unchanged without a reshuffle, advanced with one', () => {
     const ye = lostBattle();
-    const adv = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
-    expect(adv.rng.draw).not.toBe(ye.rng.draw);
+    expect(ye.drawPile.length).toBeGreaterThanOrEqual(3);
+    const plain = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
+    expect(plain.rng.draw).toBe(ye.rng.draw);
 
+    const dry = { ...ye, hand: [], drawPile: [], discardPile: [...ye.deck] };
+    const shuffled = ok(applyCommand(dry, { type: 'advance' }, CONTENT)).state;
+    expect(shuffled.rng.draw).not.toBe(ye.rng.draw);
+    expect(sorted([...shuffled.hand, ...shuffled.drawPile])).toEqual(sorted(ye.deck));
+  });
+
+  it('a won battle advances the reward stream', () => {
     const won = ok(
       applyCommand(
         runState({ phase: 'battle', hand: [], played: true, year: 3 }),
@@ -345,15 +365,25 @@ describe('rng persistence', () => {
       ),
     ).state;
     expect(won.rng.reward).not.toBe(runState().rng.reward);
-    const picked = ok(applyCommand(won, { type: 'pickOffer', index: null }, CONTENT)).state;
-    expect(picked.rng.draw).not.toBe(won.rng.draw);
   });
 
-  it('next hand equals drawHand from the persisted state', () => {
+  it('next hand equals refillHand from the persisted state', () => {
     const ye = lostBattle();
-    const expected = drawHand(ye.deck, new Rng(ye.rng.draw), 3);
+    const expected = refillHand(ye.hand, ye.drawPile, ye.discardPile, new Rng(ye.rng.draw), 3);
     const adv = ok(applyCommand(ye, { type: 'advance' }, CONTENT)).state;
-    expect(adv.hand).toEqual(expected);
+    expect(adv.hand).toEqual(expected.hand);
+    expect(adv.drawPile).toEqual(expected.drawPile);
+    expect(adv.discardPile).toEqual(expected.discardPile);
+  });
+
+  it('keeps an unplayed card in hand into the next year and only tops the hand up', () => {
+    let s = runState({ hand: ['wheat_militia', 'neutral_barracks', 'neutral_move'] });
+    s = ok(applyCommand(s, play(0, plot(6)), CONTENT)).state;
+    s = ok(applyCommand(s, { type: 'startBattle' }, CONTENT)).state;
+    s = ok(applyCommand(s, { type: 'battleResult', result: result(false) }, CONTENT)).state;
+    const next = ok(applyCommand(s, { type: 'advance' }, CONTENT)).state;
+    expect(next.hand.slice(0, 2)).toEqual(['neutral_barracks', 'neutral_move']);
+    expect(next.hand).toHaveLength(3);
   });
 });
 

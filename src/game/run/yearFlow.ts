@@ -6,7 +6,7 @@ import type { KingId } from '../../data/types';
 import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
-import { drawHand } from './deck';
+import { refillHand } from './deck';
 import { RUN_SAVE_VERSION } from './state';
 import type { RunState } from './state';
 
@@ -20,13 +20,13 @@ export function startYear(state: RunState, content: Content): RunState {
   }));
   const army = composeArmy(roster, armyBudget(year, SLOT_MULT.raiders), year, state.seed);
   const rng = new Rng(state.rng.draw);
-  const hand = drawHand(state.deck, rng, RUN.handSize);
+  const piles = refillHand(state.hand, state.drawPile, state.discardPile, rng, RUN.handSize);
   return {
     ...state,
     year,
     phase: 'planning',
     army,
-    hand,
+    ...piles,
     played: false,
     offers: null,
     rng: { ...state.rng, draw: rng.getState() },
@@ -52,6 +52,8 @@ export function newRun(seed: number, kingId: KingId, content: Content): RunState
     throneLevel: 1,
     deck: [...START_DECK_G1],
     hand: [],
+    drawPile: [],
+    discardPile: [...START_DECK_G1],
     played: false,
     army: null,
     offers: null,

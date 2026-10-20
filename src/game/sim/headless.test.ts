@@ -28,6 +28,14 @@ describe('runHeadless', () => {
     expect(outcomes.size).toBeGreaterThan(1);
   });
 
+  it('keeps hand, drawPile and discardPile equal to the deck at the end of a run', () => {
+    for (const seed of [1, 2, 3]) {
+      const { state } = runHeadless({ seed, kingId: 'wheat' });
+      const all = [...state.hand, ...state.drawPile, ...state.discardPile].sort();
+      expect(all).toEqual([...state.deck].sort());
+    }
+  });
+
   it('randomBot never emits an illegal command', () => {
     for (let seed = 100; seed < 120; seed++) {
       expect(() => runHeadless({ seed, kingId: 'wheat' })).not.toThrow();

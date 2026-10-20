@@ -57,7 +57,8 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       } else {
         return fail('badTarget');
       }
-      state.hand = [];
+      state.hand.splice(cmd.handIndex, 1);
+      state.discardPile.push(cardId);
       state.played = true;
       events.push({ type: 'cardPlayed', cardId });
       return { state, events };
@@ -66,6 +67,7 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
     case 'skip':
       if (state.phase !== 'planning') return fail('wrongPhase');
       if (state.played) return fail('alreadyPlayed');
+      state.discardPile.push(...state.hand);
       state.hand = [];
       state.played = true;
       return { state, events };
@@ -114,13 +116,14 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
     case 'pickOffer': {
       if (state.phase !== 'reward' || state.offers === null) return fail('wrongPhase');
       const { index } = cmd;
-      let deck = state.deck;
+      let { deck, discardPile } = state;
       if (index !== null) {
         const picked = Number.isInteger(index) ? state.offers.cardIds[index] : undefined;
         if (picked === undefined) return fail('badTarget');
         deck = [...deck, picked];
+        discardPile = [...discardPile, picked];
       }
-      return { state: begin({ ...state, deck }, content, events), events };
+      return { state: begin({ ...state, deck, discardPile }, content, events), events };
     }
 
     case 'advance':
