@@ -88,4 +88,58 @@ describe('battle benchmark (§8.10)', () => {
     console.info(`[benchmark] stepBattle avg ${avgMs.toFixed(3)} ms/tick over ${TICKS} ticks`);
     expect(avgMs).toBeLessThanOrEqual(LIMIT_MS);
   });
+
+  it(`G2 scenario (pulses, chains, splash, shields, taunt) averages ≤ ${LIMIT_MS} ms per tick`, () => {
+    const g2 = (): BattleSetup => {
+      const base = standardSetup();
+      return {
+        ...base,
+        structures: [
+          ...base.structures.slice(0, 8),
+          structure(2, {
+            cardId: 'stone_mountain_heart',
+            kind: 'tower',
+            pulse: { everyTicks: 40, radius: 48, dmg: 30, dmgType: 'physical', stunTicks: 10 },
+          }),
+          structure(10, { cardId: 'stone_wall', kind: 'tower', taunt: 40 }),
+          structure(22, {
+            cardId: 'arcane_ward',
+            kind: 'tower',
+            shieldPulse: { everyTicks: 50, radius: 64, amount: 20 },
+          }),
+          structure(1, {
+            cardId: 'arcane_mage_tower',
+            kind: 'tower',
+            attack: attackStats({
+              dmg: 9,
+              range: 80,
+              interval: 14,
+              projectileSpeed: 8,
+              chain: { count: 1, radius: 32, falloff: 0.6 },
+            }),
+          }),
+          structure(3, {
+            cardId: 'stone_catapult',
+            kind: 'tower',
+            attack: attackStats({ dmg: 14, range: 96, minRange: 24, interval: 25, projectileSpeed: 5, splash: 16 }),
+          }),
+        ],
+      };
+    };
+    const once = (): bigint => {
+      const w = createBattle(g2());
+      let ns = 0n;
+      for (let i = 0; i < TICKS; i++) {
+        const t0 = process.hrtime.bigint();
+        stepBattle(w, []);
+        ns += process.hrtime.bigint() - t0;
+        drainEvents(w);
+      }
+      return ns;
+    };
+    once();
+    const avgMs = Number(once()) / TICKS / 1e6;
+    console.info(`[benchmark] G2 stepBattle avg ${avgMs.toFixed(3)} ms/tick over ${TICKS} ticks`);
+    expect(avgMs).toBeLessThanOrEqual(LIMIT_MS);
+  });
 });

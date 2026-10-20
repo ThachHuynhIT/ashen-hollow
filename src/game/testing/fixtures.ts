@@ -157,6 +157,7 @@ export const contentWith = (extra: {
     card: (id) => cards.get(id) ?? CONTENT.card(id),
     unit: (id) => units.get(id) ?? CONTENT.unit(id),
     king: (id) => kingMap.get(id) ?? CONTENT.king(id),
+    kings: () => [...CONTENT.kings().filter((k) => !kingMap.has(k.id)), ...kings],
     enemyRoster: (id) => {
       const king = kingMap.get(id);
       if (!king) return CONTENT.enemyRoster(id);

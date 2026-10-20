@@ -8,6 +8,8 @@ export interface Content {
   unit(id: UnitId): UnitDef;
   king(id: KingId): KingDef;
   raiderRoster(): readonly { unit: UnitDef; weight: number }[];
+  /** Mọi vua có nội dung (theo thứ tự đăng ký). */
+  kings(): readonly KingDef[];
   /** Roster địch của một vua (đơn vị đã tra cứu, kèm trọng số). */
   enemyRoster(king: KingId): readonly { unit: UnitDef; weight: number }[];
   neutralPool(): readonly CardDef[];
@@ -43,6 +45,7 @@ function buildContent(): Content {
     unit: (id) => need(unitMap, id, 'unit'),
     king: (id) => need(kingMap, id, 'king'),
     raiderRoster: () => roster,
+    kings: () => KINGS_G2,
     enemyRoster: (id) =>
       need(kingMap, id, 'king').enemyRoster.map((r) => ({
         unit: need(unitMap, r.unit, 'unit'),
