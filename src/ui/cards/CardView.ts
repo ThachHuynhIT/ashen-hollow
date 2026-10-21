@@ -7,7 +7,8 @@ import { SPRITES_KEY, cardArtFrame, iconFrame } from '../../render/atlas';
 import type { IconId } from '../../render/iconArt';
 import { CARD_ART } from '../../render/cardArt';
 import type { UiFrame } from '../../render/uiArt';
-import { CARD_LIFT, DRAG_SLOP, ellipsize, type Size, type TooltipContent } from '../hud/layout';
+import { CARD_LIFT, DRAG_SLOP, type Size, type TooltipContent } from '../hud/layout';
+import { clampLines, nextLevelLine } from './cardText';
 import {
   addUiText,
   bindPress,
@@ -29,9 +30,9 @@ const KIND_ICON: Record<CardDef['kind'], IconId> = {
   throne: 'throne',
   troop: 'troop',
   tower: 'tower',
-  economy: 'crown',
+  economy: 'gold',
   support: 'tower',
-  enchantment: 'tome',
+  enchantment: 'enchant',
   tome: 'tome',
 };
 const MAX_ART_SCALE = 3;
@@ -43,29 +44,6 @@ const RARITY_FRAME: Record<CardDef['rarity'], UiFrame> = {
   common: 'card',
   uncommon: 'cardUncommon',
   rare: 'cardRare',
-};
-
-/** Greedy word wrap into at most `max` lines; the last line is cut with "…" if needed. */
-const clampLines = (
-  text: string,
-  width: number,
-  max: number,
-  measure: (s: string) => number,
-): string[] => {
-  const words = text.split(/\s+/).filter((w) => w.length > 0);
-  const lines: string[] = [];
-  let i = 0;
-  while (i < words.length && lines.length < max - 1) {
-    let line = words[i]!;
-    i++;
-    while (i < words.length && measure(`${line} ${words[i]}`) <= width) {
-      line = `${line} ${words[i]}`;
-      i++;
-    }
-    lines.push(ellipsize(line, width, measure));
-  }
-  if (i < words.length) lines.push(ellipsize(words.slice(i).join(' '), width, measure));
-  return lines;
 };
 
 /**
@@ -80,7 +58,7 @@ export class CardView {
   private readonly box: UiBox;
   private readonly parts: Phaser.GameObjects.GameObject[] = [];
   private def: CardDef | null = null;
-  private levelUp = false;
+  private badge: string | null = null;
   private selected = false;
   private dimmed = false;
   private handler: (() => void) | null = null;
@@ -118,9 +96,10 @@ export class CardView {
     this.render();
   }
 
-  setCard(cardId: CardId | null, opts: { levelUp?: boolean } = {}): void {
+  /** `badge`: a short green line under the picture ("Lên cấp 2"), or null. */
+  setCard(cardId: CardId | null, opts: { badge?: string | null } = {}): void {
     this.def = cardId === null ? null : this.content.card(cardId);
-    this.levelUp = opts.levelUp ?? false;
+    this.badge = opts.badge ?? null;
     this.press.cancel();
     this.render();
   }
@@ -192,7 +171,9 @@ export class CardView {
   private tooltipContent(): TooltipContent | null {
     if (!this.def) return null;
     const { title, lines } = describeCard(this.def);
-    return { title, lines: lines.map((text) => [{ text }]) };
+    const next = nextLevelLine(this.def, 1);
+    const all = next === null ? lines : [...lines, next];
+    return { title, lines: all.map((text) => [{ text }]) };
   }
 
   private render(): void {
@@ -215,10 +196,13 @@ export class CardView {
     const inset = frameBorder(this.scene, frame) + PAD;
     const inner = Math.max(1, w - 2 * inset);
     const big = w >= 100;
+    // Mini cards (king-select card row): just the name and the picture; the tooltip has the text.
+    const compact = w < 80;
 
     // Name band: wraps to up to two lines in the space right of the kind icon (top-left).
-    const nameWidth = Math.max(1, inner - ICON - PAD);
-    const name = addUiText(this.scene, inset + ICON + PAD + nameWidth / 2, inset, '', big ? 12 : 10)
+    const nameWidth = Math.max(1, compact ? inner : inner - ICON - PAD);
+    const nameX = compact ? w / 2 : inset + ICON + PAD + nameWidth / 2;
+    const name = addUiText(this.scene, nameX, inset, '', big ? 12 : compact ? 9 : 10)
       .setOrigin(0.5, 0)
       .setAlign('center')
       .setFontStyle('bold');
@@ -226,7 +210,7 @@ export class CardView {
     name.setText(clampLines(def.nameVi, nameWidth, 2, measureName).join('\n'));
     this.add(name);
 
-    const icon = this.addImage(iconFrame(KIND_ICON[def.kind]), inset, inset)?.setOrigin(0, 0);
+    const icon = compact ? null : this.addImage(iconFrame(KIND_ICON[def.kind]), inset, inset)?.setOrigin(0, 0);
     const bandBottom = inset + Math.max(name.height, icon?.displayHeight ?? 0) + PAD;
 
     // Picture: largest integer scale (≤ 3) that fits the inner width.
@@ -236,14 +220,15 @@ export class CardView {
       .setScale(scale);
     let y = bandBottom + (art?.displayHeight ?? CARD_ART.h * scale) + PAD;
 
-    if (this.levelUp) {
-      const badge = addUiText(this.scene, w / 2, y, 'Lên cấp', big ? 12 : 10, UI_PALETTE.good)
+    if (this.badge) {
+      const badge = addUiText(this.scene, w / 2, y, this.badge, big ? 12 : 10, UI_PALETTE.good)
         .setOrigin(0.5, 0)
         .setFontStyle('bold');
       this.add(badge);
       y += badge.height;
     }
 
+    if (compact) return;
     const first = describeCard(def).lines[0] ?? '';
     const text = addUiText(this.scene, w / 2, y, '', big ? 11 : 10).setOrigin(0.5, 0);
     const measure = (s: string): number => text.setText(s).width;

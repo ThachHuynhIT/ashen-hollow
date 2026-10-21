@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { toCss } from '../data/palette';
-import { RULES_G1 } from '../data/rules';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { RunState } from '../game/run/state';
 import { RESULT_BUTTON, resultLayout } from '../ui/modals/modalLayout';
@@ -12,9 +11,8 @@ import {
   type Button,
   type UiBox,
 } from '../ui/theme';
+import { runEndLines } from '../ui/runEndLines';
 import { SCENES } from './keys';
-import { newRunSeed } from './MainMenuScene';
-import type { RealmData } from './RealmScene';
 
 export interface RunEndData {
   state: RunState;
@@ -22,13 +20,6 @@ export interface RunEndData {
 
 /** Space between the panel border and its content. */
 const PAD = 16;
-
-/** The lines of the run summary (§10.8, G1 part). */
-export const runEndLines = (state: RunState): string[] => [
-  `Năm đạt được: ${state.year} / ${RULES_G1.years}`,
-  `Trận thắng: ${state.stats.battlesWon} · Trận thua: ${state.stats.battlesLost}`,
-  `Địch đã hạ: ${state.stats.kills}`,
-];
 
 /**
  * End of a run (§10.8, G1 subset): a big panel with the outcome, the year reached, battles
@@ -88,8 +79,7 @@ export class RunEndScene extends Phaser.Scene {
   }
 
   private newRun(): void {
-    const data: RealmData = { seed: newRunSeed() };
-    this.scene.start(SCENES.realm, data);
+    this.scene.start(SCENES.kingSelect);
   }
 
   private onKey(event: KeyboardEvent): void {

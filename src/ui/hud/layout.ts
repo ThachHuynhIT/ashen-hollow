@@ -215,3 +215,14 @@ export const iconScale = (w: number, h: number, box = 32): number =>
 /** Horizontal spans overlap (touching edges do not). */
 export const overlapsX = (a: Pick<Rect, 'x' | 'w'>, b: Pick<Rect, 'x' | 'w'>): boolean =>
   a.x < b.x + b.w && b.x < a.x + a.w;
+
+/**
+ * The scroll offset a drag settles on: the nearest whole row (`step` px), where `max` (the end
+ * of the content, usually not a multiple of `step`) is also a stop so the last row stays reachable.
+ */
+export const snapScroll = (scroll: number, step: number, max: number): number => {
+  const at = Math.max(0, Math.min(scroll, max));
+  if (max <= 0 || step <= 0) return 0;
+  const row = Math.min(max, Math.round(at / step) * step);
+  return Math.abs(max - at) < Math.abs(row - at) ? max : row;
+};

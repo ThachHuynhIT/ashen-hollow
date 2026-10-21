@@ -33,15 +33,42 @@ export const paintCardArt = (def: CardDef, accent: number): PixelCanvas => {
       c.fillRect(15, 7, 2, 11, accent);
       break;
     }
-    default: {
-      // Economy / support / enchantment: a bushel of wheat in the accent colour.
-      for (let i = 0; i < 5; i++) {
-        const x = 8 + i * 4;
-        c.fillRect(x, 9, 1, 11, PALETTE.soilDark);
-        c.fillRect(x - 1, 5 + (i % 2), 3, 5, PALETTE.wheat);
-        c.set(x, 4 + (i % 2), accent);
-      }
+    case 'economy':
+    case 'support':
+      c.blit(paintBuilding(def.kind, accent), 0, -8);
+      break;
+    case 'enchantment': {
+      // A glowing rune stone with a spark of the king's colour.
+      c.fillEllipse(16, 12, 7, 8, PALETTE.outline);
+      c.fillEllipse(16, 12, 6, 7, PALETTE.stoneLight);
+      c.fillRect(15, 6, 2, 12, accent);
+      c.fillRect(11, 10, 10, 2, accent);
+      c.fillRect(13, 14, 1, 1, PALETTE.gold);
+      c.fillRect(19, 8, 1, 1, PALETTE.gold);
+      break;
     }
   }
+  sigil(c, def.id, accent);
   return c;
+};
+
+/** FNV-style hash of a card id, so every card has its own small mark. */
+const hashId = (id: string): number => {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0;
+  return h;
+};
+
+/** A 3×5 mirrored glyph in the top-right corner, derived from the card id (placeholder identity). */
+const sigil = (c: PixelCanvas, id: string, accent: number): void => {
+  const bits = hashId(id);
+  const x0 = CARD_ART.w - 8;
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 3; col++) {
+      if (((bits >>> (row * 3 + col)) & 1) === 0) continue;
+      c.set(x0 + col, 2 + row, accent);
+      c.set(x0 + 5 - col, 2 + row, accent);
+    }
+    c.set(x0 + 2, 2 + row, ((bits >>> (15 + row)) & 1) === 1 ? PALETTE.white : PALETTE.outline);
+  }
 };

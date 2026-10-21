@@ -231,8 +231,13 @@ export interface Button {
   setActive: (active: boolean) => void;
   setLabel: (label: string) => void;
   setVisible: (visible: boolean) => void;
-  /** Disabled: dimmed, ignores hover and clicks (e.g. a feature that is not built yet). */
+  /**
+   * Disabled: dimmed, no hover frame and clicks do nothing — but the tooltip still shows, so
+   * it can say why (e.g. "Không đủ vàng").
+   */
   setEnabled: (enabled: boolean) => void;
+  /** New logical size (e.g. when the layout switches between desktop and phone). */
+  resize: (width: number, height: number) => void;
 }
 
 /** Opacity of a disabled button. */
@@ -245,14 +250,16 @@ export const createButton = (
   y: number,
   label: string,
   {
-    width = TOUCH_TARGET,
-    height = TOUCH_TARGET,
+    width: initialWidth = TOUCH_TARGET,
+    height: initialHeight = TOUCH_TARGET,
     fontSize = 15,
     icon,
     onClick,
     tooltip,
   }: ButtonOptions,
 ): Button => {
+  let width = initialWidth;
+  let height = initialHeight;
   const box = createPanel(scene, 'button', width, height, 0.5, 0.5);
   const children: Phaser.GameObjects.GameObject[] = [box.image];
   let text: Phaser.GameObjects.Text;
@@ -284,10 +291,12 @@ export const createButton = (
     );
   };
   const press = bindPress(scene, box.image, {
-    onClick,
+    onClick: () => {
+      if (enabled) onClick();
+    },
     tooltip,
     onState: (next) => {
-      state = next;
+      state = enabled ? next : 'idle';
       refresh();
     },
   });
@@ -304,9 +313,15 @@ export const createButton = (
       refresh();
     },
     setLabel: (value) => text.setText(value),
+    resize: (w, h) => {
+      width = w;
+      height = h;
+      box.resize(w, h);
+      container.setSize(w, h);
+    },
     setVisible: (value) => {
       container.setVisible(value);
-      if (value && enabled) {
+      if (value) {
         box.image.setInteractive();
       } else {
         box.image.disableInteractive();
@@ -318,14 +333,8 @@ export const createButton = (
     setEnabled: (value) => {
       enabled = value;
       container.setAlpha(value ? 1 : DISABLED_ALPHA);
-      if (value && container.visible) {
-        box.image.setInteractive();
-      } else {
-        box.image.disableInteractive();
-        press.cancel();
-        state = 'idle';
-        refresh();
-      }
+      if (!value) state = 'idle';
+      refresh();
     },
   };
 };

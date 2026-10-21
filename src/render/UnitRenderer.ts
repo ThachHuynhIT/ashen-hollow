@@ -3,7 +3,7 @@ import { BATTLE } from '../data/battle';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { CardId } from '../data/types';
 import { KIND_UNIT, TEAM_ALLY, type BattleWorld } from '../game/battle/world';
-import { SPRITES_KEY, buildingFrame, unitFrame } from './atlas';
+import { SPRITES_KEY, buildingFrame, fxFrame, unitFrame } from './atlas';
 import type { UnitAnim } from './unitArt';
 
 /** Frames per second of each unit animation (spec §11.3: 6–8 idle/walk, 10–12 attack). */
@@ -31,6 +31,9 @@ export class UnitRenderer {
   private readonly scene: Phaser.Scene;
   private readonly slots: (Slot | null)[] = [];
   private readonly bars: Phaser.GameObjects.Graphics;
+  /** Stars over stunned units, pooled and reused each frame. */
+  private readonly stars: Phaser.GameObjects.Image[] = [];
+  private starsUsed = 0;
   private readonly frameOk = new Map<string, boolean>();
   private readonly warned = new Set<string>();
   private world: BattleWorld | null = null;
@@ -49,6 +52,7 @@ export class UnitRenderer {
     const a = Math.min(1, Math.max(0, alpha));
     const now = this.scene.time.now;
     this.bars.clear();
+    this.starsUsed = 0;
     for (let id = 0; id < world.count; id++) {
       const known = this.slots[id];
       // Never create a sprite for an entity already dead on first sight (no flash).
@@ -67,12 +71,16 @@ export class UnitRenderer {
       sprite.setPosition(Math.round(x), Math.round(foot)).setDepth(foot);
       if (isUnit) this.animate(world, id, slot, now);
       this.drawBar(world, id, sprite, isUnit);
+      if (isUnit && world.stunTicks[id]! > 0) this.showStun(sprite);
     }
+    for (let i = this.starsUsed; i < this.stars.length; i++) this.stars[i]!.setVisible(false);
   }
 
   destroy(): void {
     this.clearSlots();
     this.bars.destroy();
+    for (const s of this.stars) s.destroy();
+    this.stars.length = 0;
     this.world = null;
   }
 
@@ -125,7 +133,8 @@ export class UnitRenderer {
   ): void {
     const hp = world.hp[id]!;
     const max = world.maxHp[id]!;
-    if (max <= 0 || (isUnit && hp >= max)) return;
+    const shield = world.shield[id]!;
+    if (max <= 0 || (isUnit && hp >= max && shield <= 0)) return;
     const w = isUnit ? Math.max(8, sprite.width - 4) : 24;
     const x = Math.round(sprite.x - w / 2);
     const y = Math.round(sprite.y - sprite.height - BAR_H - 2);
@@ -135,6 +144,25 @@ export class UnitRenderer {
     g.fillRect(x - 1, y - 1, w + 2, BAR_H + 2);
     g.fillStyle(world.team[id] === TEAM_ALLY ? UI_PALETTE.good : UI_PALETTE.bad, 1);
     g.fillRect(x, y, Math.max(1, Math.round(w * fill)), BAR_H);
+    if (shield > 0) {
+      // A pale strip just above the HP bar: the shield as a share of max HP (full width at ≥ max).
+      const sw = Math.max(1, Math.round(w * Math.min(1, shield / max)));
+      g.fillStyle(UI_PALETTE.outline, 1);
+      g.fillRect(x - 1, y - BAR_H - 2, sw + 2, BAR_H + 2);
+      g.fillStyle(UI_PALETTE.creamLight, 1);
+      g.fillRect(x, y - BAR_H - 1, sw, BAR_H);
+    }
+  }
+
+  /** Stun stars floating over a unit's head. */
+  private showStun(sprite: Phaser.GameObjects.Image): void {
+    let star = this.stars[this.starsUsed];
+    if (!star) {
+      star = this.scene.add.image(0, 0, SPRITES_KEY, fxFrame('stun')).setOrigin(0.5, 1).setDepth(BAR_DEPTH);
+      this.stars.push(star);
+    }
+    star.setPosition(sprite.x, Math.round(sprite.y - sprite.height - 2)).setVisible(true);
+    this.starsUsed += 1;
   }
 
   /** Short pop: fade out and rise a few px, then hide. */

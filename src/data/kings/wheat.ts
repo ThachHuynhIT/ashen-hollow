@@ -5,6 +5,7 @@ export const WHEAT: KingDef = {
   id: 'wheat',
   nameVi: 'Vua Lúa Mì',
   name: 'Wheat King',
+  blurbVi: 'Đông đảo lính nông dân, vàng chảy về từ ruộng đồng.',
   color: 'wheat',
   throne: {
     id: 'wheat_throne',

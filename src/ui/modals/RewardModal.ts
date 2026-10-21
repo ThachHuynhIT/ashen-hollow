@@ -15,13 +15,12 @@ import {
 import { REWARD_BUTTON, rewardLayout } from './modalLayout';
 import { createOverlay, fitOverlay } from './overlay';
 
-const TITLE = 'Phần thưởng — chọn 1 thẻ';
 /** Space between the panel border and its contents. */
 const PAD_DESKTOP = 12;
 const PAD_MOBILE = 4;
 
 /**
- * Reward picker (§10.6): title, the offered cards and **Nhận** (enabled once a card is
+ * Reward / conquest picker (§10.6): title, the offered cards and **Nhận** (enabled once a card is
  * chosen; the reward cannot be skipped). Pure display: the choice goes to `onPick`.
  * Call `layout()` on resize and `destroy()` when the reward phase ends.
  */
@@ -38,12 +37,13 @@ export class RewardModal {
     private readonly scene: Phaser.Scene,
     content: Content,
     offers: readonly CardId[],
+    title: string,
     tooltip: TooltipHost,
     private readonly onPick: (index: number) => void,
   ) {
     this.overlay = createOverlay(scene);
     this.box = createPanel(scene, 'panel', 64, 64);
-    this.title = addUiText(scene, 0, 0, TITLE, 18).setOrigin(0.5, 0).setFontStyle('bold');
+    this.title = addUiText(scene, 0, 0, title, 18).setOrigin(0.5, 0).setFontStyle('bold');
     this.cards = offers.map((id, i) => {
       const card = new CardView(scene, content, { w: 150, h: 210 }, tooltip);
       card.setCard(id);

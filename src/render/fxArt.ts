@@ -126,3 +126,54 @@ export const paintBoulderShadow = (): PixelCanvas => {
 /** 4x4 hit spark. */
 export const paintSpark = (): PixelCanvas =>
   paintBitmap(['.hh.', 'hwwh', 'hwwh', '.hh.'], { h: PALETTE.gold, w: PALETTE.white });
+
+/** 16x16 burst at a pulsing structure: a gold star with a white core. */
+export const paintPulse = (): PixelCanvas =>
+  paintBitmap(
+    [
+      '.......hh.......',
+      '.......hh.......',
+      '.......hh.......',
+      '..h....hh....h..',
+      '...h...ww...h...',
+      '....h..ww..h....',
+      '.....hhwwhh.....',
+      'hhhhhhwwwwhhhhhh',
+      'hhhhhhwwwwhhhhhh',
+      '.....hhwwhh.....',
+      '....h..ww..h....',
+      '...h...ww...h...',
+      '..h....hh....h..',
+      '.......hh.......',
+      '.......hh.......',
+      '.......hh.......',
+    ],
+    { h: PALETTE.gold, w: PALETTE.white },
+  );
+
+/** 16x16 shield bubble over a warded unit: a water-blue ring with a highlight. */
+export const paintShieldFx = (): PixelCanvas => {
+  const c = new PixelCanvas(16, 16);
+  c.fillEllipse(8, 8, 7.5, 7.5, PALETTE.waterDeep);
+  c.fillEllipse(8, 8, 6.5, 6.5, PALETTE.water, 90);
+  c.fillEllipse(8, 8, 5.5, 5.5, PALETTE.waterLight, 50);
+  c.fillRect(4, 4, 2, 2, PALETTE.white);
+  c.set(6, 6, PALETTE.white);
+  return c;
+};
+
+/** 8x8 stars circling a stunned unit's head. */
+export const paintStun = (): PixelCanvas =>
+  paintBitmap(
+    [
+      '.h....h.',
+      'hwh..hwh',
+      '.h....h.',
+      '........',
+      '...hh...',
+      '..hwwh..',
+      '...hh...',
+      '........',
+    ],
+    { h: PALETTE.gold, w: PALETTE.white },
+  );

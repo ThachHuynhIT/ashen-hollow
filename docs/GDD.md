@@ -40,4 +40,4 @@ Bạn là vua của một vương quốc nhỏ trên bàn cờ 5×5. Mỗi năm 
 
 ## Trạng thái
 
-G0 (nền UI & dọn dẹp) và G1 (lõi chơi được) xong: "Ván mới" vào Vua Lúa Mì, ván 10 năm (rút 3 thẻ, chơi 1 lên bàn 5×5, trận tự động + Can Thiệp, thắng/thua ở màn kết thúc), headless + bot `random`. Tiếp theo: G2. Xem [ROADMAP.md](ROADMAP.md).
+G0, G1 và G2 xong: "Ván mới" → chọn 1 trong 3 vua (Lúa Mì, Đá Núi, Phép Thuật), ván 15 năm (rút 3 thẻ, chơi hoặc bán 1 thẻ lên bàn 5×5, vàng để đổi bài và mua ô, cấp và Bùa, lịch với hai vua địch và cờ hiệu, chinh phục vua sau lần tấn công thứ 3, trận tự động + Can Thiệp), headless + bot `random`. Tiếp theo: G3. Xem [ROADMAP.md](ROADMAP.md).

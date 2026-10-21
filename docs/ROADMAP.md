@@ -15,7 +15,9 @@ Game đổi thể loại từ colony sim sang **roguelite xây vương quốc + 
 
 ## Trạng thái
 
-**G0 ✔ · G1 ✔** — G1 chơi được: "Ván mới" → Vua Lúa Mì, 10 năm, thắng/thua kết thúc ở `RunEndScene`; headless 3 seed, test deterministic + benchmark (0,36 ms/tick) pass. Tiếp theo: **G2**.
+**G0 ✔ · G1 ✔ · G2 ✔** — G2 chơi được trong trình duyệt: "Ván mới" → Chọn vua (Lúa Mì / Đá Núi / Phép Thuật) → ván 15 năm (vàng, đổi bài, bán bài, mua ô, cấp, Bùa, sách, lịch với hai vua địch và cờ hiệu, chinh phục), bố cục desktop 1280×720 và mobile 375×812. Tiếp theo: **G3** (ván 30 năm, hội đồng, nhiệm vụ, boss, lưu ván).
+
+G2 theo plan `docs/superpowers/plans/2026-10-20-g2-depth.md` (G2a lõi, G2b trận + nội dung, G2c giao diện). Kiểm "Done khi": ba vua chạy trọn 15 năm headless (3 vua × 3 seed) và qua `RunController` + bus trong trình duyệt (Đá Núi thắng tới năm 15 và chinh phục một vua; Phép Thuật thua năm 12); mỗi thẻ G2 có test hiệu ứng (`cardCoverage.test.ts` kiểm mọi `CardId` có mặt trong test); chinh phục hai vua ở `conquest.test.ts`; đổi bài và mua ô trừ vàng đúng công thức (`commands.test.ts`); bố cục chọn vua, thưởng, chinh phục, Bộ bài, lịch có test hai kích thước.
 
 G1 polish đã xong (plan `docs/superpowers/plans/2026-10-20-g2-depth.md`, Phần A): bài chưa dùng ở lại tay (chồng rút/bỏ), `discard` thay `skip`, trận tự bắt đầu sau khi chơi/bán thẻ (`RULES_G1.autoStart`, G2 tắt), Đá Tảng tự bắn (bật/tắt, chung hồi chiêu), Khai Hoang mở ô bất kỳ, camera chung hai pha + nền kín màn hình, nút Địch xem lại các đợt trong trận, bấm nhà/lính xem thông tin.
 
@@ -24,6 +26,14 @@ Việc còn lại / lỗ hổng đã biết từ G1 (làm ở lượt art/G5, kh
 - Nút Can Thiệp đang vuông (chưa có art nút riêng).
 - Cân bằng G1 chưa đo: bot `random` thắng dễ; cân bằng thật thuộc G5 (`tools/balance.ts`).
 - `src/platform` và `src/audio` vẫn chưa tạo (G3 lưu ván, G5 âm thanh).
+
+Lỗ hổng đã biết sau G2 (không chặn G3):
+
+- Art vẫn là placeholder sinh bằng code (chân dung vua, ảnh thẻ chỉ khác nhau bởi dấu hiệu nhỏ); khung panel/nút/thẻ dùng Kenney Pixel UI Pack (CC0), màu ngoài `UI_PALETTE` (ngoại lệ đã đăng ký trong `docs/ART_STYLE.md`).
+- Trận mô phỏng đủ cơ chế G2b nhưng hiệu ứng xung/khiên/choáng mới chỉ xem bằng mắt; chưa có ảnh chụp đối chiếu.
+- Kéo thả thẻ chưa thử bằng cảm ứng thật; cuộn hàng thẻ (Bộ bài, chọn vua) bằng bánh xe/kéo chuột.
+- Minor G2a/G2b còn hoãn: luồng RNG lịch không lưu sau `pickEnemyKings`; bot `random` dùng hành động G2 dưới luật G1; chinh phục ở năm cuối của luật rút gọn không cho thẻ; tooltip Tim Núi chưa tính cấp; khiên yếu có thể ghi đè khiên mạnh; choáng/làm chậm kéo dài N−1 tick.
+- Cân bằng: bot `random` thắng Lúa Mì 0/20, Đá Núi 17/20, Phép Thuật 11/20 — cân bằng thật là G5.
 
 G2b (trận và nội dung 3 vua, chưa có giao diện — G2c): ba vua Lúa Mì / Đá Núi / Phép Thuật chạy trọn 15 năm headless (3 vua × 3 seed, deterministic); benchmark `stepBattle` 0,38 ms/tick (chuẩn) và 0,40 ms/tick (có xung, chuỗi, splash, khiên). Chỉ để tham khảo, cân bằng thật là G5: bot `random`, 20 seed mỗi vua ở luật G2, thắng ván Lúa Mì 0/20 (năm trung bình 7,8), Đá Núi 17/20 (14,3), Phép Thuật 11/20 (13,8).
 

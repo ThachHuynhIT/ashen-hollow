@@ -15,7 +15,6 @@ import {
   type UiBox,
 } from '../ui/theme';
 import { SCENES } from './keys';
-import type { RealmData } from './RealmScene';
 
 const TITLE = 'Crowned Kingdoms';
 const SUBTITLE = 'Một vương quốc nhỏ, chín ngai vàng';
@@ -27,8 +26,7 @@ const FIREFLIES = 24;
 
 /**
  * One §10.2 menu button. Buttons of features that do not exist yet are simply not listed
- * ("Tiếp tục" G3, "Vương Miện" G4, "Cài đặt" G5). In G1 "Ván mới" starts a run straight
- * away (King select arrives in G2).
+ * ("Tiếp tục" G3, "Vương Miện" G4, "Cài đặt" G5). "Ván mới" opens the king select.
  */
 interface MenuEntry {
   readonly label: string;
@@ -44,8 +42,7 @@ const MENU_ENTRIES: readonly MenuEntry[] = [
     label: 'Ván mới',
     enabled: true,
     onClick: (scene) => {
-      const data: RealmData = { seed: newRunSeed() };
-      scene.scene.start(SCENES.realm, data);
+      scene.scene.start(SCENES.kingSelect);
     },
   },
 ];

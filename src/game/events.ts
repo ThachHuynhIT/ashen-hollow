@@ -19,6 +19,8 @@ export interface GameEvents {
   'ui:pending-play': { handIndex: number | null; targets: number[]; ready: boolean };
   /** A hand card dropped on a plot: select it, aim at the plot and play it if that is all it needs. */
   'ui:drop-card': { handIndex: number; plot: number };
+  /** A locked plot picked for purchase (null = none); ✓ buys it, ✕ drops it. */
+  'ui:pending-buy': { plot: number | null; price: number };
   'ui:confirm-play': Record<string, never>;
   'ui:cancel-play': Record<string, never>;
   'ui:set-speed': { speed: GameSpeed };
@@ -27,7 +29,7 @@ export interface GameEvents {
   'ui:continue': Record<string, never>;
   /** A tap on the realm: the plot with a building under it (null = none), at screen (x, y). */
   'ui:inspect': { plot: number | null; x: number; y: number };
-  'ui:open-modal': { modal: 'scout' };
+  'ui:open-modal': { modal: 'scout' | 'calendar' | 'deck' };
   'ui:close-modal': Record<string, never>;
 }
 

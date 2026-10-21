@@ -5,6 +5,7 @@ export const STONE: KingDef = {
   id: 'stone',
   nameVi: 'Vua Đá Núi',
   name: 'Stone King',
+  blurbVi: 'Tháp đá bền chắc và người đá chậm mà dai; bóp nghẹt kẻ địch bằng pháo.',
   color: 'stone',
   throne: {
     id: 'stone_throne',

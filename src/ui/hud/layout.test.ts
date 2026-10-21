@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  snapScroll,
   clampScroll,
   ellipsize,
   fitHotbar,
@@ -170,5 +171,26 @@ describe('helpers', () => {
       lines: [[{ text: 'Bắn tên vào địch gần Ngai nhất.' }]],
     });
     expect(textContent([])).toEqual({ title: undefined, lines: [] });
+  });
+});
+
+describe('snapScroll', () => {
+  it('snaps to the nearest whole row', () => {
+    expect(snapScroll(0, 142, 568)).toBe(0);
+    expect(snapScroll(60, 142, 568)).toBe(0);
+    expect(snapScroll(80, 142, 568)).toBe(142);
+    expect(snapScroll(300, 142, 568)).toBe(284);
+  });
+
+  it('treats the end of the content as a snap point so the last row can be reached', () => {
+    // maxScroll 190 is not a multiple of the 142 step: 175 is nearer the end than row 1.
+    expect(snapScroll(175, 142, 190)).toBe(190);
+    expect(snapScroll(150, 142, 190)).toBe(142);
+    expect(snapScroll(99999, 142, 190)).toBe(190);
+  });
+
+  it('clamps and copes with nothing to scroll', () => {
+    expect(snapScroll(-50, 142, 190)).toBe(0);
+    expect(snapScroll(70, 142, 0)).toBe(0);
   });
 });

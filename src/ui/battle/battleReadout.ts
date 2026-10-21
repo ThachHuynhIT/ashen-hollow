@@ -49,3 +49,23 @@ export const interventionCooldown = (world: BattleWorld): InterventionCooldown =
     seconds: Math.ceil(left / TICKS_PER_SECOND),
   };
 };
+
+export interface SummaryInput {
+  kills: number;
+  lives: number;
+  /** Battle length already formatted ("m:ss"). */
+  time: string;
+  /** Gold the battle paid (prize and conquest bonus); 0 = none shown. */
+  goldGain: number;
+  /** Display name of the king conquered by this battle, if any. */
+  conquered: string | null;
+}
+
+/** The lines of the post-battle summary panel (§10.7). */
+export const summaryLines = (s: SummaryInput): string[] => [
+  `Địch đã hạ: ${s.kills}`,
+  `Mạng còn: ${s.lives}`,
+  `Thời gian: ${s.time}`,
+  ...(s.goldGain > 0 ? [`Vàng nhận: +${s.goldGain}`] : []),
+  ...(s.conquered !== null ? [`Đã chinh phục ${s.conquered}!`] : []),
+];

@@ -55,8 +55,13 @@ describe('planningLayout', () => {
     expect(l.year).toEqual({ x: 560, y: 10, w: 160, h: 52 });
     expect(l.board).toEqual({ x: 480, y: 200, w: 320, h: 320 });
     expect(l.zoom).toBe(2);
-    expect(l.scout.x).toBe(1010);
-    expect(l.scout.w).toBe(260);
+    expect(l.scout).toMatchObject({ x: 1010, w: 260, y: 92, h: 428 });
+    expect(l.scoutButton).toBeNull();
+    expect(l.gold).toEqual({ x: 134, y: 10, w: 120, h: 52 });
+    expect(l.calendar[0]).toEqual({ x: 994, y: 10, w: 52, h: 52 });
+    expect(l.sell).toEqual({ x: 296, y: 658, w: 140, h: 52 });
+    expect(l.reroll).toEqual({ x: 296, y: 598, w: 140, h: 52 });
+    expect(l.deck).toEqual({ x: 844, y: 658, w: 140, h: 52 });
     expect(l.hand).toHaveLength(3);
     expect(l.hand[0]).toEqual({ x: 448, y: 542, w: 120, h: 168 });
     expect(l.hand[2]!.x).toBe(448 + 2 * 132);
@@ -68,14 +73,17 @@ describe('planningLayout', () => {
     const l = planningLayout(MOBILE);
     expect(l.desktop).toBe(false);
     expect(l.lives).toEqual({ x: 10, y: 10, w: 96, h: 48 });
-    expect(l.year.x).toBe(110);
+    expect(l.gold).toEqual({ x: 110, y: 10, w: 96, h: 48 });
+    expect(l.year.x).toBe(210);
     expect(l.year.x + l.year.w).toBe(365);
-    expect(l.board).toEqual({ x: 28, y: 124, w: 320, h: 320 });
+    expect(l.board).toEqual({ x: 28, y: 180, w: 320, h: 320 });
     expect(l.zoom).toBe(2);
     expect(l.hand).toHaveLength(3);
     expect(l.hand[0]).toEqual({ x: 18, y: 650, w: 108, h: 152 });
     expect(l.hand[1]!.x).toBe(134);
-    expect(l.scout).toEqual({ x: 10, y: 508, w: 355, h: 130 });
+    expect(l.scout).toBeNull();
+    expect(l.scoutButton).toEqual({ x: 313, y: 64, w: 52, h: 52 });
+    expect(l.calendar).toHaveLength(5);
   });
 
   for (const [name, screen] of [
@@ -86,34 +94,54 @@ describe('planningLayout', () => {
       const l = planningLayout(screen);
       for (const card of l.hand) {
         const lifted = { ...card, y: card.y - CARD_LIFT };
-        expectSeparate({ lifted, scout: l.scout, board: l.board, skip: l.skip });
+        expectSeparate({ lifted, board: l.board, sell: l.sell, reroll: l.reroll, deck: l.deck });
       }
     });
   }
 
+  const ODD: Size = { w: 900, h: 600 };
   for (const [name, screen] of [
     ['desktop', DESKTOP],
     ['mobile', MOBILE],
+    ['odd 900×600', ODD],
   ] as const) {
     it(`keeps every rect on screen, buttons ≥ 44 and parts apart (${name})`, () => {
       const l = planningLayout(screen);
-      for (const r of [l.lives, l.year, l.board, l.scout, ...l.hand, l.skip, l.fight])
-        expect(inside(r, screen), JSON.stringify(r)).toBe(true);
-      for (const b of [l.skip, l.fight, l.confirm, l.cancel]) {
-        expect(b.w).toBeGreaterThanOrEqual(44);
-        expect(b.h).toBeGreaterThanOrEqual(44);
-      }
-      // `fight` replaces the hand once a card is played, so it is left out on purpose.
-      expectSeparate({
+      const named: Record<string, Rect> = {
         lives: l.lives,
+        gold: l.gold,
         year: l.year,
         board: l.board,
-        scout: l.scout,
         hand0: l.hand[0]!,
         hand1: l.hand[1]!,
         hand2: l.hand[2]!,
-        skip: l.skip,
-      });
+        sell: l.sell,
+        reroll: l.reroll,
+        deck: l.deck,
+        ...Object.fromEntries(l.calendar.map((r, i) => [`cal${i}`, r])),
+      };
+      if (l.scout) named.scout = l.scout;
+      if (l.scoutButton) named.scoutButton = l.scoutButton;
+      for (const [n, r] of Object.entries(named)) expect(inside(r, screen), `${n} ${JSON.stringify(r)}`).toBe(true);
+      expect(inside(l.fight, screen)).toBe(true);
+      expect(l.calendar).toHaveLength(5);
+      for (const c of l.calendar) {
+        expect(c.w).toBe(52);
+        expect(c.h).toBe(52);
+      }
+      for (const b of [l.sell, l.reroll, l.deck, l.fight, l.confirm, l.cancel, ...(l.scoutButton ? [l.scoutButton] : [])]) {
+        expect(b.w).toBeGreaterThanOrEqual(44);
+        expect(b.h).toBeGreaterThanOrEqual(44);
+      }
+      // `fight` replaces the hand once a card is played; confirm/cancel appear only while aiming.
+      expectSeparate(named);
+      // Exactly one of the scout panel (desktop) and the scout button (mobile).
+      expect((l.scout === null) !== (l.scoutButton === null)).toBe(true);
+      expect(l.desktop ? l.scout !== null : l.scoutButton !== null).toBe(true);
+      // ✓/✕ and the hint never sit on the calendar or the buttons.
+      for (const r of [l.confirm, l.cancel, l.hint])
+        for (const other of [...l.calendar, l.reroll, l.sell, l.deck])
+          expect(overlaps(r, other), JSON.stringify(r)).toBe(false);
     });
   }
 
@@ -285,9 +313,10 @@ describe('hint rect', () => {
       expectSeparate({
         hint: l.hint,
         lives: l.lives,
+        gold: l.gold,
         year: l.year,
         board: l.board,
-        scout: l.scout,
+        ...(l.scout ? { scout: l.scout } : {}),
         ...(l.desktop ? {} : { confirm: l.confirm, cancel: l.cancel }),
       });
     });
@@ -374,6 +403,7 @@ describe('battleLayout', () => {
       const all = {
         clock: l.clock,
         lives: l.lives,
+        gold: l.gold,
         foes: l.foes,
         intervene: l.intervene,
         auto: l.auto,
@@ -391,7 +421,9 @@ describe('battleLayout', () => {
     expect(intervene.y + intervene.h).toBe(710);
   });
 
-  it('reuses the planning lives panel', () => {
+  it('reuses the planning lives and gold panels', () => {
+    expect(battleLayout(DESKTOP).gold).toEqual(planningLayout(DESKTOP).gold);
+    expect(battleLayout(MOBILE).gold).toEqual(planningLayout(MOBILE).gold);
     expect(battleLayout(DESKTOP).lives).toEqual(planningLayout(DESKTOP).lives);
     expect(battleLayout(MOBILE).lives).toEqual(planningLayout(MOBILE).lives);
   });
