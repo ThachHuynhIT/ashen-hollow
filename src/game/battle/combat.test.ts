@@ -580,9 +580,23 @@ describe('stun', () => {
     queueDamage(w, f, 1, DMG_PHYSICAL, -1, undefined, -1, 10);
     queueDamage(w, f, 1, DMG_PHYSICAL, -1, undefined, -1, 5);
     applyDamagePhase(w);
-    expect(w.stunTicks[f]).toBe(10);
-    for (let i = 0; i < 10; i++) statusPhase(w);
+    expect(w.stunTicks[f]).toBe(11); // 10 ticks + the rest of the tick it landed
+    for (let i = 0; i < 11; i++) statusPhase(w);
     expect(w.stunTicks[f]).toBe(0);
+  });
+
+  it('keeps the victim locked for exactly the stun ticks that follow the hit', () => {
+    const w = world();
+    const f = unit(w, TEAM_FOE, 100, 100, { hp: 100 });
+    queueDamage(w, f, 1, DMG_PHYSICAL, -1, undefined, -1, 10);
+    applyDamagePhase(w); // tick T: the stun lands after the action steps
+    statusPhase(w); // …and step 9 of the same tick runs
+    let locked = 0;
+    while (w.stunTicks[f]! > 0 && locked < 50) {
+      locked++; // a following tick whose action steps see the stun
+      statusPhase(w);
+    }
+    expect(locked).toBe(10);
   });
 
   it('is gained from the onHit stun of the attacker, on the primary target only', () => {
@@ -593,7 +607,7 @@ describe('stun', () => {
     w.target[a] = main;
     attackPhase(w);
     applyDamagePhase(w);
-    expect(w.stunTicks[main]).toBe(10);
+    expect(w.stunTicks[main]).toBe(11);
     expect(w.stunTicks[other]).toBe(0);
   });
 

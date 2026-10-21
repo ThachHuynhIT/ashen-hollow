@@ -45,7 +45,9 @@ export const shieldPulsePhase = (world: BattleWorld): void => {
       const dx = world.x[j]! - world.x[i]!;
       const dy = world.y[j]! - world.y[i]!;
       if (dx * dx + dy * dy > r2) continue;
-      world.shield[j] = Math.min(world.shield[j]! + amount, amount * 2);
+      // Capped at twice this ward's amount, but never below what a stronger ward already gave.
+      const held = world.shield[j]!;
+      world.shield[j] = Math.max(held, Math.min(held + amount, amount * 2));
       world.events.push({ type: 'shield', id: j });
     }
   }

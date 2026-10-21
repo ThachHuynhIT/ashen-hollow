@@ -571,3 +571,19 @@ describe('Arcane King (spec §6.5)', () => {
     expect(structureAt(one, 6).attack!.dmg).toBeCloseTo(structureAt(onePlain, 6).attack!.dmg, 9);
   });
 });
+
+describe('tooltips at the viewed level (spec §5.6)', () => {
+  it('Tim Núi shows its pulse radius and damage scaled by level', () => {
+    const heart = CONTENT.card('stone_mountain_heart');
+    expect(describeCard(heart, 1).lines[0]).toContain('48 px');
+    expect(describeCard(heart, 1).lines[0]).toContain('30 sát');
+    expect(describeCard(heart, 3).lines[0]).toContain('56 px'); // 48 + TOWER_RANGE[2]
+    expect(describeCard(heart, 3).lines[0]).toContain('51 sát'); // 30 × TOWER_STD[2]
+  });
+
+  it('a tower shows damage and range scaled by level', () => {
+    const line = describeCard(CONTENT.card('wheat_scarecrow'), 3).lines[0]!;
+    expect(line).toContain('tầm 80'); // 72 + 8
+    expect(line).toContain(`${Math.round(6 * 1.7)} sát`);
+  });
+});
