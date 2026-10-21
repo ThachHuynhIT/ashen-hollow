@@ -17,7 +17,7 @@ import { FxRenderer } from '../render/FxRenderer';
 import { UnitRenderer } from '../render/UnitRenderer';
 import { buildSpritesTexture } from '../render/atlas';
 import { DRAG_SLOP, type Size } from '../ui/hud/layout';
-import { lockedPlotTap, plotHighlights } from '../ui/planning/targetHints';
+import { lockedPlotTap, plotHighlights, plotIllegalReason } from '../ui/planning/targetHints';
 import { lockedPlotPrice } from '../ui/realm/calendarModel';
 import { realmCamera, realmCameraMix } from '../ui/realm/realmLayout';
 import { SCENES } from './keys';
@@ -316,6 +316,14 @@ export class RealmScene extends Phaser.Scene {
     const aimedId = this.pending ? state.hand[this.pending.handIndex] : undefined;
     const aiming = aimedId === undefined ? null : CONTENT.card(aimedId);
     if (plot !== null && state.plots[plot]?.unlocked === false) {
+      if (aiming !== null) {
+        // A tap has no hover or long-press: say why the aimed card cannot go on this plot.
+        const reason = plotIllegalReason(state.plots, aiming, this.pending?.targets ?? [], plot);
+        if (reason !== null) {
+          this.bus.emit('run:illegal', { reason });
+          return;
+        }
+      }
       const tap = lockedPlotTap(state, plot, aiming);
       if (tap.kind === 'buy') {
         this.bus.emit('ui:inspect', { plot: null, x: pointer.x, y: pointer.y });

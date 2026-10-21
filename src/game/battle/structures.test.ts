@@ -97,6 +97,18 @@ describe('shieldPulsePhase', () => {
     expect(w.shield[foe]).toBe(0);
   });
 
+  it('a weaker ward never shrinks a shield a stronger ward gave', () => {
+    const w = world([
+      structure(6, { shieldPulse: { everyTicks: 50, radius: 64, amount: 40 } }),
+      structure(7, { shieldPulse: { everyTicks: 50, radius: 64, amount: 20 } }),
+    ]);
+    const a = unit(w, TEAM_ALLY, 180, 160);
+    w.shield[a] = 80; // the strong ward's cap
+    w.tick = 50;
+    shieldPulsePhase(w);
+    expect(w.shield[a]).toBe(80);
+  });
+
   it('emits a shield event per shielded unit and nothing from a destroyed structure', () => {
     const { w, a } = setup();
     w.tick = 50;

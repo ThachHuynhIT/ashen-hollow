@@ -1,3 +1,4 @@
+import { TOWER_RANGE, TOWER_STD } from '../../data/scaling';
 import type { AttackSpec, CardDef, EffectDef, Level, Scalar } from '../../data/types';
 
 /** Nội dung mô tả thẻ; cùng hình dạng với TooltipContent nhưng game không import ui. */
@@ -15,8 +16,11 @@ export function resolvePlaceholders(text: string, values: Readonly<Record<string
   });
 }
 
-function attackValues(attack: AttackSpec): Record<string, number> {
-  const out: Record<string, number> = { dmg: attack.dmg, range: attack.range };
+/** `level` scales a tower / pulse attack like the battle does (TOWER_STD damage, TOWER_RANGE range). */
+function attackValues(attack: AttackSpec, level?: Level): Record<string, number> {
+  const dmg = level === undefined ? attack.dmg : Math.round(attack.dmg * TOWER_STD[level - 1]!);
+  const range = level === undefined ? attack.range : attack.range + TOWER_RANGE[level - 1]!;
+  const out: Record<string, number> = { dmg, range };
   const slow = attack.onHit?.find((h) => h.type === 'slow');
   if (slow) out.slowPct = slow.pct;
   return out;
@@ -36,14 +40,14 @@ function effectValues(effects: readonly EffectDef[], level: Level): Record<strin
       if (e.stat === 'unitCount') out.count = scalarAt(e.value, level);
       else if (e.mode === 'pct') out.pct = scalarAt(e.value, level);
     }
-    else if (e.type === 'tower') Object.assign(out, attackValues(e.attack));
+    else if (e.type === 'tower') Object.assign(out, attackValues(e.attack, level));
     else if (e.type === 'shieldPulse') {
       out.amount = scalarAt(e.amount, level);
       out.radius = e.radius;
     }
     else if (e.type === 'pulse') {
-      Object.assign(out, attackValues(e.attack));
-      out.radius = scalarAt(e.radius, level);
+      Object.assign(out, attackValues(e.attack, level));
+      out.radius = scalarAt(e.radius, level) + TOWER_RANGE[level - 1]!;
     }
   }
   return out;

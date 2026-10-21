@@ -338,7 +338,8 @@ export const applyDamagePhase = (world: BattleWorld): void => {
     if (world.hp[v]! <= 0) world.killerUid[v] = q.sourceUid;
     else {
       applySlow(world, v, q.slowPct, q.slowTicks);
-      if (q.stunTicks > 0) world.stunTicks[v] = Math.max(world.stunTicks[v]!, q.stunTicks);
+      // +1: step 9 of this very tick decrements it, so the victim stays locked `stunTicks` ticks after this one.
+      if (q.stunTicks > 0) world.stunTicks[v] = Math.max(world.stunTicks[v]!, q.stunTicks + 1);
     }
   }
 };

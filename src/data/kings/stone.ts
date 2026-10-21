@@ -1,4 +1,5 @@
 /** Vua Đá Núi (spec §6.4): tháp, người đá trâu bò. */
+import { BATTLE } from '../battle';
 import type { KingDef } from '../types';
 
 export const STONE: KingDef = {
@@ -116,7 +117,7 @@ export const STONE: KingDef = {
       structureHp: [400, 550, 700, 850, 1000],
       effects: [
         { type: 'stat', scope: 'self', stat: 'armor', mode: 'flat', value: 0.3 },
-        { type: 'taunt', radius: 40 },
+        { type: 'taunt', radius: BATTLE.tauntRadiusDefault },
         { type: 'stat', scope: 'neighbours', stat: 'structureHp', mode: 'pct', value: 20 },
       ],
     },
