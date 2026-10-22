@@ -16,6 +16,7 @@ import {
   sacrificeBuilding,
   unlockPlot,
 } from './board';
+import { enactDecree, selectDecree, setCouncilSelection } from './council';
 import { handLimit, rerollPrice, rewardCount } from './decrees';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
@@ -289,10 +290,19 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       return { state: begin({ ...picked, pendingConquest: null }, content, events), events };
     }
 
-    // Hội đồng và nhiệm vụ: luật thật ở G3a-A3/A4; ngoài pha của chúng thì không hợp lệ.
     case 'chooseDecree':
     case 'setCouncilSelection':
-    case 'enactDecree':
+    case 'enactDecree': {
+      const r =
+        cmd.type === 'chooseDecree'
+          ? selectDecree(state, cmd.index)
+          : cmd.type === 'setCouncilSelection'
+            ? setCouncilSelection(state, cmd.selection, content)
+            : enactDecree(state, content);
+      return typeof r === 'string' ? fail(r) : { state: r, events };
+    }
+
+    // Nhiệm vụ: luật thật ở G3a-A4.
     case 'answerQuest':
       return fail('wrongPhase');
 

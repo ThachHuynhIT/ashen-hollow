@@ -39,6 +39,16 @@ export function enqueueOffers(state: RunState, offers: readonly OfferState[]): R
 }
 
 /**
+ * Đóng bước đang mở: mở bước kế trong hàng đợi nguyên vẹn (không roll lại), hết hàng đợi thì về
+ * `yearEnd` — điểm nghỉ nội bộ trước khi sang năm (`advance`).
+ */
+export function closeOffer(state: RunState): RunState {
+  const [next, ...rest] = state.pendingOffers;
+  if (next === undefined) return { ...state, offers: null, pendingOffers: [], phase: 'yearEnd' };
+  return { ...state, offers: next, pendingOffers: rest, phase: phaseOf(next) };
+}
+
+/**
  * Nửa sau của đầu năm: rút bài rồi về pha lập kế hoạch. Chỉ chạy khi `yearStartPendingDraw`;
  * gọi lần nữa không đổi gì (không rút lại, không đổi RNG).
  */
