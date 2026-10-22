@@ -221,6 +221,8 @@ export class BattleWorld {
   readonly flying = new Uint8Array(BATTLE.entityCap);
   /** 1 = boss: miễn đẩy / kéo. */
   readonly boss = new Uint8Array(BATTLE.entityCap);
+  /** 1 = đã sống lại một lần (Bất Tử và `reviveOnce` dùng chung, không ai sống lại hai lần). */
+  readonly revived = new Uint8Array(BATTLE.entityCap);
   /** 1 = còn đòn xung phong chưa dùng; 1 = còn một lần sống lại. */
   readonly chargeReady = new Uint8Array(BATTLE.entityCap);
   readonly reviveReady = new Uint8Array(BATTLE.entityCap);
@@ -247,6 +249,22 @@ export class BattleWorld {
   souls: [number, number] = [0, 0];
   /** Vàng thu/chi trong trận (cướp biển…); cộng vào kết quả trận. */
   goldDelta = 0;
+
+  // ---- cờ hiệu của vua địch cần logic trong trận (§6.6–6.11) ----
+  /** Tái Sinh: % HP tối đa địch hồi mỗi giây. */
+  regenPct = 0;
+  /** Đếm Ngược: mọi địch +`bannerRampPps`% DMG mỗi giây, tối đa `bannerRampCap`% (cộng với tăng tiến riêng). */
+  bannerRampPps = 0;
+  bannerRampCap = 0;
+  /** Bất Tử: số địch còn được sống lại và HP% khi sống lại. */
+  undyingLeft = 0;
+  undyingHpPct = 0;
+  /** Cướp Bóc: mỗi `lootEveryPct`% HP Ngai mất thêm mất `lootGold` vàng, tối đa `lootMax`; theo dõi mốc HP thấp nhất. */
+  lootEveryPct = 0;
+  lootGold = 0;
+  lootMax = 0;
+  lootSteps = 0;
+  throneMinHp = 0;
 
   // Thống kê (BattleResult)
   kills = 0;
@@ -287,6 +305,21 @@ export class BattleWorld {
       this.boulderDmgPct = setup.intervention.dmgPct;
       this.boulderRadius = setup.intervention.radius;
       this.cooldownTicks = setup.intervention.cooldownTicks;
+    }
+    for (const e of setup.banner?.effects ?? []) {
+      if (e.type === 'enemyRegenPct') this.regenPct += e.pct;
+      else if (e.type === 'enemyRampDmg') {
+        this.bannerRampPps = e.pctPerSecond;
+        this.bannerRampCap = e.cap;
+      } else if (e.type === 'undying') {
+        const total = setup.waves.reduce((n, w) => n + w.spawns.length, 0);
+        this.undyingLeft = Math.floor((total * e.pct) / 100);
+        this.undyingHpPct = e.hpPct;
+      } else if (e.type === 'throneGoldLoss') {
+        this.lootEveryPct = e.everyPct;
+        this.lootGold = e.gold;
+        this.lootMax = e.max;
+      }
     }
   }
 
@@ -544,7 +577,7 @@ function initBehaviours(w: BattleWorld, id: number, stats: UnitStats): void {
         break; // deathSpawn đã có ở addUnit; boss là việc của task boss
     }
   }
-  if (w.prewind[id]! > 0) w.tuned[id] = 1;
+  if (w.prewind[id]! > 0 || (w.team[id] === TEAM_FOE && w.bannerRampPps > 0)) w.tuned[id] = 1;
 }
 
 /** Vị trí lính thứ k quanh tâm (§8.7): SPAWN_OFFSETS[k % 16], vòng thứ hai trở đi × 1.5 làm tròn. */
@@ -558,6 +591,7 @@ export const spawnOffset = (k: number): { dx: number; dy: number } => {
 export const createBattle = (setup: BattleSetup): BattleWorld => {
   const w = new BattleWorld(setup);
   addStructure(w, setup.throne, true);
+  w.throneMinHp = w.maxHp[w.throneId]!;
   const sorted = [...setup.structures].sort((a, b) => a.plot - b.plot || a.uid - b.uid);
   for (const s of sorted) addStructure(w, s, false);
   for (const s of sorted) {

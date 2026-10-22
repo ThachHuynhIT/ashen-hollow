@@ -1,0 +1,66 @@
+import type { EnemyKingDef } from '../types';
+
+/** Vua Thuỷ Triều (spec §6.7) phía kẻ địch: cướp biển, cướp vàng. Thẻ chinh phục: G3b-B3. */
+export const TIDE_ENEMY: EnemyKingDef = {
+  id: 'tide',
+  nameVi: 'Vua Thuỷ Triều',
+  name: 'Tide King',
+  color: 'water',
+  units: [
+    {
+      id: 'pirate',
+      nameVi: 'Cướp Biển',
+      hp: 30,
+      attack: { dmg: 6, type: 'physical', range: 2, interval: 10 },
+      speed: 1.1,
+      radius: 4,
+      armor: 0,
+      tags: ['melee', 'pirate'],
+      enemyCost: 1.0,
+      sprite: { w: 16, h: 16 },
+    },
+    {
+      id: 'hookman',
+      nameVi: 'Lính Móc Câu',
+      hp: 45,
+      attack: {
+        dmg: 8,
+        type: 'physical',
+        range: 40,
+        interval: 14,
+        projectileSpeed: 6,
+        onHit: [{ type: 'pull', px: 16, every: 4 }],
+      },
+      speed: 0.9,
+      radius: 4,
+      armor: 0.05,
+      tags: ['ranged', 'pirate'],
+      enemyCost: 1.8,
+      sprite: { w: 16, h: 24 },
+    },
+    {
+      id: 'musketeer',
+      nameVi: 'Lính Hoả Mai',
+      hp: 28,
+      attack: { dmg: 12, type: 'physical', range: 72, interval: 24, projectileSpeed: 10 },
+      speed: 0.8,
+      radius: 4,
+      armor: 0,
+      tags: ['ranged', 'pirate'],
+      enemyCost: 2.0,
+      sprite: { w: 16, h: 24 },
+    },
+  ],
+  enemyRoster: [
+    { unit: 'pirate', weight: 55 },
+    { unit: 'hookman', weight: 25 },
+    { unit: 'musketeer', weight: 20 },
+  ],
+  banner: {
+    id: 'tide_banner',
+    nameVi: 'Cướp Bóc',
+    textVi: 'Mỗi lần Ngai mất thêm 10% máu tối đa trong trận, bạn mất 1 vàng (tối đa 3 mỗi trận).',
+    effects: [{ type: 'throneGoldLoss', everyPct: 10, gold: 1, max: 3 }],
+  },
+  conquestCards: [],
+};

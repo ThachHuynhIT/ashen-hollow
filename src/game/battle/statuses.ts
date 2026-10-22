@@ -6,7 +6,7 @@
  */
 import { STATUS } from '../../data/battle';
 import { mitigate } from './damage';
-import { KIND_UNIT, heal, type BattleWorld } from './world';
+import { KIND_UNIT, TEAM_FOE, heal, type BattleWorld } from './world';
 
 /** Khoá bỏng/độc của quân địch cách xa khoá uid công trình (uid < 1e6). */
 export const FOE_KEY_BASE = 1_000_000;
@@ -61,6 +61,13 @@ export function tickStatuses(w: BattleWorld): void {
         const dy = w.y[j]! - w.y[i]!;
         if (dx * dx + dy * dy <= r2) heal(w, j, w.auraHps[i]!);
       }
+    }
+  }
+  if (pulse && w.regenPct > 0) {
+    // Tái Sinh (§6.6): mọi địch hồi một phần HP tối đa mỗi giây, theo id tăng dần.
+    for (let i = 0; i < w.count; i++) {
+      if (w.alive[i] === 0 || w.team[i] !== TEAM_FOE || w.kind[i] !== KIND_UNIT) continue;
+      heal(w, i, (w.maxHp[i]! * w.regenPct) / 100);
     }
   }
   const live: typeof w.dots = [];

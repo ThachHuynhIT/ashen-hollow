@@ -19,7 +19,7 @@ export function startYear(state: RunState, content: Content): RunState {
   const year = state.year + 1;
   const slot = calendarFor(state.rules)[year - 1] ?? { kind: 'raiders' as const };
   const kingId = slot.kind === 'king' ? state.enemyKings[slot.king - 1] : undefined;
-  const king = kingId === undefined ? null : content.king(kingId);
+  const king = kingId === undefined ? null : content.enemyKing(kingId);
   // Cờ hiệu `enemyCostPct` làm đổi giá đơn vị khi tính ngân sách (spec §3.6).
   const costMult =
     1 +

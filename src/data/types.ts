@@ -282,13 +282,41 @@ export type BannerEffect =
   | { readonly type: 'enemyCostPct'; readonly pct: number }
   | { readonly type: 'enemyStat'; readonly stat: 'hp' | 'speed'; readonly pct: number }
   /** Mỗi địch xuất hiện với khiên = pct% HP tối đa. */
-  | { readonly type: 'enemyShieldPct'; readonly pct: number };
+  | { readonly type: 'enemyShieldPct'; readonly pct: number }
+  /** Tái Sinh: mọi địch hồi pct% HP tối đa mỗi giây. */
+  | { readonly type: 'enemyRegenPct'; readonly pct: number }
+  /** Giáp Sắt: địch +add giáp (kẹp 0.75). */
+  | { readonly type: 'enemyArmor'; readonly add: number }
+  /** Đếm Ngược: địch +pctPerSecond% DMG mỗi giây, tối đa cap%. */
+  | { readonly type: 'enemyRampDmg'; readonly pctPerSecond: number; readonly cap: number }
+  /** Bất Tử: floor(pct% tổng địch) địch đầu tiên bị hạ sống lại một lần với hpPct% HP. */
+  | { readonly type: 'undying'; readonly pct: number; readonly hpPct: number }
+  /** Cướp Bóc: mỗi everyPct% HP Ngai mất thêm, người chơi mất gold vàng (tối đa max mỗi trận). */
+  | { readonly type: 'throneGoldLoss'; readonly everyPct: number; readonly gold: number; readonly max: number }
+  /** Đột Kích: mỗi đợt thêm count mép xuất hiện. */
+  | { readonly type: 'extraEdge'; readonly count: number };
 
 export interface BannerDef {
   readonly id: string;
   readonly nameVi: string;
   readonly textVi: string;
   readonly effects: readonly BannerEffect[];
+}
+
+/**
+ * Phần của một vua cần khi họ là KẺ ĐỊCH: nhận diện, đơn vị, roster, cờ hiệu và các thẻ có thể
+ * thưởng khi chinh phục (spec §3.7). Sáu vua chưa chơi được chỉ tồn tại dưới dạng này.
+ */
+export interface EnemyKingDef {
+  readonly id: KingId;
+  readonly nameVi: string;
+  readonly name: string;
+  readonly color: PaletteColor;
+  readonly units: readonly UnitDef[];
+  readonly enemyRoster: readonly { readonly unit: UnitId; readonly weight: number }[];
+  readonly banner: BannerDef;
+  /** Thẻ của vua này (không gồm Ngai) để chọn khi chinh phục. */
+  readonly conquestCards: readonly CardDef[];
 }
 
 export interface KingDef {

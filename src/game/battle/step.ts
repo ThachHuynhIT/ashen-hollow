@@ -4,7 +4,7 @@
  * chết → kiểm tra kết thúc, rồi `tick += 1`. Không dùng Rng.
  */
 import { BATTLE } from '../../data/battle';
-import { tickBehaviours } from './behaviours';
+import { bannerPhase, tickBehaviours } from './behaviours';
 import { applyDamagePhase, attackPhase, deathPhase, projectilePhase, statusPhase } from './combat';
 import { autoFirePhase, boulderPhase, setAutoFire, tryIntervene } from './intervention';
 import { moveEntities } from './movement';
@@ -68,6 +68,7 @@ export const stepBattle = (world: BattleWorld, inputs: readonly BattleCommand[])
   statusPhase(world); // (9)
   tickStatuses(world); // bỏng, độc, hồi máu theo giây
   deathPhase(world); // (10)
+  bannerPhase(world); // cờ hiệu theo dõi HP Ngai
   checkEnd(world); // (11)
   world.tick += 1;
 };

@@ -19,6 +19,7 @@ export function tickBehaviours(w: BattleWorld): void {
     const souls = w.souls[w.team[i] === TEAM_FOE ? TEAM_FOE : 0]!;
     const soulBonus = w.soulPct[i]! * souls;
     let dmgPct = soulBonus + Math.min(w.rampDmgPps[i]! * secs, w.rampDmgCap[i]!);
+    if (w.team[i] === TEAM_FOE && w.bannerRampPps > 0) dmgPct += Math.min(w.bannerRampPps * secs, w.bannerRampCap);
     let speedPct = 0;
     if (w.stepEvery[i]! > 0) {
       const stacks = Math.min(Math.floor((w.tick + w.prewind[i]! * STATUS.everyTicks) / w.stepEvery[i]!), w.stepMax[i]!);
@@ -93,11 +94,38 @@ export function hitBehaviours(w: BattleWorld, source: number, target: number, de
  * gọi bỏ qua cái chết (không hạ gục, không mất lính, không sinh lính con).
  */
 export function deathBehaviours(w: BattleWorld, id: number): boolean {
-  if (w.reviveReady[id] === 0) return false;
-  w.reviveReady[id] = 0;
-  w.hp[id] = (w.maxHp[id]! * w.revivePct[id]!) / 100;
+  let pct: number;
+  if (w.reviveReady[id] === 1) {
+    w.reviveReady[id] = 0;
+    pct = w.revivePct[id]!;
+  } else if (w.undyingLeft > 0 && w.team[id] === TEAM_FOE && w.kind[id] === KIND_UNIT && w.revived[id] === 0) {
+    // Bất Tử (§6.10): những địch đầu tiên bị hạ sống lại; một đơn vị không bao giờ sống lại hai lần.
+    w.undyingLeft -= 1;
+    pct = w.undyingHpPct;
+  } else {
+    return false;
+  }
+  w.revived[id] = 1;
+  w.hp[id] = (w.maxHp[id]! * pct) / 100;
   w.killerUid[id] = -1;
   w.killerId[id] = -1;
   w.events.push({ type: 'revive', id });
   return true;
+}
+
+/**
+ * Cờ hiệu Cướp Bóc (§6.7), sau bước chết: theo dõi mức HP Ngai thấp nhất; mỗi `lootEveryPct`% HP
+ * tối đa mất thêm (mốc cao nhất đã đạt, hồi máu rồi mất lại không tính hai lần) người chơi mất
+ * `lootGold` vàng, tối đa `lootMax` mỗi trận.
+ */
+export function bannerPhase(w: BattleWorld): void {
+  if (w.lootGold <= 0) return;
+  const hp = Math.max(w.hp[w.throneId]!, 0);
+  if (hp < w.throneMinHp) w.throneMinHp = hp;
+  const max = w.maxHp[w.throneId]!;
+  const steps = Math.min(Math.floor(((max - w.throneMinHp) * 100) / (max * w.lootEveryPct)), w.lootMax);
+  if (steps > w.lootSteps) {
+    w.goldDelta -= (steps - w.lootSteps) * w.lootGold;
+    w.lootSteps = steps;
+  }
 }

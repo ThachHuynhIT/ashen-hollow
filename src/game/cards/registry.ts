@@ -1,7 +1,7 @@
-import { KINGS_G2 } from '../../data/kings';
+import { ENEMY_KINGS, KINGS_G2 } from '../../data/kings';
 import { NEUTRAL_CARDS, NEUTRAL_UNITS } from '../../data/neutral';
 import { RAIDER_ROSTER, RAIDER_UNITS } from '../../data/raiders';
-import type { CardDef, CardId, KingDef, KingId, UnitDef, UnitId } from '../../data/types';
+import type { CardDef, CardId, EnemyKingDef, KingDef, KingId, UnitDef, UnitId } from '../../data/types';
 
 export interface Content {
   card(id: CardId): CardDef;
@@ -12,6 +12,12 @@ export interface Content {
   kings(): readonly KingDef[];
   /** Roster địch của một vua (đơn vị đã tra cứu, kèm trọng số). */
   enemyRoster(king: KingId): readonly { unit: UnitDef; weight: number }[];
+  /** Phần kẻ địch của một vua (cả 6 vua chưa chơi được), kể cả cờ hiệu và thẻ chinh phục. */
+  enemyKing(id: KingId): EnemyKingDef;
+  /** Cả 9 vua dưới dạng kẻ địch, theo id. */
+  enemyKings(): readonly EnemyKingDef[];
+  /** Thẻ có thể chọn khi chinh phục vua `id` (không gồm Ngai). */
+  conquestCards(id: KingId): readonly CardDef[];
   neutralPool(): readonly CardDef[];
   /** Mọi thẻ (Ngai, thẻ vua, thẻ trung lập), sắp theo id. */
   allCards(): readonly CardDef[];
@@ -25,9 +31,11 @@ const byId = <T extends { readonly id: string }>(items: readonly T[]): T[] =>
 function buildContent(): Content {
   const cards = byId([
     ...KINGS_G2.flatMap((k) => [k.throne, ...k.cards]),
+    ...ENEMY_KINGS.flatMap((k) => (KINGS_G2.some((g) => g.id === k.id) ? [] : k.conquestCards)),
     ...NEUTRAL_CARDS,
   ]);
-  const units = byId([...KINGS_G2.flatMap((k) => k.units), ...NEUTRAL_UNITS, ...RAIDER_UNITS]);
+  const units = byId([...ENEMY_KINGS.flatMap((k) => k.units), ...NEUTRAL_UNITS, ...RAIDER_UNITS]);
+  const enemyMap = new Map<string, EnemyKingDef>(ENEMY_KINGS.map((k) => [k.id, k]));
   const cardMap = new Map<string, CardDef>(cards.map((c) => [c.id, c]));
   const unitMap = new Map<string, UnitDef>(units.map((u) => [u.id, u]));
   const kingMap = new Map<string, KingDef>(KINGS_G2.map((k) => [k.id, k]));
@@ -47,10 +55,13 @@ function buildContent(): Content {
     raiderRoster: () => roster,
     kings: () => KINGS_G2,
     enemyRoster: (id) =>
-      need(kingMap, id, 'king').enemyRoster.map((r) => ({
+      need(enemyMap, id, 'king').enemyRoster.map((r) => ({
         unit: need(unitMap, r.unit, 'unit'),
         weight: r.weight,
       })),
+    enemyKing: (id) => need(enemyMap, id, 'king'),
+    enemyKings: () => ENEMY_KINGS,
+    conquestCards: (id) => need(enemyMap, id, 'king').conquestCards,
     neutralPool: () => NEUTRAL_CARDS,
     allCards: () => cards,
     allUnits: () => units,

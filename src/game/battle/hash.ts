@@ -155,8 +155,14 @@ export const hashWorld = (world: BattleWorld): number => {
   }
   h = mixU8(h, world.dmgType, n);
   h = mixU8(h, world.pulseDmgType, n);
-  for (const a of [world.flying, world.boss, world.chargeReady, world.reviveReady, world.tuned]) h = mixU8(h, a, n);
+  for (const a of [world.flying, world.boss, world.chargeReady, world.reviveReady, world.revived, world.tuned]) h = mixU8(h, a, n);
   h = mixNum(h, world.goldDelta);
+  h = mixNum(h, world.undyingLeft);
+  h = mixNum(h, world.regenPct);
+  h = mixNum(h, world.bannerRampPps);
+  h = mixNum(h, world.bannerRampCap);
+  h = mixNum(h, world.lootSteps);
+  h = mixNum(h, world.throneMinHp);
   h = mixNum(h, world.souls[0]);
   h = mixNum(h, world.souls[1]);
   h = mixWord(h, world.dots.length);

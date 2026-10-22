@@ -79,6 +79,7 @@ const unitStats = (
   banner: readonly BannerEffect[] = [],
   speedScale = 1,
 ): UnitStats => {
+  const armorAdd = banner.reduce((sum, e) => (e.type === 'enemyArmor' ? sum + e.add : sum), 0);
   const hpMult = 1 + pctOf(banner, (e) => e.type === 'enemyStat' && e.stat === 'hp') / 100;
   const speedMult = (1 + pctOf(banner, (e) => e.type === 'enemyStat' && e.stat === 'speed') / 100) * speedScale;
   const hp = u.hp * mult * hpMult;
@@ -89,7 +90,7 @@ const unitStats = (
     hp,
     speed: u.speed * speedMult,
     radius: u.radius,
-    armor: u.armor,
+    armor: clamp(u.armor + armorAdd, 0, 0.75),
     siege,
     sprite: { w: u.sprite.w, h: u.sprite.h },
     shield: (hp * pctOf(banner, (e) => e.type === 'enemyShieldPct')) / 100,
@@ -231,7 +232,8 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
   });
 
   const mult = ENEMY_LEVEL_STAT[army.level - 1]! * army.statMult;
-  const banner = army.attacker === 'raiders' ? [] : content.king(army.attacker).banner.effects;
+  const bannerDef = army.attacker === 'raiders' ? null : content.enemyKing(army.attacker).banner;
+  const banner = bannerDef?.effects ?? [];
   const speedScale = foeSpeedMult(state);
   const waves: WaveSetup[] = army.waves.map((w) => ({
     spawnTick: w.spawnTick,
@@ -250,6 +252,7 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
     structures,
     waves,
     autoFire: state.autoFire,
+    ...(bannerDef ? { banner: bannerDef } : {}),
     // Vắng khi không có sắc lệnh/nhiệm vụ: trận giữ số gốc §7.4 (G1/G2).
     ...(state.decrees.length > 0 || state.interventionDmgPct > 0
       ? { intervention: interventionStats(state) }

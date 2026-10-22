@@ -1,5 +1,6 @@
 /** Dựng setup trận nhỏ cho test (không dùng trong mã chạy thật). */
 import type { BannerDef, CardDef, KingDef, KingId, UnitDef } from '../../data/types';
+import { enemyFromKing } from '../../data/kings';
 import { CONTENT, type Content } from '../cards/registry';
 import { newRun } from '../run/yearFlow';
 import type { RunState } from '../run/state';
@@ -158,6 +159,15 @@ export const contentWith = (extra: {
     unit: (id) => units.get(id) ?? CONTENT.unit(id),
     king: (id) => kingMap.get(id) ?? CONTENT.king(id),
     kings: () => [...CONTENT.kings().filter((k) => !kingMap.has(k.id)), ...kings],
+    enemyKing: (id) => {
+      const king = kingMap.get(id);
+      return king ? enemyFromKing(king) : CONTENT.enemyKing(id);
+    },
+    enemyKings: () => CONTENT.enemyKings().map((k) => (kingMap.has(k.id) ? enemyFromKing(kingMap.get(k.id)!) : k)),
+    conquestCards: (id) => {
+      const king = kingMap.get(id);
+      return king ? king.cards : CONTENT.conquestCards(id);
+    },
     enemyRoster: (id) => {
       const king = kingMap.get(id);
       if (!king) return CONTENT.enemyRoster(id);

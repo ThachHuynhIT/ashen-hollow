@@ -1,4 +1,5 @@
 import type {
+  BannerDef,
   CardId,
   DamageType,
   KingId,
@@ -158,6 +159,8 @@ export interface BattleSetup {
   throne: StructureSetup;
   structures: readonly StructureSetup[];
   waves: readonly WaveSetup[];
+  /** Cờ hiệu của vua tấn công (chỉ hiệu ứng cần logic trong trận); vắng với Thổ Phỉ, Liên Quân, boss. */
+  banner?: BannerDef;
   /** Đá Tảng tự bắn ngay từ đầu trận (mặc định tắt). */
   autoFire?: boolean;
   /** Can Thiệp đã chốt cho trận (sắc lệnh + nhiệm vụ); vắng = số gốc §7.4. */

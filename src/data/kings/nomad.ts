@@ -1,0 +1,65 @@
+import type { EnemyKingDef } from '../types';
+
+/** Vua Du Mục (spec §6.11) phía kẻ địch: kỵ binh xung phong. Thẻ chinh phục: G3b-B5. */
+export const NOMAD_ENEMY: EnemyKingDef = {
+  id: 'nomad',
+  nameVi: 'Vua Du Mục',
+  name: 'Nomad King',
+  color: 'sand',
+  units: [
+    {
+      id: 'rider',
+      nameVi: 'Kỵ Binh',
+      hp: 50,
+      attack: { dmg: 9, type: 'physical', range: 2, interval: 10 },
+      speed: 2.0,
+      radius: 5,
+      armor: 0.05,
+      tags: ['melee', 'cavalry'],
+      behaviours: [{ type: 'charge', dmgMult: 2, knockback: 8, stunTicks: 0 }],
+      enemyCost: 2.0,
+      sprite: { w: 24, h: 24 },
+    },
+    {
+      id: 'horse_archer',
+      nameVi: 'Cung Kỵ',
+      hp: 34,
+      attack: { dmg: 6, type: 'physical', range: 56, interval: 12, projectileSpeed: 8 },
+      speed: 1.8,
+      radius: 5,
+      armor: 0,
+      tags: ['ranged', 'cavalry'],
+      behaviours: [{ type: 'kite', distance: 24 }],
+      enemyCost: 1.8,
+      sprite: { w: 24, h: 24 },
+    },
+    {
+      id: 'khan_guard',
+      nameVi: 'Thiết Kỵ',
+      hp: 110,
+      attack: { dmg: 14, type: 'physical', range: 2, interval: 12 },
+      speed: 1.6,
+      radius: 6,
+      armor: 0.2,
+      tags: ['melee', 'cavalry'],
+      behaviours: [{ type: 'charge', dmgMult: 2, knockback: 0, stunTicks: 10 }],
+      enemyCost: 4.5,
+      sprite: { w: 24, h: 24 },
+    },
+  ],
+  enemyRoster: [
+    { unit: 'rider', weight: 45 },
+    { unit: 'horse_archer', weight: 40 },
+    { unit: 'khan_guard', weight: 15 },
+  ],
+  banner: {
+    id: 'nomad_banner',
+    nameVi: 'Đột Kích',
+    textVi: 'Địch +25% tốc; mỗi đợt thêm 1 mép xuất hiện.',
+    effects: [
+      { type: 'enemyStat', stat: 'speed', pct: 25 },
+      { type: 'extraEdge', count: 1 },
+    ],
+  },
+  conquestCards: [],
+};
