@@ -321,6 +321,11 @@ export class BattleWorld {
   /** Hồi chiêu Can Thiệp sau khi giảm. */
   cooldownTicks: number = INTERVENTION.cooldownTicks;
 
+  /** Id thực thể của boss (−1 tới khi xuất hiện), đã xuất hiện chưa, và tick xuất hiện. */
+  bossId = -1;
+  bossSpawned = false;
+  bossSpawnTick = -1;
+
   /** Trận đã kết thúc (§8.8); khi đó stepBattle không làm gì nữa. */
   ended = false;
   won = false;

@@ -1,5 +1,8 @@
 /** Dựng BattleSetup từ RunState (spec §5.3: G1 = cấp 1; §3.6: cấp địch). Thuần, không sửa đầu vào. */
-import { EMBER_TICKS, ENEMY_LEVEL_STAT } from '../../data/battle';
+import { EMBER_TICKS, ENEMY_LEVEL_STAT, WAVES } from '../../data/battle';
+import { BOSSES } from '../../data/bosses';
+import { BOSS_SUMMON_UNITS } from '../../data/raiders';
+import { RUN } from '../../data/run';
 import {
   MAX_UNITS_PER_BUILDING,
   STRUCT_HP,
@@ -15,6 +18,8 @@ import type { Content } from '../cards/registry';
 import type {
   AttackStats,
   BattleSetup,
+  BossSetup,
+  Edge,
   StructureSetup,
   UnitStats,
   WaveSetup,
@@ -344,6 +349,54 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
   };
 };
 
+/** Mép đầu tiên của đợt 2 (nơi boss xuất hiện); nếu đợt 2 trống thì mép đầu tiên có quân, rồi `N`. */
+const bossEdge = (army: NonNullable<RunState['army']>): Edge => {
+  const second = army.waves[1]?.units[0]?.edge;
+  if (second !== undefined) return second;
+  for (const wave of army.waves) if (wave.units[0] !== undefined) return wave.units[0].edge;
+  return 'N';
+};
+
+/**
+ * Boss của năm (§7.3): HP nhân `1 + difficultyBudgetStep × gai` (không nhân hệ số cấp địch), quân triệu hồi
+ * và Bóng Gương (boss 3) dựng sẵn để trận không tra registry.
+ */
+const bossSetup = (
+  state: RunState,
+  army: NonNullable<RunState['army']>,
+  content: Content,
+  structures: readonly StructureSetup[],
+  speedScale: number,
+): BossSetup | undefined => {
+  if (army.boss === undefined) return undefined;
+  const def = BOSSES.find((b) => b.id === army.boss);
+  if (def === undefined) throw new Error(`Unknown boss ${army.boss}`);
+  const stats = unitStats(def.unit, 1, def.unit.tags.includes('siege'), content, [], speedScale);
+  stats.hp = def.unit.hp * (1 + RUN.difficultyBudgetStep * state.difficulty);
+  const summons: Record<string, UnitStats> = {};
+  for (const u of BOSS_SUMMON_UNITS) summons[u.id] = unitStats(u, 1, false, content, [], speedScale);
+
+  let mirror: BossSetup['mirror'] = null;
+  if (def.ordinal === 3) {
+    let best: StructureSetup | null = null;
+    for (const s of structures) {
+      if (s.kind !== 'troop' || s.spawn === null) continue;
+      const level = state.plots[s.plot]!.building!.level;
+      const bestLevel = best === null ? 0 : state.plots[best.plot]!.building!.level;
+      if (level > bestLevel || (level === bestLevel && best !== null && s.plot < best.plot)) best = s;
+    }
+    if (best !== null) {
+      const unit = content.unit(best.spawn!.stats.unit);
+      const mult = ENEMY_LEVEL_STAT[army.level - 1]! * army.statMult;
+      mirror = {
+        stats: unitStats(unit, mult, false, content, [], speedScale),
+        count: Math.max(1, Math.floor(best.spawn!.count / 2)),
+      };
+    }
+  }
+  return { id: def.id, ordinal: def.ordinal, spawnTick: WAVES.spawnTick[1], edge: bossEdge(army), stats, summons, mirror };
+};
+
 export function buildBattleSetup(state: RunState, content: Content): BattleSetup {
   const army = state.army;
   if (army === null) throw new Error('buildBattleSetup: state.army is null');
@@ -375,6 +428,8 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
     }),
   }));
 
+  const boss = bossSetup(state, army, content, structures, speedScale);
+
   return {
     year: state.year,
     throne: structureFor(state, THRONE_PLOT, content),
@@ -382,6 +437,7 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
     waves,
     autoFire: state.autoFire,
     ...(bannerDef ? { banner: bannerDef } : {}),
+    ...(boss ? { boss } : {}),
     // Vắng khi không có sắc lệnh/nhiệm vụ: trận giữ số gốc §7.4 (G1/G2).
     ...(state.decrees.length > 0 || state.interventionDmgPct > 0
       ? { intervention: interventionStats(state) }

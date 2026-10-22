@@ -50,6 +50,12 @@ export const UNIT_CLOTH: Readonly<Record<UnitId, number>> = {
   rider: PALETTE.sand,
   horse_archer: PALETTE.path,
   khan_guard: PALETTE.soil,
+  // Boss và quân boss triệu hồi (placeholder; art chốt ở G3d/G5)
+  boss_bog_ogre: PALETTE.leafDark,
+  boss_hornet_queen: PALETTE.gold,
+  boss_crownless_king: PALETTE.shadow,
+  frog: PALETTE.grass,
+  hornet: PALETTE.wheat,
 };
 
 export const unitCloth = (def: UnitDef): number => UNIT_CLOTH[def.id] ?? PALETTE.blue;

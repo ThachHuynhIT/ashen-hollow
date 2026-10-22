@@ -1,6 +1,7 @@
 import { ENEMY_KINGS, KINGS_G2 } from '../../data/kings';
 import { NEUTRAL_CARDS, NEUTRAL_UNITS } from '../../data/neutral';
-import { RAIDER_ROSTER, RAIDER_UNITS } from '../../data/raiders';
+import { BOSSES } from '../../data/bosses';
+import { BOSS_SUMMON_UNITS, RAIDER_ROSTER, RAIDER_UNITS } from '../../data/raiders';
 import type { CardDef, CardId, EnemyKingDef, KingDef, KingId, UnitDef, UnitId } from '../../data/types';
 
 export interface Content {
@@ -34,7 +35,13 @@ function buildContent(): Content {
     ...ENEMY_KINGS.flatMap((k) => (KINGS_G2.some((g) => g.id === k.id) ? [] : k.conquestCards)),
     ...NEUTRAL_CARDS,
   ]);
-  const units = byId([...ENEMY_KINGS.flatMap((k) => k.units), ...NEUTRAL_UNITS, ...RAIDER_UNITS]);
+  const units = byId([
+    ...ENEMY_KINGS.flatMap((k) => k.units),
+    ...NEUTRAL_UNITS,
+    ...RAIDER_UNITS,
+    ...BOSS_SUMMON_UNITS,
+    ...BOSSES.map((b) => b.unit),
+  ]);
   const enemyMap = new Map<string, EnemyKingDef>(ENEMY_KINGS.map((k) => [k.id, k]));
   const cardMap = new Map<string, CardDef>(cards.map((c) => [c.id, c]));
   const unitMap = new Map<string, UnitDef>(units.map((u) => [u.id, u]));

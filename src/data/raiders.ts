@@ -52,6 +52,34 @@ export const RAIDER_UNITS: readonly UnitDef[] = [
   },
 ];
 
+/** Đơn vị boss triệu hồi (spec §6.2): EP 0, không nằm trong roster nên `composeArmy` không bao giờ chọn. */
+export const BOSS_SUMMON_UNITS: readonly UnitDef[] = [
+  {
+    id: 'frog',
+    nameVi: 'Ếch Đầm',
+    hp: 20,
+    attack: { dmg: 4, type: 'physical', range: 2, interval: 10 },
+    speed: 1.2,
+    radius: 3,
+    armor: 0,
+    tags: ['melee', 'summon'],
+    enemyCost: 0,
+    sprite: { w: 16, h: 16 },
+  },
+  {
+    id: 'hornet',
+    nameVi: 'Ong Bắp Cày',
+    hp: 25,
+    attack: { dmg: 6, type: 'physical', range: 2, interval: 8 },
+    speed: 1.6,
+    radius: 3,
+    armor: 0,
+    tags: ['melee', 'flying', 'summon'],
+    enemyCost: 0,
+    sprite: { w: 16, h: 16 },
+  },
+];
+
 export const RAIDER_ROSTER: readonly { readonly unit: UnitId; readonly weight: number }[] = [
   { unit: 'bandit', weight: 50 },
   { unit: 'bandit_archer', weight: 25 },

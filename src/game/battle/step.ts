@@ -5,6 +5,7 @@
  */
 import { BATTLE } from '../../data/battle';
 import { bannerPhase, settleBattleGold, tickBehaviours } from './behaviours';
+import { spawnBossDue, tickBosses } from './bosses';
 import { applyDamagePhase, attackPhase, deathPhase, projectilePhase, statusPhase } from './combat';
 import { autoFirePhase, boulderPhase, setAutoFire, tryIntervene } from './intervention';
 import { moveEntities } from './movement';
@@ -22,6 +23,9 @@ const spawnDueWaves = (world: BattleWorld): void => {
   }
 };
 
+/** Thắng cần boss (nếu có) đã xuất hiện; boss còn sống thì `anyFoeAlive` giữ trận lại. */
+const bossResolved = (world: BattleWorld): boolean => world.setup.boss === undefined || world.bossSpawned;
+
 const anyFoeAlive = (world: BattleWorld): boolean => {
   for (let i = 0; i < world.count; i++) {
     if (world.alive[i] === 1 && world.team[i] === TEAM_FOE) return true;
@@ -33,7 +37,7 @@ const anyFoeAlive = (world: BattleWorld): boolean => {
 const checkEnd = (world: BattleWorld): void => {
   let won: boolean | null = null;
   if (world.hp[world.throneId]! <= 0) won = false;
-  else if (world.spawnedWaves >= world.setup.waves.length && !anyFoeAlive(world)) won = true;
+  else if (world.spawnedWaves >= world.setup.waves.length && bossResolved(world) && !anyFoeAlive(world)) won = true;
   else if (world.tick >= BATTLE.hardLimitTick) won = true;
   if (won === null) return;
   world.ended = true;
@@ -47,6 +51,7 @@ export const stepBattle = (world: BattleWorld, inputs: readonly BattleCommand[])
   if (world.ended) return;
   // (1) xuất đợt
   spawnDueWaves(world);
+  spawnBossDue(world);
   if (world.tick === BATTLE.rageTick) world.events.push({ type: 'rage' });
   // (2) can thiệp: lệnh của tick này theo thứ tự nhận (lệnh tick khác bị bỏ), rồi tảng đá đến hạn rơi.
   for (const input of inputs) {
@@ -59,6 +64,7 @@ export const stepBattle = (world: BattleWorld, inputs: readonly BattleCommand[])
   // (3) hook onBattleTick: xung vòng tròn và xung khiên của công trình.
   pulsePhase(world);
   shieldPulsePhase(world);
+  tickBosses(world);
   bellPhase(world);
   respawnPhase(world);
   summonPhase(world);

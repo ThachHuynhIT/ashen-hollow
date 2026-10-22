@@ -177,6 +177,9 @@ export const hashWorld = (world: BattleWorld): number => {
   for (const a of [world.flying, world.boss, world.chargeReady, world.reviveReady, world.revived, world.tuned]) h = mixU8(h, a, n);
   h = mixNum(h, world.goldDelta);
   h = mixWord(h, world.battleGoldSettled ? 1 : 0);
+  h = mixWord(h, world.bossSpawned ? 1 : 0);
+  h = mixNum(h, world.bossId);
+  h = mixNum(h, world.bossSpawnTick);
   h = mixNum(h, world.undyingLeft);
   h = mixNum(h, world.regenPct);
   h = mixNum(h, world.bannerRampPps);

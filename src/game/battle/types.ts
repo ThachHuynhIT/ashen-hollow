@@ -178,6 +178,21 @@ export interface StructureSetup {
   shieldPulse: { everyTicks: number; radius: number; amount: number } | null;
 }
 
+/** Boss của trận: chỉ số đã giải, nơi và lúc xuất hiện, quân triệu hồi và Bóng Gương (spec §7.3). */
+export interface BossSetup {
+  id: BossId;
+  ordinal: 1 | 2 | 3;
+  /** Tick xuất hiện (`WAVES.spawnTick[1]`). */
+  spawnTick: number;
+  /** Mép đầu tiên của đợt 2. */
+  edge: Edge;
+  stats: UnitStats;
+  /** Chỉ số quân triệu hồi theo id đơn vị (`frog`, `hornet`), để trận không tra registry. */
+  summons: Readonly<Record<string, UnitStats>>;
+  /** Lính của Bóng Gương: loại của công trình lính cấp cao nhất; null nếu không có công trình lính. */
+  mirror: { stats: UnitStats; count: number } | null;
+}
+
 export interface WaveSetup {
   spawnTick: number;
   spawns: readonly { stats: UnitStats; edge: Edge }[];
@@ -189,6 +204,8 @@ export interface BattleSetup {
   throne: StructureSetup;
   structures: readonly StructureSetup[];
   waves: readonly WaveSetup[];
+  /** Boss của trận (năm 10, 20, 30); vắng ở mọi trận khác. */
+  boss?: BossSetup;
   /** Cờ hiệu của vua tấn công (chỉ hiệu ứng cần logic trong trận); vắng với Thổ Phỉ, Liên Quân, boss. */
   banner?: BannerDef;
   /** Đá Tảng tự bắn ngay từ đầu trận (mặc định tắt). */
