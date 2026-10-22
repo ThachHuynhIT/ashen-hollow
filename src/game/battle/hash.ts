@@ -87,6 +87,36 @@ export const hashWorld = (world: BattleWorld): number => {
     world.pulseDmg,
     world.shieldRadius,
     world.shieldAmount,
+    world.baseDmg,
+    world.baseInterval,
+    world.baseSpeed,
+    world.baseMaxHp,
+    world.coneRange,
+    world.coneCos,
+    world.burnDps,
+    world.poisonDps,
+    world.lifestealPct,
+    world.healAllyHp,
+    world.healAllyRadius,
+    world.knockPx,
+    world.pullPx,
+    world.killHealHp,
+    world.auraRadius,
+    world.auraHps,
+    world.rampDmgPps,
+    world.rampDmgCap,
+    world.rampAsPps,
+    world.rampAsCap,
+    world.stepDmgPct,
+    world.stepSpeedPct,
+    world.enrageBelow,
+    world.enrageDmgPct,
+    world.soulPct,
+    world.chargeMult,
+    world.chargeKb,
+    world.kiteDist,
+    world.revivePct,
+    world.prewind,
   ]) {
     h = mixF64(h, a, n);
   }
@@ -110,11 +140,34 @@ export const hashWorld = (world: BattleWorld): number => {
     world.pulseEvery,
     world.pulseStun,
     world.shieldEvery,
+    world.burnTicks,
+    world.poisonTicks,
+    world.poisonMax,
+    world.pullEvery,
+    world.pullHits,
+    world.stepEvery,
+    world.stepMax,
+    world.chargeStun,
+    world.defIndex,
+    world.killerId,
   ]) {
     h = mixI32(h, a, n);
   }
   h = mixU8(h, world.dmgType, n);
   h = mixU8(h, world.pulseDmgType, n);
+  for (const a of [world.flying, world.boss, world.chargeReady, world.reviveReady, world.tuned]) h = mixU8(h, a, n);
+  h = mixNum(h, world.goldDelta);
+  h = mixNum(h, world.souls[0]);
+  h = mixNum(h, world.souls[1]);
+  h = mixWord(h, world.dots.length);
+  for (const d of world.dots) {
+    h = mixWord(h, d.victim);
+    h = mixWord(h, d.kind === 'burn' ? 0 : 1);
+    h = mixNum(h, d.key);
+    h = mixNum(h, d.dps);
+    h = mixWord(h, d.ticks);
+    h = mixWord(h, d.stacks);
+  }
 
   const p = world.projectiles;
   const m = world.projectileCount;

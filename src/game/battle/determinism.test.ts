@@ -156,3 +156,76 @@ describe('hash covers the G2 mechanics', () => {
     expect(make()).toBe(make());
   });
 });
+
+describe('G3 behaviours stay deterministic', () => {
+  const colossus = unitStats({
+    unit: 'colossus',
+    hp: 300,
+    dmg: 12,
+    speed: 0.6,
+    behaviours: [{ type: 'stepBuff', everyTicks: 100, dmgPct: 20, speedPct: 10, maxStacks: 6 }],
+  });
+  const skeleton = unitStats({
+    unit: 'skeleton',
+    hp: 40,
+    dmg: 6,
+    speed: 1,
+    behaviours: [{ type: 'reviveOnce', hpPct: 50 }, { type: 'rampDmg', pctPerSecond: 2, cap: 80 }],
+    onHit: [{ type: 'lifesteal', pct: 30 }],
+  });
+  const bear = unitStats({
+    unit: 'bear',
+    hp: 160,
+    dmg: 16,
+    speed: 1,
+    behaviours: [{ type: 'enrage', belowHpPct: 50, dmgPct: 50 }, { type: 'charge', dmgMult: 2, knockback: 8, stunTicks: 10 }],
+    onHit: [{ type: 'poison', dps: 2, ticks: 30, maxStacks: 3 }, { type: 'pull', px: 16, every: 4 }],
+  });
+  const flame = (plot: number): StructureSetup =>
+    structure(plot, {
+      cardId: 'forge_flame_tower',
+      kind: 'tower',
+      attack: attackStats({
+        dmg: 4,
+        range: 80,
+        interval: 4,
+        cone: { range: 80, halfAngleCos: 0.7071 },
+        onHit: [{ type: 'burn', dps: 2, ticks: 30 }],
+      }),
+      targeting: 'closestToThrone',
+    });
+  const setup: BattleSetup = battleSetup({
+    year: 4,
+    structures: [
+      structure(6, { cardId: 'wheat_militia', spawn: { stats: skeleton, count: 6 } }),
+      structure(8, { cardId: 'wheat_militia', spawn: { stats: bear, count: 2 } }),
+      flame(2),
+      flame(14),
+    ],
+    waves: [
+      {
+        spawnTick: 0,
+        spawns: Array.from({ length: 24 }, (_, i) => ({
+          stats: (i % 4 === 0 ? colossus : i % 2 === 0 ? bear : skeleton) as UnitStats,
+          edge: (i % 2 === 0 ? 'N' : 'E') as Edge,
+        })),
+      },
+    ],
+  });
+
+  const trace = (): number[] => {
+    const w = createBattle(setup);
+    const hashes: number[] = [];
+    for (let i = 0; i <= BATTLE.hardLimitTick && battleResult(w) === null; i++) {
+      step(w, []);
+      hashes.push(hashWorld(w));
+    }
+    return hashes;
+  };
+
+  it('two runs of a battle with every new behaviour give the same hash on every tick', () => {
+    const a = trace();
+    expect(a.length).toBeGreaterThan(100);
+    expect(trace()).toEqual(a);
+  });
+});

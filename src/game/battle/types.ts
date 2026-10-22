@@ -1,4 +1,13 @@
-import type { CardId, DamageType, KingId, TargetMode, UnitId } from '../../data/types';
+import type {
+  CardId,
+  DamageType,
+  KingId,
+  OnHitDef,
+  TargetMode,
+  UnitBehaviourDef,
+  UnitId,
+  UnitTag,
+} from '../../data/types';
 
 /** Mép sân nơi quân địch xuất hiện. */
 export type Edge = 'N' | 'E' | 'S' | 'W';
@@ -83,6 +92,10 @@ export interface AttackStats {
   /** mỗi đòn liên tiếp vào cùng mục tiêu cộng thêm % sát thương, tối đa `rampCapPct`; 0 = không */
   rampPctPerHit: number;
   rampCapPct: number;
+  /** Hiệu ứng trúng ngoài chậm/choáng/tăng dần (bỏng, độc, đẩy, kéo, hút máu, hồi đồng minh). */
+  onHit?: readonly OnHitDef[];
+  /** Đòn hình quạt: địch khác trong quạt cũng nhận trọn sát thương. */
+  cone?: { range: number; halfAngleCos: number } | null;
 }
 
 /** Chỉ số một đơn vị lúc xuất quân. */
@@ -99,6 +112,12 @@ export interface UnitStats extends AttackStats {
   shield: number;
   /** khi chết sinh `count` đơn vị `stats` cùng phe tại chỗ */
   deathSpawn: { stats: UnitStats; count: number } | null;
+  tags?: readonly UnitTag[];
+  behaviours?: readonly UnitBehaviourDef[];
+  /** Vị trí đơn vị trong danh sách id đã sắp của registry: khoá bỏng/độc của quân địch. */
+  defIndex?: number;
+  /** Giây "lên dây trước" cộng vào đồng hồ tăng tiến (§8.6). */
+  prewind?: number;
 }
 
 /** Một công trình (hoặc Ngai) trên bàn cờ lúc vào trận. */
@@ -155,4 +174,5 @@ export type BattleEvent =
   | { type: 'rage' }
   | { type: 'pulse'; id: number }
   | { type: 'shield'; id: number }
+  | { type: 'revive'; id: number }
   | { type: 'ended'; won: boolean };

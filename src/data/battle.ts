@@ -22,6 +22,12 @@ export const ENEMY_LEVEL_COST = [1, 2, 4, 8, 16] as const;
 export const ENEMY_LEVEL_STAT = [1, 1.45, 2.1, 3.05, 4.42] as const;
 export const WAVES = { share: [0.4, 0.35, 0.25], spawnTick: [0, 120, 240] } as const;
 
+/** Hằng hình quạt 45° (cos 45° làm tròn xuống nên đúng 45° vẫn nằm trong quạt); không dùng Math.cos. */
+export const CONE = { cos45: 0.7071 } as const;
+
+/** Trạng thái theo thời gian (§8.6): bỏng/độc/hồi máu gây hiệu lực mỗi `everyTicks` tick; nhịp đánh không dưới 50% gốc (§5.3). */
+export const STATUS = { everyTicks: 10, minIntervalFactor: 0.5 } as const;
+
 export const INTERVENTION = {
   dmgBase: 40,
   dmgPerYear: 10, // sát thương = dmgBase + dmgPerYear × (year − 1), loại phép (bỏ qua giáp)

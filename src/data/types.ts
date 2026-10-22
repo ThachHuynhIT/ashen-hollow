@@ -58,6 +58,18 @@ export type TargetMode = 'nearest' | 'closestToThrone' | 'lowestHp' | 'highestHp
 export type OnHitDef =
   | { readonly type: 'slow'; readonly pct: number; readonly ticks: number }
   | { readonly type: 'stun'; readonly ticks: number }
+  /** Bỏng `dps` mỗi giây trong `ticks` tick; cùng nguồn làm mới, khác nguồn cộng dồn (§8.6). */
+  | { readonly type: 'burn'; readonly dps: number; readonly ticks: number }
+  /** Độc `dps` mỗi lớp mỗi giây; cộng lớp tới `maxStacks` mỗi nguồn (§8.6). */
+  | { readonly type: 'poison'; readonly dps: number; readonly ticks: number; readonly maxStacks: number }
+  /** Đẩy mục tiêu ra xa `px` (công trình và boss miễn). */
+  | { readonly type: 'knockback'; readonly px: number }
+  /** Cứ `every` đòn kéo mục tiêu về phía người đánh `px`. */
+  | { readonly type: 'pull'; readonly px: number; readonly every: number }
+  /** Hồi `pct`% sát thương gây ra (sau giáp). */
+  | { readonly type: 'lifesteal'; readonly pct: number }
+  /** Hồi `hp` cho đồng minh máu thấp nhất trong `radius` px. */
+  | { readonly type: 'healAlly'; readonly hp: number; readonly radius: number }
   /** Mỗi đòn liên tiếp vào cùng mục tiêu cộng `pctPerHit`% sát thương, tối đa `cap`%. */
   | { readonly type: 'rampSameTarget'; readonly pctPerHit: number; readonly cap: number };
 
@@ -77,14 +89,43 @@ export interface AttackSpec {
   readonly cleave?: number;
   /** nảy sang `count` địch kế tiếp trong `radius`, mỗi lần nhân `falloff` */
   readonly chain?: { readonly count: number; readonly radius: number; readonly falloff: number };
+  /** Hình quạt: mọi địch trong `range` nằm trong góc `halfAngleCos` quanh hướng tới mục tiêu. */
+  readonly cone?: { readonly range: number; readonly halfAngleCos: number };
   readonly onHit?: readonly OnHitDef[];
 }
 
-export type UnitBehaviourDef = {
-  readonly type: 'deathSpawn';
-  readonly unit: UnitId;
-  readonly count: number;
-};
+export type UnitBehaviourDef =
+  /** Chết lần đầu thì sống lại với `hpPct`% HP tối đa (một lần). */
+  | { readonly type: 'reviveOnce'; readonly hpPct: number }
+  /** Dưới `belowHpPct`% HP: +`dmgPct`% sát thương. */
+  | { readonly type: 'enrage'; readonly belowHpPct: number; readonly dmgPct: number }
+  | { readonly type: 'rampDmg'; readonly pctPerSecond: number; readonly cap: number }
+  | { readonly type: 'rampAttackSpeed'; readonly pctPerSecond: number; readonly cap: number }
+  /** Cứ `everyTicks` tick một lớp: +`dmgPct`% DMG và +`speedPct`% tốc, tối đa `maxStacks` lớp. */
+  | {
+      readonly type: 'stepBuff';
+      readonly everyTicks: number;
+      readonly dmgPct: number;
+      readonly speedPct: number;
+      readonly maxStacks: number;
+    }
+  /** Đòn đầu tiên: ×`dmgMult`, đẩy `knockback` px, choáng `stunTicks`. */
+  | {
+      readonly type: 'charge';
+      readonly dmgMult: number;
+      readonly knockback: number;
+      readonly stunTicks: number;
+    }
+  /** Địch gần hơn `distance` px khi đang hồi đòn: lùi ra xa. */
+  | { readonly type: 'kite'; readonly distance: number }
+  /** Hồi `hpPerSec` HP mỗi giây cho lính cùng phe trong `radius` px. */
+  | { readonly type: 'healAura'; readonly radius: number; readonly hpPerSec: number }
+  | { readonly type: 'deathSpawn'; readonly unit: UnitId; readonly count: number }
+  /** Hạ được địch thì hồi `hp`. */
+  | { readonly type: 'killHeal'; readonly hp: number }
+  /** +`pctPerSoul`% HP và DMG mỗi Hồn (lính cùng phe đã chết trong trận). */
+  | { readonly type: 'soulScaling'; readonly pctPerSoul: number }
+  | { readonly type: 'boss'; readonly id: BossId };
 
 export interface UnitDef {
   readonly id: UnitId;

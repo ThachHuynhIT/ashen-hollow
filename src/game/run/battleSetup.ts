@@ -34,6 +34,9 @@ const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatShe
   const slow = a.onHit?.find((h) => h.type === 'slow');
   const stun = a.onHit?.find((h) => h.type === 'stun');
   const ramp = a.onHit?.find((h) => h.type === 'rampSameTarget');
+  const extraOnHit = (a.onHit ?? []).filter(
+    (h) => h.type !== 'slow' && h.type !== 'stun' && h.type !== 'rampSameTarget',
+  );
   const interval = sheet
     ? Math.max(a.interval / (1 + sheet.attackSpeed.pct / 100), a.interval * 0.5)
     : a.interval;
@@ -52,8 +55,14 @@ const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatShe
     stunTicks: stun ? stun.ticks : 0,
     rampPctPerHit: ramp ? ramp.pctPerHit : 0,
     rampCapPct: ramp ? ramp.cap : 0,
+    // Bỏng, độc, đẩy, kéo, hút máu, hồi đồng minh, hình quạt: chuyển nguyên vào trận (§5.1).
+    ...(extraOnHit.length > 0 ? { onHit: extraOnHit } : {}),
+    ...(a.cone ? { cone: { ...a.cone } } : {}),
   };
 };
+
+/** Vị trí của đơn vị trong danh sách id đã sắp của registry (khoá bỏng/độc của địch, §8.6). */
+const defIndexOf = (content: Content, id: string): number => content.allUnits().findIndex((u) => u.id === id);
 
 const scalarAt = (value: Scalar, level: number): number =>
   typeof value === 'number' ? value : value[level - 1]!;
@@ -84,6 +93,9 @@ const unitStats = (
     siege,
     sprite: { w: u.sprite.w, h: u.sprite.h },
     shield: (hp * pctOf(banner, (e) => e.type === 'enemyShieldPct')) / 100,
+    tags: u.tags,
+    behaviours: u.behaviours,
+    defIndex: defIndexOf(content, u.id),
     deathSpawn: death
       ? { stats: unitStats(content.unit(death.unit), mult, false, content, banner, speedScale), count: death.count }
       : null,
@@ -95,6 +107,7 @@ const spawnedStats = (
   u: UnitDef,
   level: Level,
   sheet: StatSheet,
+  content: Content,
 ): UnitStats => {
   const mult = levelMult(TROOP_STD, level);
   const attack = attackStats(u.attack, mult, 0, sheet);
@@ -110,6 +123,9 @@ const spawnedStats = (
     sprite: { w: u.sprite.w, h: u.sprite.h },
     shield: 0,
     deathSpawn: null,
+    tags: u.tags,
+    behaviours: u.behaviours,
+    defIndex: defIndexOf(content, u.id),
   };
 };
 
@@ -152,12 +168,12 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
     const unitSheet = collectStatSheet(state, content, plot, unit);
     const raw = Math.floor(finalStat(spawnFx.count[level - 1]!, unitSheet.unitCount));
     const count = state.idleUids.includes(b.uid) ? 0 : clamp(raw, 0, MAX_UNITS_PER_BUILDING);
-    const stats = spawnedStats(unit, level, unitSheet);
+    const stats = spawnedStats(unit, level, unitSheet, content);
     const death = unit.behaviours?.find((b) => b.type === 'deathSpawn');
     if (death) {
       const child = content.unit(death.unit);
       stats.deathSpawn = {
-        stats: spawnedStats(child, level, collectStatSheet(state, content, plot, child)),
+        stats: spawnedStats(child, level, collectStatSheet(state, content, plot, child), content),
         count: death.count,
       };
     }

@@ -4,9 +4,11 @@
  * chết → kiểm tra kết thúc, rồi `tick += 1`. Không dùng Rng.
  */
 import { BATTLE } from '../../data/battle';
+import { tickBehaviours } from './behaviours';
 import { applyDamagePhase, attackPhase, deathPhase, projectilePhase, statusPhase } from './combat';
 import { autoFirePhase, boulderPhase, setAutoFire, tryIntervene } from './intervention';
 import { moveEntities } from './movement';
+import { tickStatuses } from './statuses';
 import { pulsePhase, shieldPulsePhase } from './structures';
 import { retarget } from './targeting';
 import type { BattleCommand, BattleResult, BattleSetup } from './types';
@@ -57,12 +59,14 @@ export const stepBattle = (world: BattleWorld, inputs: readonly BattleCommand[])
   // (3) hook onBattleTick: xung vòng tròn và xung khiên của công trình.
   pulsePhase(world);
   shieldPulsePhase(world);
+  tickBehaviours(world); // hành vi tăng tiến tính lại từ chỉ số gốc
   retarget(world); // (4)
   moveEntities(world); // (5)
   attackPhase(world); // (6)
   projectilePhase(world); // (7)
   applyDamagePhase(world); // (8)
   statusPhase(world); // (9)
+  tickStatuses(world); // bỏng, độc, hồi máu theo giây
   deathPhase(world); // (10)
   checkEnd(world); // (11)
   world.tick += 1;
@@ -83,6 +87,7 @@ export const battleResult = (world: BattleWorld): BattleResult | null => {
     unitsLost: world.unitsLost,
     capped: world.capped,
     inputs: world.inputs.map((i) => ({ ...i })),
+    ...(world.goldDelta !== 0 ? { goldDelta: world.goldDelta } : {}),
   };
 };
 

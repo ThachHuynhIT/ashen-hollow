@@ -98,7 +98,9 @@ describe('G2 content integrity', () => {
       }
     }
     for (const u of units) {
-      for (const b of u.behaviours ?? []) expect(ids.has(b.unit), `${u.id} → ${b.unit}`).toBe(true);
+      for (const b of u.behaviours ?? []) {
+        if (b.type === 'deathSpawn') expect(ids.has(b.unit), `${u.id} → ${b.unit}`).toBe(true);
+      }
     }
   });
 
