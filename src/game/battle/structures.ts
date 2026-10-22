@@ -104,3 +104,21 @@ export const respawnPhase = (world: BattleWorld): void => {
     else world.playerUnits += 1;
   }
 };
+
+/** Vòng Triệu Hồi (§6.10): mỗi `summonEvery` tick triệu hồi 1 lính tại ô, tối đa `summonMax` mỗi trận. */
+export const summonPhase = (world: BattleWorld): void => {
+  for (let i = 0; i < world.count; i++) {
+    const stats = world.summonStats[i] ?? null;
+    if (world.alive[i] === 0 || stats === null || !dueAt(world, world.summonEvery[i]!)) continue;
+    if (world.summonDone[i]! >= world.summonMax[i]!) continue;
+    if (world.playerUnits >= BATTLE.playerUnitCap) {
+      world.capped += 1;
+      continue;
+    }
+    const o = spawnOffset(world.summonDone[i]!);
+    const id = addUnit(world, stats, TEAM_ALLY, world.homeX[i]! + o.dx, world.homeY[i]! + o.dy, world.homeX[i]!, world.homeY[i]!, world.sourceUid[i]!);
+    world.summonDone[i] = world.summonDone[i]! + 1;
+    if (id < 0) world.capped += 1;
+    else world.playerUnits += 1;
+  }
+};

@@ -168,6 +168,20 @@ const timingExtras = (
   };
 };
 
+/** Số lính Đàn Tế triệu hồi đầu trận: lễ vật × hệ số theo cấp, không quá giới hạn theo cấp. */
+const altarCount = (
+  fx: { perOffering: Scalar; cap: Scalar },
+  offerings: number,
+  level: number,
+): number => Math.min(scalarAt(fx.cap, level), offerings * scalarAt(fx.perOffering, level));
+
+/** Lính triệu hồi do hiệu ứng tạo ra: chỉ số của cấp công trình, gắn thẻ `summon`. */
+const summonStats = (state: RunState, content: Content, plot: number, unitId: string, level: Level): UnitStats => {
+  const unit = content.unit(unitId);
+  const stats = spawnedStats(unit, level, collectStatSheet(state, content, plot, unit), content);
+  return { ...stats, tags: [...unit.tags, 'summon'] };
+};
+
 /** Lính đánh thuê của Hợp Đồng (`counters.privateers` của Ngai) sinh thêm tại Ngai đầu trận. */
 const throneMercenaries = (
   state: RunState,
@@ -251,6 +265,9 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
           ...(pulseKnock > 0 ? { knockback: pulseKnock } : {}),
         }
       : null;
+  const killSummonFx = card.effects.find((e) => e.type === 'summonOnKill');
+  const summonFx = card.effects.find((e) => e.type === 'summonEvery');
+  const altarFx = card.effects.find((e) => e.type === 'altarSummon');
   const auraFx = card.effects.find((e) => e.type === 'healAura');
   const bellFx = card.effects.find((e) => e.type === 'bellPulse');
   const respawnFx = card.effects.find((e) => e.type === 'respawnLost');
@@ -282,6 +299,31 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
       : {}),
     ...(multiFx && multiFx.type === 'multiAttack' ? { multiAttack: multiFx.count } : {}),
     ...timingExtras(sheet, card.effects),
+    ...(killSummonFx && killSummonFx.type === 'summonOnKill'
+      ? {
+          summonOnKill: {
+            stats: summonStats(state, content, plot, killSummonFx.unit, level),
+            max: scalarAt(killSummonFx.max, level),
+          },
+        }
+      : {}),
+    ...(summonFx && summonFx.type === 'summonEvery'
+      ? {
+          summonEvery: {
+            everyTicks: scalarAt(summonFx.everyTicks, level),
+            stats: summonStats(state, content, plot, summonFx.unit, level),
+            max: scalarAt(summonFx.maxPerBattle, level),
+          },
+        }
+      : {}),
+    ...(altarFx && altarFx.type === 'altarSummon' && altarCount(altarFx, b.counters.offerings ?? 0, level) > 0
+      ? {
+          startSummon: {
+            stats: summonStats(state, content, plot, altarFx.unit, level),
+            count: altarCount(altarFx, b.counters.offerings ?? 0, level),
+          },
+        }
+      : {}),
     ...(bellFx && bellFx.type === 'bellPulse'
       ? {
           bell: {

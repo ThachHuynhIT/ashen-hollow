@@ -188,7 +188,11 @@ export type CustomEffectId =
   | 'privateers'
   | 'master_hammer'
   | 'armory_armor'
-  | 'rewind';
+  | 'rewind'
+  | 'blood_pact'
+  | 'eclipse_pact'
+  | 'bazaar_kinds'
+  | 'watchtower_open';
 
 export type EffectDef =
   | { readonly type: 'spawn'; readonly unit: UnitId; readonly count: PerLevel }
@@ -229,6 +233,17 @@ export type EffectDef =
     }
   /** Mỗi `everyTicks` tick, nếu lính của công trình còn ít hơn ban đầu thì sinh lại 1. */
   | { readonly type: 'respawnLost'; readonly everyTicks: number }
+  /** Mỗi lần hạ địch triệu hồi 1 `unit` tại công trình, tối đa `max` mỗi trận (Tháp Bóng Đêm). */
+  | { readonly type: 'summonOnKill'; readonly unit: UnitId; readonly max: Scalar }
+  /** Mỗi `everyTicks` tick triệu hồi 1 `unit` tại ô, tối đa `maxPerBattle` mỗi trận (Vòng Triệu Hồi). */
+  | {
+      readonly type: 'summonEvery';
+      readonly unit: UnitId;
+      readonly everyTicks: Scalar;
+      readonly maxPerBattle: Scalar;
+    }
+  /** Đầu trận triệu hồi `perOffering × offerings` `unit` tại ô, tối đa `cap` (Đàn Tế). */
+  | { readonly type: 'altarSummon'; readonly unit: UnitId; readonly perOffering: Scalar; readonly cap: Scalar }
   /** Tháp đánh `count` mục tiêu khác nhau (gần nhất trước) mỗi nhịp. */
   | { readonly type: 'multiAttack'; readonly count: number }
   /** Mỗi `every` địch do lính của công trình này hạ: +`gold` vàng, tối đa `max` mỗi trận. */
@@ -297,6 +312,8 @@ export interface EnchantCardDef extends CardBase {
   readonly kind: 'enchantment';
   readonly targets: readonly BuildingKind[];
   readonly perStack: readonly EffectDef[];
+  /** Nhân giá trị của mọi stack lên chừng này lần trong trận của năm công trình vừa được dời (Bùa Gió Thảo Nguyên). */
+  readonly movedYearMult?: number;
 }
 
 export interface TomeCardDef extends CardBase {

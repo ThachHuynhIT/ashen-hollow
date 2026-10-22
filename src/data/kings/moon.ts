@@ -1,4 +1,116 @@
-import type { EnemyKingDef } from '../types';
+import type { CardDef, EnemyKingDef } from '../types';
+
+const dead = { owner: 'moon' as const, tags: ['undead'] as const };
+const plain = { owner: 'moon' as const, tags: [] as const };
+
+/** Chín thẻ của Vua Ánh Trăng (spec §6.10), không gồm Ngai; chỉ có được nhờ chinh phục ở G3. */
+export const MOON_CARDS: readonly CardDef[] = [
+  {
+    ...dead,
+    id: 'moon_crypt',
+    nameVi: 'Hầm Mộ',
+    name: 'Crypt',
+    kind: 'troop',
+    rarity: 'common',
+    textVi: 'Sinh {count} bộ xương, mỗi con sống lại một lần với 50% máu.',
+    effects: [{ type: 'spawn', unit: 'skeleton', count: [3, 4, 5, 6, 7] }],
+  },
+  {
+    ...dead,
+    id: 'moon_shadow_spire',
+    nameVi: 'Tháp Bóng Đêm',
+    name: 'Shadow Spire',
+    kind: 'tower',
+    rarity: 'common',
+    textVi: 'Bắn {dmg} sát thương phép; mỗi lần hạ địch triệu hồi 1 bóng ma (tối đa 3/4/5/6/8 mỗi trận).',
+    effects: [
+      {
+        type: 'tower',
+        attack: { dmg: 7, type: 'magic', range: 72, interval: 10, projectileSpeed: 8 },
+        targeting: 'closestToThrone',
+      },
+      { type: 'summonOnKill', unit: 'wraith', max: [3, 4, 5, 6, 8] },
+    ],
+  },
+  {
+    owner: 'moon',
+    tags: ['sacrifice'],
+    id: 'moon_blood_pact',
+    nameVi: 'Khế Ước Máu',
+    name: 'Blood Pact',
+    kind: 'tome',
+    rarity: 'common',
+    textVi: 'Hiến tế một công trình (không phải Ngai): nhận 3 vàng mỗi cấp; mọi stack Bùa của nó chuyển sang Ngai.',
+    target: 'building',
+    actions: [{ type: 'custom', id: 'blood_pact', params: { goldPerLevel: 3 } }],
+  },
+  {
+    ...plain,
+    id: 'moon_blood_moon_rune',
+    nameVi: 'Bùa Trăng Máu',
+    name: 'Blood Moon Rune',
+    kind: 'enchantment',
+    rarity: 'common',
+    textVi: 'Mỗi lần gắn: +30% sát thương, −10% máu.',
+    targets: ['troop', 'tower', 'throne'],
+    perStack: [
+      { type: 'stat', scope: 'self', stat: 'dmg', mode: 'pct', value: 30 },
+      { type: 'stat', scope: 'self', stat: 'hp', mode: 'pct', value: -10 },
+      { type: 'stat', scope: 'self', stat: 'structureHp', mode: 'pct', value: -10 },
+    ],
+  },
+  {
+    ...dead,
+    id: 'moon_altar',
+    nameVi: 'Đàn Tế',
+    name: 'Altar',
+    kind: 'support',
+    rarity: 'uncommon',
+    textVi: 'Mỗi khi chơi một thẻ hiến tế, Đàn Tế ghi thêm 1 lễ vật. Đầu trận triệu hồi bóng ma theo số lễ vật.',
+    effects: [{ type: 'altarSummon', unit: 'wraith', perOffering: [1, 1, 2, 2, 3], cap: [12, 14, 16, 18, 20] }],
+  },
+  {
+    ...dead,
+    id: 'moon_vampires',
+    nameVi: 'Lâu Đài Ma Cà Rồng',
+    name: 'Vampire Castle',
+    kind: 'troop',
+    rarity: 'uncommon',
+    textVi: 'Sinh {count} ma cà rồng.',
+    effects: [{ type: 'spawn', unit: 'vampire', count: [2, 3, 3, 4, 5] }],
+  },
+  {
+    ...dead,
+    id: 'moon_summoning_circle',
+    nameVi: 'Vòng Triệu Hồi',
+    name: 'Summoning Circle',
+    kind: 'support',
+    rarity: 'uncommon',
+    textVi: 'Mỗi 80/70/60/50/40 tick triệu hồi 1 bóng ma tại ô (tối đa 8 mỗi trận).',
+    effects: [{ type: 'summonEvery', unit: 'wraith', everyTicks: [80, 70, 60, 50, 40], maxPerBattle: 8 }],
+  },
+  {
+    ...plain,
+    id: 'moon_eclipse_pact',
+    nameVi: 'Giao Ước Nguyệt Thực',
+    name: 'Eclipse Pact',
+    kind: 'tome',
+    rarity: 'rare',
+    textVi: 'Mất 1 mạng (không dùng được khi còn 1 mạng): công trình được chọn +2 cấp, nhận 5 vàng.',
+    target: 'building',
+    actions: [{ type: 'custom', id: 'eclipse_pact', params: { levels: 2, gold: 5 } }],
+  },
+  {
+    ...dead,
+    id: 'moon_reaper_shrine',
+    nameVi: 'Điện Thần Chết',
+    name: 'Reaper Shrine',
+    kind: 'troop',
+    rarity: 'rare',
+    textVi: 'Sinh {count} thần chết trăng.',
+    effects: [{ type: 'spawn', unit: 'moon_reaper', count: [1, 1, 1, 2, 2] }],
+  },
+];
 
 /** Vua Ánh Trăng (spec §6.10) phía kẻ địch: hiến tế, triệu hồi, bất tử. Thẻ chinh phục: G3b-B5. */
 export const MOON_ENEMY: EnemyKingDef = {
@@ -72,5 +184,5 @@ export const MOON_ENEMY: EnemyKingDef = {
     textVi: '20% địch đầu tiên bị hạ sẽ sống lại một lần với 30% máu.',
     effects: [{ type: 'undying', pct: 20, hpPct: 30 }],
   },
-  conquestCards: [],
+  conquestCards: MOON_CARDS,
 };

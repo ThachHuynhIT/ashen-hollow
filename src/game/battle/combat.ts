@@ -394,6 +394,21 @@ export const statusPhase = (world: BattleWorld): void => {
  * chết → `kills`, và `killsBySource[killerUid]` nếu nguồn là công trình phe mình (uid ≥ 0);
  * lính phe mình chết → `unitsLost`.
  */
+/** Công trình `killer` còn sống và có `summonOnKill`: triệu hồi 1 lính tại ô, tới giới hạn mỗi trận. */
+const summonForKill = (world: BattleWorld, killer: number): void => {
+  const stats = world.killSummonStats[killer];
+  if (!stats || world.alive[killer] === 0 || world.killSummonDone[killer]! >= world.killSummonMax[killer]!) return;
+  if (world.playerUnits >= BATTLE.playerUnitCap) {
+    world.capped += 1;
+    return;
+  }
+  const o = spawnOffset(world.killSummonDone[killer]!);
+  const id = addUnit(world, stats, TEAM_ALLY, world.homeX[killer]! + o.dx, world.homeY[killer]! + o.dy, world.homeX[killer]!, world.homeY[killer]!, world.sourceUid[killer]!);
+  world.killSummonDone[killer] = world.killSummonDone[killer]! + 1;
+  if (id < 0) world.capped += 1;
+  else world.playerUnits += 1;
+};
+
 export const deathPhase = (world: BattleWorld): void => {
   const parents: number[] = [];
   for (let i = 0; i < world.count; i++) {
@@ -407,6 +422,7 @@ export const deathPhase = (world: BattleWorld): void => {
     if (killer >= 0 && world.alive[killer] === 1 && world.killHealHp[killer]! > 0) {
       heal(world, killer, world.killHealHp[killer]!);
     }
+    if (killer >= 0 && world.team[i] === TEAM_FOE) summonForKill(world, killer);
     if (world.team[i] === TEAM_FOE) {
       world.kills += 1;
       const uid = world.killerUid[i]!;

@@ -154,7 +154,8 @@ export type IllegalReason =
   | 'maxLevel'
   | 'wrongKind'
   | 'stacksFull'
-  | 'badTarget';
+  | 'badTarget'
+  | 'lastLife';
 
 export type PlayTarget =
   | { kind: 'none' }

@@ -177,13 +177,14 @@ describe('play / discard', () => {
     const plots = structuredClone(base.plots);
     plots[7]!.building = b7;
     const moved = ok(applyCommand({ ...base, plots }, play(0, two(7, 6)), CONTENT));
-    expect(moved.state.plots[6]!.building).toEqual(b7);
+    const stamped = (b: typeof b7) => ({ ...b, movedYear: base.year }); // moving records the year (spec 6.11)
+    expect(moved.state.plots[6]!.building).toEqual(stamped(b7));
     expect(moved.state.plots[7]!.building).toBeNull();
 
     plots[6]!.building = b6;
     const swapped = ok(applyCommand({ ...base, plots }, play(0, two(7, 6)), CONTENT));
-    expect(swapped.state.plots[6]!.building).toEqual(b7);
-    expect(swapped.state.plots[7]!.building).toEqual(b6);
+    expect(swapped.state.plots[6]!.building).toEqual(stamped(b7));
+    expect(swapped.state.plots[7]!.building).toEqual(stamped(b6));
   });
 
   it('discard sells exactly the chosen card, keeps the others and counts as the action', () => {

@@ -85,7 +85,12 @@ export function rollRareOffers(rng: Rng, pools: RewardPools, count: number): Car
  * bằng `Rng` rồi lấy 3; vua có ít hơn 3 thẻ thì trả hết.
  */
 export function rollConquestOffers(rng: Rng, king: KingDef, count: number = REWARD.choices): CardId[] {
-  const pool = king.cards.map((c) => c.id);
+  return rollConquestCards(rng, king.cards, count);
+}
+
+/** Như `rollConquestOffers` nhưng từ danh sách thẻ của vua bại trận (chơi được hay chưa chơi được). */
+export function rollConquestCards(rng: Rng, cards: readonly CardDef[], count: number = REWARD.choices): CardId[] {
+  const pool = cards.map((c) => c.id);
   for (let i = pool.length - 1; i > 0; i--) {
     const j = rng.int(0, i);
     const tmp = pool[i]!;

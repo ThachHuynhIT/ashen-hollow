@@ -145,7 +145,9 @@ export function collectStatSheet(
     if (card.kind !== 'enchantment') continue;
     for (const e of card.perStack) {
       if (e.type === 'stat' && matches(e.filter, targetCard, unit)) {
-        add(sheet, e.stat, e.mode, resolve(e.value, 1) * entry.stacks);
+        // Bùa Gió Thảo Nguyên: nhân lên nếu công trình vừa được dời trong năm nay.
+        const mult = card.movedYearMult !== undefined && target.movedYear === state.year ? card.movedYearMult : 1;
+        add(sheet, e.stat, e.mode, resolve(e.value, 1) * entry.stacks * mult);
       }
     }
   }

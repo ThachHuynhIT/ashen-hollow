@@ -65,4 +65,5 @@ const ILLEGAL_TEXT: Record<IllegalReason, string> = {
   alreadyPlayed: 'Năm nay bạn đã chơi hoặc bỏ thẻ.',
   notPlayed: 'Hãy chơi hoặc bỏ một thẻ trước.',
   badTarget: 'Mục tiêu không hợp lệ.',
+  lastLife: 'Không thể: bạn chỉ còn 1 mạng.',
 };

@@ -22,7 +22,7 @@ import { refillHand } from './deck';
 import { cardOffer, enqueueOffers } from './flow';
 import { hasPlayableCard } from './playable';
 import { answerQuest, recordQuestCommand, settleQuests } from './quests';
-import { rollConquestOffers, rollOffers } from './rewards';
+import { rollConquestCards, rollOffers } from './rewards';
 import type { IllegalReason, RunCommand, RunState } from './state';
 import { advanceAfterBattle, finishYear } from './yearEnd';
 
@@ -82,6 +82,10 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
             case 'move': {
               if (target.kind !== 'two') return fail('badTarget');
               state.plots = moveBuilding(state.plots, target.first, target.second);
+              for (const plot of [target.first, target.second]) {
+                const moved = state.plots[plot]!.building;
+                if (moved !== null) moved.movedYear = state.year; // dời xong thì công trình "vừa dời" năm nay
+              }
               Object.assign(state, runAfterMove(state, target.first, target.second, content));
               const far = manhattan(target.first, target.second) >= 2;
               if (far && action.levelIfFar > 0) {
@@ -300,9 +304,9 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
       };
       if (offer.kind === 'reward' && state.pendingConquest !== null) {
         // Sau thưởng tới chinh phục: ba thẻ của vua bại trận, bắt buộc chọn một; đứng trước các bước còn lại.
-        const king = content.king(state.pendingConquest);
+        const king = content.enemyKing(state.pendingConquest);
         const rng = new Rng(state.rng.reward);
-        const cardIds = rollConquestOffers(rng, king);
+        const cardIds = rollConquestCards(rng, content.conquestCards(king.id));
         next = {
           ...next,
           pendingConquest: null,

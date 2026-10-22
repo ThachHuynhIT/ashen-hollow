@@ -8,6 +8,8 @@ import type { PlayTarget, RunState } from '../../run/state';
 import type { Content } from '../registry';
 import { archmageRamp, arcaneHarmony, libraryVirtualStacks, mirrorEnchants } from './arcane';
 import { CLOCK_HOOKS, rewind } from './clock';
+import { MOON_HOOKS, bloodPact, eclipsePact } from './moon';
+import { NOMAD_HOOKS, bazaarKinds, watchtowerOpen } from './nomad';
 import { FORGE_HOOKS, armoryArmor, masterHammer } from './forge';
 import type { FullRunCardHooks } from './fullRunTypes';
 import { GROVE_HOOKS, springRain } from './grove';
@@ -23,11 +25,13 @@ export const CUSTOM_STAT_HANDLERS: Partial<Record<CustomEffectId, StatHandler>> 
   archmage_ramp: archmageRamp,
   arcane_harmony: arcaneHarmony,
   armory_armor: armoryArmor,
+  watchtower_open: watchtowerOpen,
 };
 export const CUSTOM_INCOME_HANDLERS: Partial<Record<CustomEffectId, IncomeHandler>> = {
   mercenary_upkeep: mercenaryUpkeep,
   wheat_harvest: wheatHarvest,
   treasure_chest: treasureChest,
+  bazaar_kinds: bazaarKinds,
 };
 export const CUSTOM_TOME_HANDLERS: Partial<Record<CustomEffectId, TomeHandler>> = {
   harvest_festival: harvestFestival,
@@ -37,13 +41,22 @@ export const CUSTOM_TOME_HANDLERS: Partial<Record<CustomEffectId, TomeHandler>> 
   privateers,
   master_hammer: masterHammer,
   rewind,
+  blood_pact: bloodPact,
+  eclipse_pact: eclipsePact,
 };
 
 /**
  * Móc của ván đầy đủ theo thứ tự đăng ký grove / tide / forge / clock / moon / nomad (§5.5);
  * mỗi task thêm móc của vua mình ở đây.
  */
-export const FULL_RUN_CARD_HOOKS: readonly Partial<FullRunCardHooks>[] = [GROVE_HOOKS, TIDE_HOOKS, FORGE_HOOKS, CLOCK_HOOKS];
+export const FULL_RUN_CARD_HOOKS: readonly Partial<FullRunCardHooks>[] = [
+  GROVE_HOOKS,
+  TIDE_HOOKS,
+  FORGE_HOOKS,
+  CLOCK_HOOKS,
+  MOON_HOOKS,
+  NOMAD_HOOKS,
+];
 
 export const runYearGrowth = (state: RunState, content: Content): RunState =>
   FULL_RUN_CARD_HOOKS.reduce((s, h) => (h.yearGrowth ? h.yearGrowth(s, content) : s), state);

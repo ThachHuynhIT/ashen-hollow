@@ -281,7 +281,7 @@ export class PlanningHudScene extends Phaser.Scene {
         this,
         CONTENT,
         offers.cardIds,
-        offerTitle(offers, (id) => CONTENT.king(id).nameVi),
+        offerTitle(offers, (id) => CONTENT.enemyKing(id).nameVi),
         this.tooltip,
         (index) => this.bus.emit('ui:command', { command: { type: 'pickOffer', index } }),
       ).setDepth(MODAL_DEPTH);

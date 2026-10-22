@@ -146,6 +146,12 @@ export interface StructureSetup {
   } | null;
   /** lính cùng phe trong `radius` hồi `hps` máu mỗi giây */
   healAura?: { radius: number; hps: number } | null;
+  /** mỗi lần hạ địch triệu hồi 1 `stats` tại công trình, tối đa `max` mỗi trận */
+  summonOnKill?: { stats: UnitStats; max: number } | null;
+  /** mỗi `everyTicks` tick triệu hồi 1 `stats` tại ô, tối đa `max` mỗi trận */
+  summonEvery?: { everyTicks: number; stats: UnitStats; max: number } | null;
+  /** đầu trận triệu hồi `count` lính `stats` quanh ô công trình */
+  startSummon?: { stats: UnitStats; count: number } | null;
   /** giây lên dây trước cho tăng tiến của công trình (§8.6) */
   prewind?: number;
   /** công trình tự đánh nhanh dần: `pps`% mỗi giây, tối đa `cap`% */

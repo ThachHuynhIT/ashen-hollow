@@ -95,7 +95,7 @@ export function recordQuestCommand(
     const card = content.card(before.hand[command.handIndex]!);
     if (
       card.kind === 'tome' &&
-      card.actions.some((a) => a.type === 'sacrifice') &&
+      (card.tags.includes('sacrifice') || card.actions.some((a) => a.type === 'sacrifice')) &&
       command.target.kind === 'plot'
     ) {
       sacrificed = before.plots[command.target.plot]?.building?.level ?? 0;

@@ -138,10 +138,11 @@ describe('tomes', () => {
     const b = bld(8, 'neutral_well');
     const s = state(['neutral_move'], [[6, a], [7, b]]);
     const next = run(s, play(0, { kind: 'two', first: 6, second: 7 }));
-    expect(next.plots[7]!.building).toEqual(a);
-    expect(next.plots[6]!.building).toEqual(b);
+    const stamped = <T extends object>(x: T) => ({ ...x, movedYear: s.year });
+    expect(next.plots[7]!.building).toEqual(stamped(a));
+    expect(next.plots[6]!.building).toEqual(stamped(b));
     const toEmpty = run(state(['neutral_move'], [[6, a]]), play(0, { kind: 'two', first: 6, second: 8 }));
-    expect(toEmpty.plots[8]!.building).toEqual(a);
+    expect(toEmpty.plots[8]!.building).toEqual(stamped(a));
     expect(toEmpty.plots[6]!.building).toBeNull();
   });
 

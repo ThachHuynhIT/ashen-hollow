@@ -164,6 +164,11 @@ export const hashWorld = (world: BattleWorld): number => {
     world.bellStun,
     world.respawnEvery,
     world.respawnCount,
+    world.killSummonMax,
+    world.killSummonDone,
+    world.summonEvery,
+    world.summonMax,
+    world.summonDone,
   ]) {
     h = mixI32(h, a, n);
   }
