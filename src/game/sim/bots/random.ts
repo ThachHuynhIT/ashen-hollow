@@ -1,9 +1,10 @@
 /** Bot chơi ngẫu nhiên hợp lệ (spec §13.3): dùng cho headless/cân bằng, luôn sinh lệnh hợp lệ. */
 import type { Rng } from '../../../core/random';
-import { rerollCost, unlockCost } from '../../../data/run';
+import { unlockCost } from '../../../data/run';
 import type { CardDef } from '../../../data/types';
 import type { Content } from '../../cards/registry';
 import { adjacentToUnlocked, checkPlay, targetCount } from '../../run/board';
+import { rerollPrice } from '../../run/decrees';
 import { cardOffer } from '../../run/flow';
 import type { PlayTarget, RunCommand, RunState } from '../../run/state';
 
@@ -50,7 +51,7 @@ export const randomBot: Bot = (state, content, rng) => {
     case 'planning': {
       if (state.played) return { type: 'startBattle' };
       // Các lệnh phụ (không dùng lượt): đổi bài, mua ô.
-      const cost = rerollCost(state.rerollsThisYear + 1);
+      const cost = rerollPrice(state);
       if (state.rerollsThisYear < MAX_REROLLS && state.gold >= cost && rng.int(1, ONE_IN_REROLL) === 1) {
         return { type: 'reroll' };
       }

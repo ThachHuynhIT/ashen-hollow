@@ -20,6 +20,7 @@ import type {
   WaveSetup,
 } from '../battle/types';
 import { THRONE_PLOT } from './board';
+import { foeSpeedMult, interventionStats } from './decrees';
 import { collectStatSheet, finalStat, type StatSheet } from './modifiers';
 import type { RunState } from './state';
 
@@ -67,9 +68,10 @@ const unitStats = (
   siege: boolean,
   content: Content,
   banner: readonly BannerEffect[] = [],
+  speedScale = 1,
 ): UnitStats => {
   const hpMult = 1 + pctOf(banner, (e) => e.type === 'enemyStat' && e.stat === 'hp') / 100;
-  const speedMult = 1 + pctOf(banner, (e) => e.type === 'enemyStat' && e.stat === 'speed') / 100;
+  const speedMult = (1 + pctOf(banner, (e) => e.type === 'enemyStat' && e.stat === 'speed') / 100) * speedScale;
   const hp = u.hp * mult * hpMult;
   const death = u.behaviours?.find((b) => b.type === 'deathSpawn');
   return {
@@ -83,7 +85,7 @@ const unitStats = (
     sprite: { w: u.sprite.w, h: u.sprite.h },
     shield: (hp * pctOf(banner, (e) => e.type === 'enemyShieldPct')) / 100,
     deathSpawn: death
-      ? { stats: unitStats(content.unit(death.unit), mult, false, content, banner), count: death.count }
+      ? { stats: unitStats(content.unit(death.unit), mult, false, content, banner, speedScale), count: death.count }
       : null,
   };
 };
@@ -214,11 +216,15 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
 
   const mult = ENEMY_LEVEL_STAT[army.level - 1]! * army.statMult;
   const banner = army.attacker === 'raiders' ? [] : content.king(army.attacker).banner.effects;
+  const speedScale = foeSpeedMult(state);
   const waves: WaveSetup[] = army.waves.map((w) => ({
     spawnTick: w.spawnTick,
     spawns: w.units.map((s) => {
       const def = content.unit(s.unit);
-      return { stats: unitStats(def, mult, def.tags.includes('siege'), content, banner), edge: s.edge };
+      return {
+        stats: unitStats(def, mult, def.tags.includes('siege'), content, banner, speedScale),
+        edge: s.edge,
+      };
     }),
   }));
 
@@ -228,5 +234,9 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
     structures,
     waves,
     autoFire: state.autoFire,
+    // Vắng khi không có sắc lệnh/nhiệm vụ: trận giữ số gốc §7.4 (G1/G2).
+    ...(state.decrees.length > 0 || state.interventionDmgPct > 0
+      ? { intervention: interventionStats(state) }
+      : {}),
   };
 }

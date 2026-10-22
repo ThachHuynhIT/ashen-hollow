@@ -38,6 +38,7 @@ function makeState(army: ArmyPlan | null): RunState {
     autoFire: false,
     gold: 0,
     rerollsThisYear: 0,
+    paidRerollsThisYear: 0,
     purchasedPlots: 0,
     idleUids: [],
     enemyKings: [],

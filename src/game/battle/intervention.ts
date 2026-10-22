@@ -22,7 +22,7 @@ export const boulderDamage = (year: number): number =>
 /** Lên lịch một tảng đá (đã kiểm hợp lệ) và đặt hồi chiêu; dùng chung cho thả tay và tự bắn. */
 const scheduleBoulder = (world: BattleWorld, tick: number, x: number, y: number): void => {
   world.boulders.push({ x, y, dropTick: tick, impactTick: tick + INTERVENTION.delayTicks });
-  world.readyTick = tick + INTERVENTION.cooldownTicks;
+  world.readyTick = tick + world.cooldownTicks;
   world.interventionsUsed += 1;
   world.events.push({ type: 'boulder', phase: 'drop', x, y });
 };
@@ -102,7 +102,7 @@ export const autoFirePhase = (world: BattleWorld): void => {
 
 const impact = (world: BattleWorld, bx: number, by: number): void => {
   world.events.push({ type: 'boulder', phase: 'impact', x: bx, y: by });
-  const dmg = boulderDamage(world.setup.year);
+  const dmg = (boulderDamage(world.setup.year) * (100 + world.boulderDmgPct)) / 100;
   const r2 = world.boulderRadius * world.boulderRadius;
   const perTick = INTERVENTION.knockback / BATTLE.knockbackTicks;
   for (let i = 0; i < world.count; i++) {

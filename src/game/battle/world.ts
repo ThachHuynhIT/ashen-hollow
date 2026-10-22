@@ -193,6 +193,10 @@ export class BattleWorld {
   autoFire: boolean;
   /** Bán kính tảng đá (§7.4); khởi tạo từ INTERVENTION.radius để sắc lệnh đổi được. */
   boulderRadius: number = INTERVENTION.radius;
+  /** % sát thương Can Thiệp cộng thêm (sắc lệnh, nhiệm vụ). */
+  boulderDmgPct = 0;
+  /** Hồi chiêu Can Thiệp sau khi giảm. */
+  cooldownTicks: number = INTERVENTION.cooldownTicks;
 
   /** Trận đã kết thúc (§8.8); khi đó stepBattle không làm gì nữa. */
   ended = false;
@@ -203,6 +207,11 @@ export class BattleWorld {
   constructor(setup: BattleSetup) {
     this.setup = setup;
     this.autoFire = setup.autoFire ?? false;
+    if (setup.intervention) {
+      this.boulderDmgPct = setup.intervention.dmgPct;
+      this.boulderRadius = setup.intervention.radius;
+      this.cooldownTicks = setup.intervention.cooldownTicks;
+    }
   }
 
   /** Cấp id mới với giá trị mặc định (alive 1, target −1); −1 nếu đã đầy entityCap. */

@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
-import { RUN, rerollCost } from '../data/run';
+import { RUN } from '../data/run';
 import { describeCard } from '../game/cards/describe';
 import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
 import { hasAnyTarget, targetCount } from '../game/run/board';
+import { rerollPrice } from '../game/run/decrees';
 import { cardOffer } from '../game/run/flow';
 import type { IllegalReason, RunState } from '../game/run/state';
 import { SPRITES_KEY, iconFrame } from '../render/atlas';
@@ -291,7 +292,7 @@ export class PlanningHudScene extends Phaser.Scene {
   }
 
   private rerollPrice(state: RunState): number {
-    return rerollCost(state.rerollsThisYear + 1);
+    return rerollPrice(state);
   }
 
   /** Labels, enabled state of Bán bài / Đổi bài / Bộ bài (they stay hoverable to say why not). */

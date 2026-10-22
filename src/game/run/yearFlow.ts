@@ -8,6 +8,7 @@ import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
 import { calendarFor, pickEnemyKings, slotMultFor, startDeck } from './calendar';
+import { freeRerollsPerYear } from './decrees';
 import { finishYearStart } from './flow';
 import { RUN_SAVE_VERSION } from './state';
 import type { RunState } from './state';
@@ -48,6 +49,8 @@ export function startYear(state: RunState, content: Content): RunState {
     played: false,
     offers: null,
     rerollsThisYear: 0,
+    paidRerollsThisYear: 0,
+    freeRerollsLeft: freeRerollsPerYear(state),
     idleUids: income.idleUids,
     gold: state.gold + RUN.taxPerYear + income.delta,
     stats: { ...state.stats, goldEarned: state.stats.goldEarned + gained },
@@ -94,6 +97,7 @@ export function newRun(
     autoFire: false,
     gold: RUN.startGold,
     rerollsThisYear: 0,
+    paidRerollsThisYear: 0,
     purchasedPlots: 0,
     idleUids: [],
     enemyKings,

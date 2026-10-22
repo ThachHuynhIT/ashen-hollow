@@ -139,6 +139,8 @@ export interface BattleSetup {
   waves: readonly WaveSetup[];
   /** Đá Tảng tự bắn ngay từ đầu trận (mặc định tắt). */
   autoFire?: boolean;
+  /** Can Thiệp đã chốt cho trận (sắc lệnh + nhiệm vụ); vắng = số gốc §7.4. */
+  intervention?: { dmgPct: number; radius: number; cooldownTicks: number };
 }
 
 /** Sự kiện cho render, rút ra bằng drainEvents. */

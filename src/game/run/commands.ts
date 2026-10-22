@@ -1,6 +1,6 @@
 /** Lệnh người chơi lên RunState (spec §5.1, §5.5). Thuần: làm việc trên bản sao, không sửa đầu vào. */
 import { Rng } from '../../core/random';
-import { RUN, START_DECK_G1, battleGold, rerollCost, unlockCost } from '../../data/run';
+import { RUN, START_DECK_G1, battleGold, unlockCost } from '../../data/run';
 import type { CardDef, CardId, KingId } from '../../data/types';
 import { CUSTOM_TOME_HANDLERS } from '../cards/custom';
 import type { Content } from '../cards/registry';
@@ -16,6 +16,7 @@ import {
   sacrificeBuilding,
   unlockPlot,
 } from './board';
+import { handLimit, rerollPrice, rewardCount } from './decrees';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
 import { rollConquestOffers, rollOffers } from './rewards';
@@ -142,14 +143,16 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
     case 'reroll': {
       if (state.phase !== 'planning') return fail('wrongPhase');
       if (state.played) return fail('alreadyPlayed');
-      const cost = rerollCost(state.rerollsThisYear + 1);
+      const cost = rerollPrice(state);
       if (state.gold < cost) return fail('notEnoughGold');
       const rng = new Rng(state.rng.draw);
-      const piles = refillHand([], state.drawPile, [...state.discardPile, ...state.hand], rng, RUN.handSize);
+      const piles = refillHand([], state.drawPile, [...state.discardPile, ...state.hand], rng, handLimit(state));
       state.hand = piles.hand;
       state.drawPile = piles.drawPile;
       state.discardPile = piles.discardPile;
       state.gold -= cost;
+      if (state.freeRerollsLeft > 0) state.freeRerollsLeft -= 1;
+      else state.paidRerollsThisYear += 1;
       state.rerollsThisYear += 1;
       state.rng.draw = rng.getState();
       return { state, events };
@@ -232,7 +235,7 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
         const cardIds = rollOffers(rng, state.year, {
           king: only(content.king(state.kingId).cards),
           neutral: only(content.neutralPool()),
-        });
+        }, rewardCount(state));
         state.rng.reward = rng.getState();
         state.offers = { kind: 'reward', cardIds };
         state.pendingConquest = conquered;

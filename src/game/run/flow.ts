@@ -1,7 +1,7 @@
 /** Thứ tự bước trong năm và hàng đợi lựa chọn (spec §3.2, §5.5). Thuần, không sửa đầu vào. */
 import { Rng } from '../../core/random';
-import { RUN } from '../../data/run';
 import type { Content } from '../cards/registry';
+import { handLimit } from './decrees';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
 import type { CardOfferState, OfferState, RunPhase, RunState } from './state';
@@ -53,7 +53,7 @@ export function finishYearStart(state: RunState, content: Content): RunState {
     state.drawPile,
     recycle ? [...state.discardPile, ...state.hand] : state.discardPile,
     rng,
-    RUN.handSize,
+    handLimit(state),
   );
   return {
     ...state,

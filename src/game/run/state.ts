@@ -107,6 +107,8 @@ export interface RunState {
   autoFire: boolean;
   gold: number;
   rerollsThisYear: number;
+  /** Số lần đổi bài ĐÃ TRẢ phí trong năm (giá lần kế); `rerollsThisYear` đếm cả lần miễn phí. */
+  paidRerollsThisYear: number;
   /** Số ô đã MUA bằng vàng (giá ô kế tiếp, spec §3.11). */
   purchasedPlots: number;
   /** Uid công trình không trả được phí duy trì năm nay; tính lại mỗi `startYear`. */

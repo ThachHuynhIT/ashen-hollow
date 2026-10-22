@@ -4,6 +4,7 @@ import { CUSTOM_INCOME_HANDLERS } from '../cards/custom';
 import type { IncomeHandler, StatCtx } from '../cards/custom/types';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, neighbours } from './board';
+import { decree } from './decrees';
 import { collectStatSheet } from './modifiers';
 import type { RunState } from './state';
 
@@ -79,6 +80,10 @@ export function yearIncome(
     gained += collectStatSheet(state, content, plot).gold.flat; // Bùa Phân Bón, v.v.
     delta += gained;
     spendable += upkeep;
+  }
+  // Sắc lệnh cộng vàng đầu năm (Thuế Mùa Màng), sau phí duy trì của công trình.
+  for (const id of state.decrees) {
+    for (const e of decree(id).effects) if (e.type === 'gold') delta += resolve(e.amount, 1);
   }
   return { delta, idleUids };
 }

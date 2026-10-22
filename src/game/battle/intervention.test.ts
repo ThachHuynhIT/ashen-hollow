@@ -381,3 +381,30 @@ describe('auto-fire inside stepBattle', () => {
     expect(w.inputs).toEqual([{ tick: 20, auto: true }]);
   });
 });
+
+describe('decree-driven boulder (damage %, radius, cooldown from the setup)', () => {
+  it('hits for +50% (60 in year 1), covers the wider radius and cools down in 105 ticks', () => {
+    const w = scene(1);
+    w.boulderDmgPct = 50;
+    w.boulderRadius = 32;
+    w.cooldownTicks = 105;
+    dropAndRun(w, 36);
+    expect(w.hp[A]).toBe(1000 - 60);
+    expect(w.hp[4]).toBe(1000 - 60); // 30 px away: outside 24, inside 32
+    expect(w.readyTick).toBe(30 + 105);
+  });
+
+  it('is unchanged without a setup intervention (legacy 40 damage, 150 cooldown)', () => {
+    const w = scene(1);
+    expect(w.boulderDmgPct).toBe(0);
+    expect(w.cooldownTicks).toBe(INTERVENTION.cooldownTicks);
+    dropAndRun(w, 36);
+    expect(w.hp[A]).toBe(1000 - 40);
+    expect(w.readyTick).toBe(30 + 150);
+  });
+
+  it('createBattle reads the setup intervention', () => {
+    const w = createBattle(battleSetup({ intervention: { dmgPct: 70, radius: 32, cooldownTicks: 60 } }));
+    expect([w.boulderDmgPct, w.boulderRadius, w.cooldownTicks]).toEqual([70, 32, 60]);
+  });
+});

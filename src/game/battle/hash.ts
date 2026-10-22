@@ -133,6 +133,8 @@ export const hashWorld = (world: BattleWorld): number => {
   h = mixNum(h, world.endTick);
   h = mixWord(h, world.autoFire ? 1 : 0);
   h = mixNum(h, world.boulderRadius);
+  h = mixNum(h, world.boulderDmgPct);
+  h = mixNum(h, world.cooldownTicks);
   h = mixWord(h, world.boulders.length);
   for (const b of world.boulders) {
     h = mixNum(h, b.x);

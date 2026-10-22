@@ -288,7 +288,7 @@ describe('gold', () => {
 
   it('reroll is refused without enough gold, after the action and outside planning', () => {
     expect(errorOf(rich({ gold: 0 }), { type: 'reroll' })).toBe('notEnoughGold');
-    expect(errorOf(rich({ gold: 3, rerollsThisYear: 2 }), { type: 'reroll' })).toBe('notEnoughGold');
+    expect(errorOf(rich({ gold: 3, rerollsThisYear: 2, paidRerollsThisYear: 2 }), { type: 'reroll' })).toBe('notEnoughGold');
     expect(errorOf(rich({ played: true }), { type: 'reroll' })).toBe('alreadyPlayed');
     expect(errorOf(rich({ phase: 'battle' }), { type: 'reroll' })).toBe('wrongPhase');
   });
