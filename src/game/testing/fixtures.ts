@@ -1,5 +1,5 @@
 /** Dựng setup trận nhỏ cho test (không dùng trong mã chạy thật). */
-import type { BannerDef, CardDef, KingDef, KingId, UnitDef } from '../../data/types';
+import type { BannerDef, CardDef, CardId, KingDef, KingId, UnitDef } from '../../data/types';
 import { enemyFromKing } from '../../data/kings';
 import { CONTENT, type Content } from '../cards/registry';
 import { newRun } from '../run/yearFlow';
@@ -200,3 +200,33 @@ export const fakeKingCards = (king: KingId): CardDef[] => {
     ...[1, 2].map((n) => make(`${king}_r${n}`, 'rare')),
   ];
 };
+
+/** Đặt công trình `cardId` cấp `level` vào ô `plot` (mở ô); trả state mới. */
+export const withBuilding = (
+  state: RunState,
+  plot: number,
+  cardId: string,
+  level: 1 | 2 | 3 | 4 | 5 = 1,
+  over: Partial<RunState['plots'][number]['building'] & object> = {},
+): RunState => ({
+  ...state,
+  plots: state.plots.map((p, i) =>
+    i === plot
+      ? {
+          unlocked: true,
+          building: {
+            uid: 100 + plot,
+            cardId: cardId as CardId,
+            level,
+            enchants: [],
+            placedYear: 1,
+            permanent: {},
+            ageBonus: 0,
+            counters: {},
+            movedYear: null,
+            ...over,
+          },
+        }
+      : p,
+  ),
+});

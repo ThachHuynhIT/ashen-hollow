@@ -34,9 +34,19 @@ const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatShe
   const slow = a.onHit?.find((h) => h.type === 'slow');
   const stun = a.onHit?.find((h) => h.type === 'stun');
   const ramp = a.onHit?.find((h) => h.type === 'rampSameTarget');
-  const extraOnHit = (a.onHit ?? []).filter(
+  const listed = (a.onHit ?? []).filter(
     (h) => h.type !== 'slow' && h.type !== 'stun' && h.type !== 'rampSameTarget',
   );
+  // Bùa Sóng Ngầm (`knockback` flat): mỗi đòn đẩy lùi thêm, kể cả đòn vốn không đẩy.
+  const kbBonus = sheet ? sheet.knockback.flat : 0;
+  const kbBase = listed.find((h) => h.type === 'knockback');
+  const extraOnHit =
+    kbBonus > 0
+      ? [
+          ...listed.filter((h) => h.type !== 'knockback'),
+          { type: 'knockback' as const, px: (kbBase && kbBase.type === 'knockback' ? kbBase.px : 0) + kbBonus },
+        ]
+      : listed;
   const interval = sheet
     ? Math.max(a.interval / (1 + sheet.attackSpeed.pct / 100), a.interval * 0.5)
     : a.interval;
@@ -130,6 +140,18 @@ const spawnedStats = (
   };
 };
 
+/** Lính đánh thuê của Hợp Đồng (`counters.privateers` của Ngai) sinh thêm tại Ngai đầu trận. */
+const throneMercenaries = (
+  state: RunState,
+  content: Content,
+  count: number,
+): Pick<StructureSetup, 'spawnAtThrone'> => {
+  if (count <= 0) return {};
+  const unit = content.unit('mercenary');
+  const sheet = collectStatSheet(state, content, THRONE_PLOT, unit);
+  return { spawnAtThrone: { stats: spawnedStats(unit, state.throneLevel, sheet, content), count } };
+};
+
 const structureFor = (state: RunState, plot: number, content: Content): StructureSetup => {
   const b = state.plots[plot]!.building!;
   const card = content.card(b.cardId);
@@ -148,6 +170,7 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
       pulse: null,
       taunt: 0,
       shieldPulse: null,
+      ...throneMercenaries(state, content, b.counters.privateers ?? 0),
     };
   }
   if (card.kind === 'tome' || card.kind === 'enchantment') {
@@ -183,6 +206,10 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
   const pulseFx = card.effects.find((e) => e.type === 'pulse');
   const tauntFx = card.effects.find((e) => e.type === 'taunt');
   const shieldFx = card.effects.find((e) => e.type === 'shieldPulse');
+  const pulseKnock =
+    pulseFx && pulseFx.type === 'pulse'
+      ? (pulseFx.attack.onHit?.reduce((m, h) => (h.type === 'knockback' ? Math.max(m, h.px) : m), 0) ?? 0)
+      : 0;
   const pulse =
     pulseFx && pulseFx.type === 'pulse'
       ? {
@@ -192,8 +219,12 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
           dmgType: pulseFx.attack.type,
           stunTicks:
             pulseFx.attack.onHit?.reduce((m, h) => (h.type === 'stun' ? Math.max(m, h.ticks) : m), 0) ?? 0,
+          ...(pulseKnock > 0 ? { knockback: pulseKnock } : {}),
         }
       : null;
+  const auraFx = card.effects.find((e) => e.type === 'healAura');
+  const multiFx = card.effects.find((e) => e.type === 'multiAttack');
+  const goldFx = card.effects.find((e) => e.type === 'killGold');
   return {
     ...base,
     kind: card.kind as StructureSetup['kind'],
@@ -215,6 +246,13 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
             amount: scalarAt(shieldFx.amount, level),
           }
         : null,
+    ...(auraFx && auraFx.type === 'healAura'
+      ? { healAura: { radius: auraFx.radius, hps: scalarAt(auraFx.hpPerSec, level) } }
+      : {}),
+    ...(multiFx && multiFx.type === 'multiAttack' ? { multiAttack: multiFx.count } : {}),
+    ...(goldFx && goldFx.type === 'killGold'
+      ? { killGold: { every: goldFx.every, gold: goldFx.gold, max: goldFx.max } }
+      : {}),
   };
 };
 

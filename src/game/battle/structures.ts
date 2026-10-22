@@ -28,6 +28,7 @@ export const pulsePhase = (world: BattleWorld): void => {
         undefined,
         i,
         world.pulseStun[i]!,
+        world.pulseKnock[i]!,
       );
     }
     world.events.push({ type: 'pulse', id: i });

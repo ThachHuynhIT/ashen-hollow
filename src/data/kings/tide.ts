@@ -1,4 +1,144 @@
-import type { EnemyKingDef } from '../types';
+import type { CardDef, EnemyKingDef } from '../types';
+
+const pirate = { owner: 'tide' as const, tags: ['pirate'] as const };
+const plain = { owner: 'tide' as const, tags: [] as const };
+
+/** Chín thẻ của Vua Thuỷ Triều (spec §6.7), không gồm Ngai; chỉ có được nhờ chinh phục ở G3. */
+export const TIDE_CARDS: readonly CardDef[] = [
+  {
+    ...pirate,
+    id: 'tide_pirates',
+    nameVi: 'Thuyền Cướp Biển',
+    name: 'Pirate Ship',
+    kind: 'troop',
+    rarity: 'common',
+    textVi: 'Sinh {count} cướp biển. Mỗi 8 địch chúng hạ: +1 vàng (tối đa 3 mỗi trận).',
+    effects: [
+      { type: 'spawn', unit: 'pirate', count: [4, 5, 6, 7, 8] },
+      { type: 'killGold', every: 8, gold: 1, max: 3 },
+    ],
+  },
+  {
+    ...plain,
+    id: 'tide_cannon',
+    nameVi: 'Pháo Đài Biển',
+    name: 'Sea Fort',
+    kind: 'tower',
+    rarity: 'common',
+    textVi: 'Pháo {dmg} sát thương, nổ lan 12, đẩy lùi 16.',
+    effects: [
+      {
+        type: 'tower',
+        attack: {
+          dmg: 16,
+          type: 'physical',
+          range: 88,
+          interval: 22,
+          projectileSpeed: 6,
+          splash: 12,
+          onHit: [{ type: 'knockback', px: 16 }],
+        },
+        targeting: 'closestToThrone',
+      },
+    ],
+  },
+  {
+    ...plain,
+    id: 'tide_harbor',
+    nameVi: 'Bến Cảng',
+    name: 'Harbor',
+    kind: 'economy',
+    rarity: 'common',
+    textVi: 'Đầu năm +{gold} vàng.',
+    effects: [{ type: 'gold', amount: [2, 3, 4, 5, 6] }],
+  },
+  {
+    ...plain,
+    id: 'tide_undertow_rune',
+    nameVi: 'Bùa Sóng Ngầm',
+    name: 'Undertow Rune',
+    kind: 'enchantment',
+    rarity: 'common',
+    textVi: 'Mỗi lần gắn: mỗi đòn đẩy lùi thêm 6; lính +8% tốc độ.',
+    targets: ['troop', 'tower', 'throne'],
+    perStack: [
+      { type: 'stat', scope: 'self', stat: 'knockback', mode: 'flat', value: 6 },
+      { type: 'stat', scope: 'self', filter: { kinds: ['troop'] }, stat: 'speed', mode: 'pct', value: 8 },
+    ],
+  },
+  {
+    ...plain,
+    id: 'tide_wave_tower',
+    nameVi: 'Tháp Sóng',
+    name: 'Wave Tower',
+    kind: 'tower',
+    rarity: 'uncommon',
+    textVi: 'Mỗi 50 tick tạo sóng {dmg} sát thương phép, đẩy lùi 24.',
+    effects: [
+      {
+        type: 'pulse',
+        everyTicks: 50,
+        radius: 72,
+        attack: { dmg: 10, type: 'magic', range: 0, interval: 50, onHit: [{ type: 'knockback', px: 24 }] },
+      },
+    ],
+  },
+  {
+    ...plain,
+    id: 'tide_treasure',
+    nameVi: 'Rương Châu Báu',
+    name: 'Treasure Chest',
+    kind: 'economy',
+    rarity: 'uncommon',
+    textVi: 'Đầu năm +1 vàng cho mỗi 5 vàng đang có, tối đa {cap}.',
+    effects: [{ type: 'custom', id: 'treasure_chest', params: { cap: [3, 4, 5, 6, 7] } }],
+  },
+  {
+    ...pirate,
+    id: 'tide_hookmen',
+    nameVi: 'Đội Móc Câu',
+    name: 'Hookmen',
+    kind: 'troop',
+    rarity: 'uncommon',
+    textVi: 'Sinh {count} lính móc câu.',
+    effects: [{ type: 'spawn', unit: 'hookman', count: [2, 3, 4, 5, 6] }],
+  },
+  {
+    ...plain,
+    id: 'tide_privateers',
+    nameVi: 'Hợp Đồng Đánh Thuê',
+    name: 'Privateer Contract',
+    kind: 'tome',
+    rarity: 'rare',
+    textVi: 'Trả toàn bộ vàng (tối đa 16); trận năm nay có thêm 1 lính đánh thuê tại Ngai cho mỗi 2 vàng đã trả.',
+    target: 'none',
+    actions: [{ type: 'custom', id: 'privateers', params: { maxPay: 16, perMercenary: 2 } }],
+  },
+  {
+    ...plain,
+    id: 'tide_kraken',
+    nameVi: 'Vực Kraken',
+    name: 'Kraken Maw',
+    kind: 'tower',
+    rarity: 'rare',
+    textVi: 'Bốn xúc tu đánh bốn mục tiêu khác nhau, mỗi xúc tu {dmg} sát thương, đẩy lùi 8.',
+    structureHp: [500, 625, 750, 875, 1000],
+    effects: [
+      {
+        type: 'tower',
+        attack: {
+          dmg: 14,
+          type: 'physical',
+          range: 56,
+          interval: 12,
+          onHit: [{ type: 'knockback', px: 8 }],
+        },
+        targeting: 'nearest',
+      },
+      { type: 'multiAttack', count: 4 },
+    ],
+  },
+];
 
 /** Vua Thuỷ Triều (spec §6.7) phía kẻ địch: cướp biển, cướp vàng. Thẻ chinh phục: G3b-B3. */
 export const TIDE_ENEMY: EnemyKingDef = {
@@ -62,5 +202,5 @@ export const TIDE_ENEMY: EnemyKingDef = {
     textVi: 'Mỗi lần Ngai mất thêm 10% máu tối đa trong trận, bạn mất 1 vàng (tối đa 3 mỗi trận).',
     effects: [{ type: 'throneGoldLoss', everyPct: 10, gold: 1, max: 3 }],
   },
-  conquestCards: [],
+  conquestCards: TIDE_CARDS,
 };

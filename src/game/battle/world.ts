@@ -213,6 +213,13 @@ export class BattleWorld {
   readonly stepEvery = new Int32Array(BATTLE.entityCap);
   readonly stepMax = new Int32Array(BATTLE.entityCap);
   readonly chargeStun = new Int32Array(BATTLE.entityCap);
+  /** Số mục tiêu khác nhau mỗi nhịp của công trình (mặc định 1). */
+  readonly multiCount = new Int32Array(BATTLE.entityCap).fill(1);
+  readonly killGoldEvery = new Int32Array(BATTLE.entityCap);
+  readonly killGoldAmount = new Float64Array(BATTLE.entityCap);
+  readonly killGoldMax = new Int32Array(BATTLE.entityCap);
+  /** Đẩy lùi của xung vòng tròn (px). */
+  readonly pulseKnock = new Float64Array(BATTLE.entityCap);
   /** Vị trí đơn vị trong registry đã sắp (khoá bỏng/độc của địch); −1 nếu không có. */
   readonly defIndex = new Int32Array(BATTLE.entityCap).fill(-1);
   /** Id thực thể có đòn kết liễu (killHeal); −1 = chưa có. */
@@ -245,6 +252,8 @@ export class BattleWorld {
   damageQueue: QueuedDamage[] = [];
   /** Bỏng / độc đang chạy, theo thứ tự tạo. */
   dots: Dot[] = [];
+  /** Đã cộng vàng cuối trận (killGold) chưa. */
+  battleGoldSettled = false;
   /** Hồn của mỗi phe: số lính của phe đó đã chết trong trận (§8.9 bước 10). */
   souls: [number, number] = [0, 0];
   /** Vàng thu/chi trong trận (cướp biển…); cộng vào kết quả trận. */
@@ -472,6 +481,17 @@ const addStructure = (w: BattleWorld, s: StructureSetup, isThrone: boolean): num
     w.pulseDmg[id] = s.pulse.dmg;
     w.pulseDmgType[id] = dmgTypeCode(s.pulse.dmgType);
     w.pulseStun[id] = s.pulse.stunTicks;
+    w.pulseKnock[id] = s.pulse.knockback ?? 0;
+  }
+  if (s.healAura) {
+    w.auraRadius[id] = s.healAura.radius;
+    w.auraHps[id] = s.healAura.hps;
+  }
+  w.multiCount[id] = Math.max(s.multiAttack ?? 1, 1);
+  if (s.killGold) {
+    w.killGoldEvery[id] = s.killGold.every;
+    w.killGoldAmount[id] = s.killGold.gold;
+    w.killGoldMax[id] = s.killGold.max;
   }
   if (s.shieldPulse) {
     w.shieldEvery[id] = s.shieldPulse.everyTicks;
@@ -604,6 +624,21 @@ export const createBattle = (setup: BattleSetup): BattleWorld => {
       }
       const o = spawnOffset(k);
       const id = addUnit(w, s.spawn.stats, TEAM_ALLY, c.x + o.dx, c.y + o.dy, c.x, c.y, s.uid);
+      if (id < 0) w.capped += 1;
+      else w.playerUnits += 1;
+    }
+  }
+  // Triệu hồi đầu trận tại Ngai (§8.7): lính đánh thuê của Hợp Đồng.
+  const at = setup.throne.spawnAtThrone;
+  if (at) {
+    const c = plotCenter(setup.throne.plot);
+    for (let k = 0; k < at.count; k++) {
+      if (w.playerUnits >= BATTLE.playerUnitCap) {
+        w.capped += 1;
+        continue;
+      }
+      const o = spawnOffset(k);
+      const id = addUnit(w, at.stats, TEAM_ALLY, c.x + o.dx, c.y + o.dy, c.x, c.y, setup.throne.uid);
       if (id < 0) w.capped += 1;
       else w.playerUnits += 1;
     }

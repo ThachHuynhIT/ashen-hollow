@@ -141,7 +141,17 @@ export interface StructureSetup {
     dmg: number;
     dmgType: DamageType;
     stunTicks: number;
+    /** đẩy lùi ra xa tháp (px); 0 = không */
+    knockback?: number;
   } | null;
+  /** lính cùng phe trong `radius` hồi `hps` máu mỗi giây */
+  healAura?: { radius: number; hps: number } | null;
+  /** đánh `count` mục tiêu khác nhau mỗi nhịp (Vực Kraken) */
+  multiAttack?: number;
+  /** mỗi `every` địch do lính của công trình này hạ: +`gold` vàng, tối đa `max` mỗi trận */
+  killGold?: { every: number; gold: number; max: number } | null;
+  /** lính triệu hồi thêm tại Ngai đầu trận (Hợp Đồng Lính Đánh Thuê) */
+  spawnAtThrone?: { stats: UnitStats; count: number } | null;
   /** bán kính khiêu khích: địch trong vòng này phải đánh công trình này trước; 0 = không */
   taunt: number;
   /** xung khiên: mỗi `everyTicks` tick lính mình trong `radius` nhận `amount` khiên (tối đa 2×) */

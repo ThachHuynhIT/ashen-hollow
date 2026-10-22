@@ -114,6 +114,20 @@ export function deathBehaviours(w: BattleWorld, id: number): boolean {
 }
 
 /**
+ * Cuối trận: vàng từ `killGold` (Thuyền Cướp Biển): mỗi `every` địch do lính của công trình hạ được
+ * `gold`, tối đa `max`. Gom vào `goldDelta`, chỉ một lần mỗi trận.
+ */
+export function settleBattleGold(w: BattleWorld): void {
+  if (w.battleGoldSettled) return;
+  w.battleGoldSettled = true;
+  for (let i = 0; i < w.count; i++) {
+    if (w.killGoldEvery[i]! <= 0) continue;
+    const kills = w.killsBySource[w.sourceUid[i]!] ?? 0;
+    w.goldDelta += Math.min(Math.floor(kills / w.killGoldEvery[i]!), w.killGoldMax[i]!) * w.killGoldAmount[i]!;
+  }
+}
+
+/**
  * Cờ hiệu Cướp Bóc (§6.7), sau bước chết: theo dõi mức HP Ngai thấp nhất; mỗi `lootEveryPct`% HP
  * tối đa mất thêm (mốc cao nhất đã đạt, hồi máu rồi mất lại không tính hai lần) người chơi mất
  * `lootGold` vàng, tối đa `lootMax` mỗi trận.

@@ -117,6 +117,8 @@ export const hashWorld = (world: BattleWorld): number => {
     world.kiteDist,
     world.revivePct,
     world.prewind,
+    world.pulseKnock,
+    world.killGoldAmount,
   ]) {
     h = mixF64(h, a, n);
   }
@@ -150,6 +152,9 @@ export const hashWorld = (world: BattleWorld): number => {
     world.chargeStun,
     world.defIndex,
     world.killerId,
+    world.multiCount,
+    world.killGoldEvery,
+    world.killGoldMax,
   ]) {
     h = mixI32(h, a, n);
   }
@@ -157,6 +162,7 @@ export const hashWorld = (world: BattleWorld): number => {
   h = mixU8(h, world.pulseDmgType, n);
   for (const a of [world.flying, world.boss, world.chargeReady, world.reviveReady, world.revived, world.tuned]) h = mixU8(h, a, n);
   h = mixNum(h, world.goldDelta);
+  h = mixWord(h, world.battleGoldSettled ? 1 : 0);
   h = mixNum(h, world.undyingLeft);
   h = mixNum(h, world.regenPct);
   h = mixNum(h, world.bannerRampPps);

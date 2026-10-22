@@ -8,6 +8,7 @@ import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
 import { calendarFor, pickEnemyKings, slotMultFor, startDeck } from './calendar';
+import { runYearGrowth } from '../cards/custom';
 import { freeRerollsPerYear } from './decrees';
 import { finishYearStart } from './flow';
 import { offerQuest } from './quests';
@@ -15,8 +16,10 @@ import { RUN_SAVE_VERSION } from './state';
 import type { RunState } from './state';
 
 /** Sang năm kế: bốc đạo quân và rút tay mới, về pha lập kế hoạch. */
-export function startYear(state: RunState, content: Content): RunState {
-  const year = state.year + 1;
+export function startYear(input: RunState, content: Content): RunState {
+  // Bước 3 §5.5: tăng trưởng của thẻ (Cây Mầm, Bùa Rễ Sâu…) sau khi sang năm, trước thu nhập.
+  const state = runYearGrowth({ ...input, year: input.year + 1 }, content);
+  const year = state.year;
   const slot = calendarFor(state.rules)[year - 1] ?? { kind: 'raiders' as const };
   const kingId = slot.kind === 'king' ? state.enemyKings[slot.king - 1] : undefined;
   const king = kingId === undefined ? null : content.enemyKing(kingId);

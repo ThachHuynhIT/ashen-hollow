@@ -177,7 +177,10 @@ export type CustomEffectId =
   | 'archmage_ramp'
   | 'arcane_harmony'
   | 'rune_carving'
-  | 'mirror_enchants';
+  | 'mirror_enchants'
+  | 'spring_rain'
+  | 'treasure_chest'
+  | 'privateers';
 
 export type EffectDef =
   | { readonly type: 'spawn'; readonly unit: UnitId; readonly count: PerLevel }
@@ -202,6 +205,12 @@ export type EffectDef =
       readonly value: Scalar;
     }
   | { readonly type: 'taunt'; readonly radius: number }
+  /** Lính cùng phe trong `radius` px hồi `hpPerSec` HP mỗi giây (công trình hỗ trợ). */
+  | { readonly type: 'healAura'; readonly radius: number; readonly hpPerSec: Scalar }
+  /** Tháp đánh `count` mục tiêu khác nhau (gần nhất trước) mỗi nhịp. */
+  | { readonly type: 'multiAttack'; readonly count: number }
+  /** Mỗi `every` địch do lính của công trình này hạ: +`gold` vàng, tối đa `max` mỗi trận. */
+  | { readonly type: 'killGold'; readonly every: number; readonly gold: number; readonly max: number }
   | {
       readonly type: 'shieldPulse';
       readonly radius: number;

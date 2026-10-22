@@ -6,7 +6,7 @@
 import { BATTLE } from '../../data/battle';
 import { deathBehaviours, hitBehaviours } from './behaviours';
 import { mitigate } from './damage';
-import { edgeDistance, inRange, pickShotTarget } from './targeting';
+import { edgeDistance, inRange, pickShotTarget, pickShotTargets } from './targeting';
 import {
   DMG_FIRE,
   DMG_MAGIC,
@@ -265,6 +265,13 @@ export const attackPhase = (world: BattleWorld): void => {
       t = world.target[i]!;
       if (t < 0 || world.alive[t] === 0 || world.team[t] === world.team[i]) continue;
       if (!inRange(world, i, t)) continue;
+    } else if (world.multiCount[i]! > 1) {
+      // Nhiều xúc tu: mỗi nhịp đánh tối đa `multiCount` mục tiêu khác nhau.
+      const targets = pickShotTargets(world, i, world.multiCount[i]!);
+      if (targets.length === 0) continue;
+      for (const each of targets) fire(world, i, each);
+      world.cooldown[i] = cd + world.interval[i]!;
+      continue;
     } else {
       t = pickShotTarget(world, i);
       if (t < 0) continue;

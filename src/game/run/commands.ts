@@ -2,7 +2,7 @@
 import { Rng } from '../../core/random';
 import { RUN, START_DECK_G1, battleGold, unlockCost } from '../../data/run';
 import type { CardDef, CardId, KingId } from '../../data/types';
-import { CUSTOM_TOME_HANDLERS } from '../cards/custom';
+import { CUSTOM_TOME_HANDLERS, runAfterMove, runAfterPlay, runBattleEnd } from '../cards/custom';
 import type { Content } from '../cards/registry';
 import {
   adjacentToUnlocked,
@@ -82,6 +82,7 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
             case 'move': {
               if (target.kind !== 'two') return fail('badTarget');
               state.plots = moveBuilding(state.plots, target.first, target.second);
+              Object.assign(state, runAfterMove(state, target.first, target.second, content));
               const far = manhattan(target.first, target.second) >= 2;
               if (far && action.levelIfFar > 0) {
                 state.plots = levelUpBuilding(state.plots, target.second, action.levelIfFar);
@@ -133,6 +134,7 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
       state.hand.splice(cmd.handIndex, 1);
       state.discardPile.push(cardId);
       state.played = true;
+      Object.assign(state, runAfterPlay(input, state, card, target, content));
       events.push({ type: 'cardPlayed', cardId });
       return { state, events };
     }
@@ -233,7 +235,7 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
       }
 
       // Nhiệm vụ (theo thứ tự nhận); thưởng chọn thẻ đã nằm trong hàng đợi.
-      let s = settleQuests(state, result, 'afterBattle', content);
+      let s = settleQuests(runBattleEnd(state, result, content), result, 'afterBattle', content);
       const finalYear = s.year >= s.rules.years;
       if (s.lives <= 0 || (finalYear && !full)) {
         // §3.10: hết mạng thì thua ngay; sau trận năm cuối còn mạng thì thắng ván (luật G1/G2: không thưởng).

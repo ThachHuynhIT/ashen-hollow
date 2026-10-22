@@ -1,4 +1,116 @@
-import type { EnemyKingDef } from '../types';
+import type { CardDef, EnemyKingDef } from '../types';
+
+const base = { owner: 'grove' as const, tags: ['grove'] as const };
+
+/** Chín thẻ của Vua Rừng Xanh (spec §6.6), không gồm Ngai; chỉ có được nhờ chinh phục ở G3. */
+export const GROVE_CARDS: readonly CardDef[] = [
+  {
+    ...base,
+    id: 'grove_wolf_den',
+    nameVi: 'Hang Sói',
+    name: 'Wolf Den',
+    kind: 'troop',
+    rarity: 'common',
+    textVi: 'Sinh {count} sói.',
+    effects: [{ type: 'spawn', unit: 'wolf', count: [3, 4, 5, 6, 7] }],
+  },
+  {
+    ...base,
+    id: 'grove_sapling',
+    nameVi: 'Cây Mầm',
+    name: 'Sapling',
+    kind: 'support',
+    rarity: 'common',
+    textVi: 'Đầu năm, đủ mỗi 3 năm tuổi thì +1 cấp. Lân cận: lính +{pct}% máu.',
+    effects: [{ type: 'stat', scope: 'neighbours', filter: { kinds: ['troop'] }, stat: 'hp', mode: 'pct', value: [8, 16, 24, 32, 40] }],
+  },
+  {
+    ...base,
+    id: 'grove_spring',
+    nameVi: 'Suối Hồi Sinh',
+    name: 'Reviving Spring',
+    kind: 'support',
+    rarity: 'common',
+    textVi: 'Lính mình trong 64 px hồi 2/3/4/5/6 máu mỗi giây theo cấp.',
+    effects: [{ type: 'healAura', radius: 64, hpPerSec: [2, 3, 4, 5, 6] }],
+  },
+  {
+    owner: 'grove',
+    tags: [],
+    id: 'grove_deep_roots',
+    nameVi: 'Bùa Rễ Sâu',
+    name: 'Deep Roots Rune',
+    kind: 'enchantment',
+    rarity: 'common',
+    textVi: 'Mỗi đầu năm công trình nhận vĩnh viễn +3% máu và sát thương mỗi stack (tối đa +90%).',
+    targets: ['troop', 'tower', 'support', 'throne'],
+    perStack: [],
+  },
+  {
+    ...base,
+    id: 'grove_thorn_tower',
+    nameVi: 'Tháp Gai',
+    name: 'Thorn Tower',
+    kind: 'tower',
+    rarity: 'uncommon',
+    textVi: 'Bắn gai {dmg} sát thương, độc 2 mỗi giây, cộng tối đa 3 lớp.',
+    effects: [
+      {
+        type: 'tower',
+        attack: {
+          dmg: 5,
+          type: 'physical',
+          range: 64,
+          interval: 8,
+          projectileSpeed: 8,
+          onHit: [{ type: 'poison', dps: 2, ticks: 30, maxStacks: 3 }],
+        },
+        targeting: 'closestToThrone',
+      },
+    ],
+  },
+  {
+    ...base,
+    id: 'grove_bear_cave',
+    nameVi: 'Hang Gấu',
+    name: 'Bear Cave',
+    kind: 'troop',
+    rarity: 'uncommon',
+    textVi: 'Sinh {count} gấu rừng.',
+    effects: [{ type: 'spawn', unit: 'bear', count: [1, 1, 2, 2, 3] }],
+  },
+  {
+    ...base,
+    id: 'grove_spring_rain',
+    nameVi: 'Mưa Xuân',
+    name: 'Spring Rain',
+    kind: 'tome',
+    rarity: 'uncommon',
+    textVi: 'Mọi công trình Rừng Xanh +2 năm tuổi; mọi Cây Mầm +1 cấp.',
+    target: 'none',
+    actions: [{ type: 'custom', id: 'spring_rain', params: { years: 2 } }],
+  },
+  {
+    ...base,
+    id: 'grove_spirit_stags',
+    nameVi: 'Đàn Hươu Thần',
+    name: 'Spirit Stags',
+    kind: 'troop',
+    rarity: 'rare',
+    textVi: 'Sinh {count} hươu thần.',
+    effects: [{ type: 'spawn', unit: 'stag', count: [2, 3, 3, 4, 5] }],
+  },
+  {
+    ...base,
+    id: 'grove_treant',
+    nameVi: 'Cổ Thụ Thức Tỉnh',
+    name: 'Awakened Treant',
+    kind: 'troop',
+    rarity: 'rare',
+    textVi: 'Sinh {count} cổ thụ.',
+    effects: [{ type: 'spawn', unit: 'treant', count: [1, 1, 1, 2, 2] }],
+  },
+];
 
 /** Vua Rừng Xanh (spec §6.6) phía kẻ địch: thú rừng, hồi máu. Thẻ chinh phục: G3b-B3. */
 export const GROVE_ENEMY: EnemyKingDef = {
@@ -95,5 +207,5 @@ export const GROVE_ENEMY: EnemyKingDef = {
     textVi: 'Địch hồi 1% máu tối đa mỗi giây.',
     effects: [{ type: 'enemyRegenPct', pct: 1 }],
   },
-  conquestCards: [],
+  conquestCards: GROVE_CARDS,
 };

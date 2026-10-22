@@ -129,9 +129,10 @@ describe('banners and conquest pools', () => {
       moon: 'moon_banner',
       nomad: 'nomad_banner',
     });
-    for (const id of ['grove', 'tide', 'forge', 'clock', 'moon', 'nomad'] as const) {
+    for (const id of ['forge', 'clock', 'moon', 'nomad'] as const) {
       expect(CONTENT.conquestCards(id)).toEqual([]);
     }
+    for (const id of ['grove', 'tide'] as const) expect(CONTENT.conquestCards(id)).toHaveLength(9);
   });
 
   it('a playable king conquered as an enemy offers its nine cards, never its throne', () => {

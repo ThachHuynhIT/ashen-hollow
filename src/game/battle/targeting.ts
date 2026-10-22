@@ -135,6 +135,23 @@ export const retarget = (world: BattleWorld): void => {
 };
 
 /**
+ * Tối đa `n` mục tiêu KHÁC NHAU trong tầm của `shooter`, gần nhất trước (hoà → id nhỏ): xúc tu
+ * của Vực Kraken chọn bốn mục tiêu riêng.
+ */
+export const pickShotTargets = (world: BattleWorld, shooter: number, n: number): number[] => {
+  const team = world.team[shooter]!;
+  const found: { id: number; d2: number }[] = [];
+  for (let j = 0; j < world.count; j++) {
+    if (world.alive[j] === 0 || world.team[j] === team || !inRange(world, shooter, j)) continue;
+    const dx = world.x[j]! - world.x[shooter]!;
+    const dy = world.y[j]! - world.y[shooter]!;
+    found.push({ id: j, d2: dx * dx + dy * dy });
+  }
+  found.sort((a, b) => a.d2 - b.d2 || a.id - b.id);
+  return found.slice(0, n).map((f) => f.id);
+};
+
+/**
  * Mục tiêu bắn của tháp/Ngai (hoặc bất kỳ thực thể đánh được) theo `targeting`, trong số địch
  * còn sống trong tầm; hoà → id nhỏ. −1 nếu người bắn đã chết, không có đòn (interval 0) hoặc
  * không có địch trong tầm.
