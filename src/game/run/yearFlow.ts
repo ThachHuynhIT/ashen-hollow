@@ -10,6 +10,7 @@ import { THRONE_PLOT, initialPlots } from './board';
 import { calendarFor, pickEnemyKings, slotMultFor, startDeck } from './calendar';
 import { freeRerollsPerYear } from './decrees';
 import { finishYearStart } from './flow';
+import { offerQuest } from './quests';
 import { RUN_SAVE_VERSION } from './state';
 import type { RunState } from './state';
 
@@ -56,7 +57,9 @@ export function startYear(state: RunState, content: Content): RunState {
     stats: { ...state.stats, goldEarned: state.stats.goldEarned + gained },
     yearStartPendingDraw: true,
   };
-  return finishYearStart(prepared, content);
+  // Bước nhiệm vụ (chỉ ván đầy đủ) chen giữa thu nhập và rút bài (§5.5 bước 5).
+  const offered = state.rules.calendar === 'full' ? offerQuest(prepared) : prepared;
+  return offered.phase === 'quest' ? offered : finishYearStart(offered, content);
 }
 
 /** Mặc định `RULES_G1` cho tới khi G2c chuyển giao diện sang G2. */

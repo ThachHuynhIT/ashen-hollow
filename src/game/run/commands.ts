@@ -20,6 +20,7 @@ import { enactDecree, selectDecree, setCouncilSelection } from './council';
 import { handLimit, rerollPrice, rewardCount } from './decrees';
 import { refillHand } from './deck';
 import { hasPlayableCard } from './playable';
+import { answerQuest, recordQuestCommand } from './quests';
 import { rollConquestOffers, rollOffers } from './rewards';
 import type { IllegalReason, RunCommand, RunState } from './state';
 import { startYear } from './yearFlow';
@@ -43,7 +44,14 @@ function begin(state: RunState, content: Content, events: RunEvent[]): RunState 
   return next;
 }
 
+/** Lệnh người chơi; lệnh thành công còn ghi tiến độ nhiệm vụ đang chạy (G3). */
 export function applyCommand(input: RunState, cmd: RunCommand, content: Content): CommandResult {
+  const result = applyBase(input, cmd, content);
+  if ('error' in result) return result;
+  return { ...result, state: recordQuestCommand(input, result.state, cmd, content) };
+}
+
+function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandResult {
   const state = structuredClone(input);
   const events: RunEvent[] = [];
 
@@ -302,9 +310,10 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       return typeof r === 'string' ? fail(r) : { state: r, events };
     }
 
-    // Nhiệm vụ: luật thật ở G3a-A4.
-    case 'answerQuest':
-      return fail('wrongPhase');
+    case 'answerQuest': {
+      const r = answerQuest(state, cmd.accept, content);
+      return typeof r === 'string' ? fail(r) : { state: r, events };
+    }
 
     case 'advance':
       if (state.phase !== 'yearEnd') return fail('wrongPhase');
