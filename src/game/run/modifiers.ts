@@ -42,6 +42,9 @@ const STAT_KEYS: readonly StatKey[] = [
   'knockback',
   'burnDps',
   'gold',
+  'prewind',
+  'rampAs',
+  'rampAsCap',
 ];
 
 export const emptySheet = (): StatSheet =>
@@ -163,5 +166,7 @@ export function collectStatSheet(
   for (const [stat, value] of Object.entries(target.permanent) as [StatKey, number][]) {
     add(sheet, stat, 'pct', value); // (g)
   }
+  // Tua Ngược: số giây lên dây trước vĩnh viễn nằm trong `counters.prewind` của công trình.
+  if ((target.counters.prewind ?? 0) > 0) add(sheet, 'prewind', 'flat', target.counters.prewind!);
   return sheet;
 }

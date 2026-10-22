@@ -1,4 +1,136 @@
-import type { EnemyKingDef } from '../types';
+import type { CardDef, EnemyKingDef } from '../types';
+
+const gear = { owner: 'clock' as const, tags: ['clockwork'] as const };
+const plain = { owner: 'clock' as const, tags: [] as const };
+
+/** Chín thẻ của Vua Đồng Hồ (spec §6.9), không gồm Ngai; chỉ có được nhờ chinh phục ở G3. */
+export const CLOCK_CARDS: readonly CardDef[] = [
+  {
+    ...gear,
+    id: 'clock_windup_soldiers',
+    nameVi: 'Xưởng Lính Thiếc',
+    name: 'Windup Soldiers',
+    kind: 'troop',
+    rarity: 'common',
+    textVi: 'Sinh {count} lính thiếc.',
+    effects: [{ type: 'spawn', unit: 'tin_soldier', count: [4, 5, 6, 7, 8] }],
+  },
+  {
+    ...gear,
+    id: 'clock_gear_tower',
+    nameVi: 'Tháp Bánh Răng',
+    name: 'Gear Tower',
+    kind: 'tower',
+    rarity: 'common',
+    textVi: 'Bắn {dmg} sát thương; mỗi giây đánh nhanh thêm 2% (tối đa +100%).',
+    effects: [
+      {
+        type: 'tower',
+        attack: { dmg: 5, type: 'physical', range: 72, interval: 10, projectileSpeed: 8 },
+        targeting: 'closestToThrone',
+      },
+      { type: 'rampAttackSpeed', pctPerSecond: 2, cap: 100 },
+    ],
+  },
+  {
+    ...plain,
+    id: 'clock_spring_workshop',
+    nameVi: 'Xưởng Lò Xo',
+    name: 'Spring Workshop',
+    kind: 'economy',
+    rarity: 'common',
+    textVi: 'Đầu năm +{gold} vàng. Lân cận: mọi tăng tiến lên dây trước 10/12/14/16/20 giây.',
+    effects: [
+      { type: 'gold', amount: [1, 1, 2, 2, 3] },
+      { type: 'stat', scope: 'neighbours', stat: 'prewind', mode: 'flat', value: [10, 12, 14, 16, 20] },
+    ],
+  },
+  {
+    ...plain,
+    id: 'clock_tick_rune',
+    nameVi: 'Bùa Tích Tắc',
+    name: 'Tick Rune',
+    kind: 'enchantment',
+    rarity: 'common',
+    textVi: 'Mỗi lần gắn: +1% tốc độ đánh mỗi giây (tối đa +30% mỗi stack).',
+    targets: ['troop', 'tower', 'throne'],
+    perStack: [
+      { type: 'stat', scope: 'self', stat: 'rampAs', mode: 'flat', value: 1 },
+      { type: 'stat', scope: 'self', stat: 'rampAsCap', mode: 'flat', value: 30 },
+    ],
+  },
+  {
+    ...gear,
+    id: 'clock_bell_tower',
+    nameVi: 'Tháp Chuông',
+    name: 'Bell Tower',
+    kind: 'support',
+    rarity: 'uncommon',
+    textVi: 'Mỗi 100 tick: lính mình trong 80 px đánh nhanh thêm 25/30/35/40/45% trong 30 tick; từ cấp 3 địch trong 80 px bị choáng 5 tick.',
+    effects: [
+      {
+        type: 'bellPulse',
+        everyTicks: 100,
+        radius: 80,
+        attackSpeedPct: [25, 30, 35, 40, 45],
+        buffTicks: 30,
+        stunFromLevel: 3,
+        stunTicks: 5,
+      },
+    ],
+  },
+  {
+    ...gear,
+    id: 'clock_spiders',
+    nameVi: 'Ổ Nhện Cơ Khí',
+    name: 'Spider Nest',
+    kind: 'troop',
+    rarity: 'uncommon',
+    textVi: 'Sinh {count} nhện cơ khí. Mỗi 150 tick, thiếu nhện thì sinh lại 1 con.',
+    effects: [
+      { type: 'spawn', unit: 'spider', count: [3, 4, 5, 6, 7] },
+      { type: 'respawnLost', everyTicks: 150 },
+    ],
+  },
+  {
+    ...plain,
+    id: 'clock_rewind',
+    nameVi: 'Tua Ngược',
+    name: 'Rewind',
+    kind: 'tome',
+    rarity: 'uncommon',
+    textVi: 'Công trình được chọn vĩnh viễn lên dây trước thêm 5 giây (tối đa 30 giây).',
+    target: 'building',
+    actions: [{ type: 'custom', id: 'rewind', params: { seconds: 5, cap: 30 } }],
+  },
+  {
+    ...gear,
+    id: 'clock_steam_cannon',
+    nameVi: 'Pháo Hơi Nước',
+    name: 'Steam Cannon',
+    kind: 'tower',
+    rarity: 'rare',
+    textVi: 'Pháo {dmg} sát thương, nổ lan 18; mỗi giây đánh nhanh thêm 1.5% (tối đa +90%).',
+    effects: [
+      {
+        type: 'tower',
+        attack: { dmg: 30, type: 'physical', range: 104, interval: 40, projectileSpeed: 5, splash: 18 },
+        targeting: 'closestToThrone',
+      },
+      { type: 'rampAttackSpeed', pctPerSecond: 1.5, cap: 90 },
+    ],
+  },
+  {
+    ...gear,
+    id: 'clock_colossus',
+    nameVi: 'Lò Khổng Lồ Đồng',
+    name: 'Brass Colossus Forge',
+    kind: 'troop',
+    rarity: 'rare',
+    textVi: 'Sinh {count} khổng lồ đồng.',
+    effects: [{ type: 'spawn', unit: 'colossus', count: [1, 1, 1, 2, 2] }],
+  },
+];
 
 /** Vua Đồng Hồ (spec §6.9) phía kẻ địch: máy móc, mạnh dần trong trận. Thẻ chinh phục: G3b-B4. */
 export const CLOCK_ENEMY: EnemyKingDef = {
@@ -70,5 +202,5 @@ export const CLOCK_ENEMY: EnemyKingDef = {
     textVi: 'Địch +1% sát thương mỗi giây (tối đa +50%).',
     effects: [{ type: 'enemyRampDmg', pctPerSecond: 1, cap: 50 }],
   },
-  conquestCards: [],
+  conquestCards: CLOCK_CARDS,
 };

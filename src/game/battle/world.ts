@@ -213,6 +213,16 @@ export class BattleWorld {
   readonly stepEvery = new Int32Array(BATTLE.entityCap);
   readonly stepMax = new Int32Array(BATTLE.entityCap);
   readonly chargeStun = new Int32Array(BATTLE.entityCap);
+  /** Tăng tốc đánh tạm thời (Tháp Chuông): % và tick kết thúc. */
+  readonly buffAsPct = new Float64Array(BATTLE.entityCap);
+  readonly buffAsUntil = new Int32Array(BATTLE.entityCap);
+  readonly bellEvery = new Int32Array(BATTLE.entityCap);
+  readonly bellRadius = new Float64Array(BATTLE.entityCap);
+  readonly bellPct = new Float64Array(BATTLE.entityCap);
+  readonly bellTicks = new Int32Array(BATTLE.entityCap);
+  readonly bellStun = new Int32Array(BATTLE.entityCap);
+  readonly respawnEvery = new Int32Array(BATTLE.entityCap);
+  readonly respawnCount = new Int32Array(BATTLE.entityCap);
   /** Số mục tiêu khác nhau mỗi nhịp của công trình (mặc định 1). */
   readonly multiCount = new Int32Array(BATTLE.entityCap).fill(1);
   readonly killGoldEvery = new Int32Array(BATTLE.entityCap);
@@ -244,6 +254,8 @@ export class BattleWorld {
   readonly deathSpawn: ({ stats: UnitStats; count: number } | null)[] = new Array(BATTLE.entityCap).fill(null);
   /** Id đơn vị hoặc cardId — render chọn frame. */
   readonly label: string[] = new Array<string>(BATTLE.entityCap).fill('');
+  /** Chỉ số lính sinh lại của Ổ Nhện (không băm: suy ra từ setup). */
+  readonly respawnStats: (UnitStats | null)[] = new Array(BATTLE.entityCap).fill(null);
 
   readonly projectiles = new ProjectilePool();
   projectileCount = 0;
@@ -488,6 +500,27 @@ const addStructure = (w: BattleWorld, s: StructureSetup, isThrone: boolean): num
     w.auraHps[id] = s.healAura.hps;
   }
   w.multiCount[id] = Math.max(s.multiAttack ?? 1, 1);
+  if ((s.prewind ?? 0) > 0) {
+    w.prewind[id] = s.prewind!;
+    w.tuned[id] = 1;
+  }
+  if (s.rampAs) {
+    w.rampAsPps[id] = s.rampAs.pps;
+    w.rampAsCap[id] = s.rampAs.cap;
+    w.tuned[id] = 1;
+  }
+  if (s.bell) {
+    w.bellEvery[id] = s.bell.everyTicks;
+    w.bellRadius[id] = s.bell.radius;
+    w.bellPct[id] = s.bell.pct;
+    w.bellTicks[id] = s.bell.ticks;
+    w.bellStun[id] = s.bell.stun;
+  }
+  if (s.respawn) {
+    w.respawnEvery[id] = s.respawn.everyTicks;
+    w.respawnCount[id] = s.respawn.count;
+    w.respawnStats[id] = s.respawn.stats;
+  }
   if (s.killGold) {
     w.killGoldEvery[id] = s.killGold.every;
     w.killGoldAmount[id] = s.killGold.gold;
@@ -557,13 +590,13 @@ function initBehaviours(w: BattleWorld, id: number, stats: UnitStats): void {
         w.tuned[id] = 1;
         break;
       case 'rampDmg':
-        w.rampDmgPps[id] = b.pctPerSecond;
-        w.rampDmgCap[id] = b.cap;
+        w.rampDmgPps[id] = (w.rampDmgPps[id] ?? 0) + b.pctPerSecond; // nhiều nguồn tăng tiến cùng loại cộng với nhau (§5.3)
+        w.rampDmgCap[id] = (w.rampDmgCap[id] ?? 0) + b.cap;
         w.tuned[id] = 1;
         break;
       case 'rampAttackSpeed':
-        w.rampAsPps[id] = b.pctPerSecond;
-        w.rampAsCap[id] = b.cap;
+        w.rampAsPps[id] = (w.rampAsPps[id] ?? 0) + b.pctPerSecond;
+        w.rampAsCap[id] = (w.rampAsCap[id] ?? 0) + b.cap;
         w.tuned[id] = 1;
         break;
       case 'stepBuff':

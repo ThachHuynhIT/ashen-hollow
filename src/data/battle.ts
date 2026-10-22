@@ -25,6 +25,9 @@ export const WAVES = { share: [0.4, 0.35, 0.25], spawnTick: [0, 120, 240] } as c
 /** Hằng hình quạt 45° (cos 45° làm tròn xuống nên đúng 45° vẫn nằm trong quạt); không dùng Math.cos. */
 export const CONE = { cos45: 0.7071 } as const;
 
+/** Bỏng của Bùa Than Hồng kéo dài chừng này tick khi đòn vốn không có bỏng (§6.8). */
+export const EMBER_TICKS = 30;
+
 /** Trạng thái theo thời gian (§8.6): bỏng/độc/hồi máu gây hiệu lực mỗi `everyTicks` tick; nhịp đánh không dưới 50% gốc (§5.3). */
 export const STATUS = { everyTicks: 10, minIntervalFactor: 0.5 } as const;
 

@@ -119,6 +119,9 @@ export const hashWorld = (world: BattleWorld): number => {
     world.prewind,
     world.pulseKnock,
     world.killGoldAmount,
+    world.buffAsPct,
+    world.bellRadius,
+    world.bellPct,
   ]) {
     h = mixF64(h, a, n);
   }
@@ -155,6 +158,12 @@ export const hashWorld = (world: BattleWorld): number => {
     world.multiCount,
     world.killGoldEvery,
     world.killGoldMax,
+    world.buffAsUntil,
+    world.bellEvery,
+    world.bellTicks,
+    world.bellStun,
+    world.respawnEvery,
+    world.respawnCount,
   ]) {
     h = mixI32(h, a, n);
   }

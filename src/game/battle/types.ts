@@ -146,6 +146,14 @@ export interface StructureSetup {
   } | null;
   /** lính cùng phe trong `radius` hồi `hps` máu mỗi giây */
   healAura?: { radius: number; hps: number } | null;
+  /** giây lên dây trước cho tăng tiến của công trình (§8.6) */
+  prewind?: number;
+  /** công trình tự đánh nhanh dần: `pps`% mỗi giây, tối đa `cap`% */
+  rampAs?: { pps: number; cap: number } | null;
+  /** Tháp Chuông: mỗi `everyTicks` tick lính mình trong `radius` đánh nhanh thêm `pct`% trong `ticks` tick, địch choáng `stun` tick */
+  bell?: { everyTicks: number; radius: number; pct: number; ticks: number; stun: number } | null;
+  /** Ổ Nhện: mỗi `everyTicks` tick, nếu lính còn ít hơn `count` thì sinh lại 1 */
+  respawn?: { everyTicks: number; stats: UnitStats; count: number } | null;
   /** đánh `count` mục tiêu khác nhau mỗi nhịp (Vực Kraken) */
   multiAttack?: number;
   /** mỗi `every` địch do lính của công trình này hạ: +`gold` vàng, tối đa `max` mỗi trận */

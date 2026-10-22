@@ -9,7 +9,7 @@ import { applyDamagePhase, attackPhase, deathPhase, projectilePhase, statusPhase
 import { autoFirePhase, boulderPhase, setAutoFire, tryIntervene } from './intervention';
 import { moveEntities } from './movement';
 import { tickStatuses } from './statuses';
-import { pulsePhase, shieldPulsePhase } from './structures';
+import { bellPhase, pulsePhase, respawnPhase, shieldPulsePhase } from './structures';
 import { retarget } from './targeting';
 import type { BattleCommand, BattleResult, BattleSetup } from './types';
 import { TEAM_FOE, createBattle, spawnWave, type BattleWorld } from './world';
@@ -59,6 +59,8 @@ export const stepBattle = (world: BattleWorld, inputs: readonly BattleCommand[])
   // (3) hook onBattleTick: xung vòng tròn và xung khiên của công trình.
   pulsePhase(world);
   shieldPulsePhase(world);
+  bellPhase(world);
+  respawnPhase(world);
   tickBehaviours(world); // hành vi tăng tiến tính lại từ chỉ số gốc
   retarget(world); // (4)
   moveEntities(world); // (5)

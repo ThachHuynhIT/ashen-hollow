@@ -7,6 +7,8 @@ import type { BattleResult } from '../../battle/types';
 import type { PlayTarget, RunState } from '../../run/state';
 import type { Content } from '../registry';
 import { archmageRamp, arcaneHarmony, libraryVirtualStacks, mirrorEnchants } from './arcane';
+import { CLOCK_HOOKS, rewind } from './clock';
+import { FORGE_HOOKS, armoryArmor, masterHammer } from './forge';
 import type { FullRunCardHooks } from './fullRunTypes';
 import { GROVE_HOOKS, springRain } from './grove';
 import { mercenaryUpkeep } from './neutral';
@@ -20,6 +22,7 @@ export const CUSTOM_STAT_HANDLERS: Partial<Record<CustomEffectId, StatHandler>> 
   library_virtual_stacks: libraryVirtualStacks,
   archmage_ramp: archmageRamp,
   arcane_harmony: arcaneHarmony,
+  armory_armor: armoryArmor,
 };
 export const CUSTOM_INCOME_HANDLERS: Partial<Record<CustomEffectId, IncomeHandler>> = {
   mercenary_upkeep: mercenaryUpkeep,
@@ -32,13 +35,15 @@ export const CUSTOM_TOME_HANDLERS: Partial<Record<CustomEffectId, TomeHandler>> 
   mirror_enchants: mirrorEnchants,
   spring_rain: springRain,
   privateers,
+  master_hammer: masterHammer,
+  rewind,
 };
 
 /**
  * Móc của ván đầy đủ theo thứ tự đăng ký grove / tide / forge / clock / moon / nomad (§5.5);
  * mỗi task thêm móc của vua mình ở đây.
  */
-export const FULL_RUN_CARD_HOOKS: readonly Partial<FullRunCardHooks>[] = [GROVE_HOOKS, TIDE_HOOKS];
+export const FULL_RUN_CARD_HOOKS: readonly Partial<FullRunCardHooks>[] = [GROVE_HOOKS, TIDE_HOOKS, FORGE_HOOKS, CLOCK_HOOKS];
 
 export const runYearGrowth = (state: RunState, content: Content): RunState =>
   FULL_RUN_CARD_HOOKS.reduce((s, h) => (h.yearGrowth ? h.yearGrowth(s, content) : s), state);

@@ -163,7 +163,12 @@ export type StatKey =
   | 'structureHp'
   | 'knockback'
   | 'burnDps'
-  | 'gold';
+  | 'gold'
+  /** Giây lên dây trước cộng vào đồng hồ tăng tiến (§8.6). */
+  | 'prewind'
+  /** Tăng tốc đánh theo thời gian: % mỗi giây và trần % (cộng từ Bùa Tích Tắc). */
+  | 'rampAs'
+  | 'rampAsCap';
 /** `flatPost`: cộng sau mọi % (Bùa Tia Lửa). */
 export type StatMode = 'flat' | 'pct' | 'flatPost';
 
@@ -180,7 +185,10 @@ export type CustomEffectId =
   | 'mirror_enchants'
   | 'spring_rain'
   | 'treasure_chest'
-  | 'privateers';
+  | 'privateers'
+  | 'master_hammer'
+  | 'armory_armor'
+  | 'rewind';
 
 export type EffectDef =
   | { readonly type: 'spawn'; readonly unit: UnitId; readonly count: PerLevel }
@@ -207,6 +215,20 @@ export type EffectDef =
   | { readonly type: 'taunt'; readonly radius: number }
   /** Lính cùng phe trong `radius` px hồi `hpPerSec` HP mỗi giây (công trình hỗ trợ). */
   | { readonly type: 'healAura'; readonly radius: number; readonly hpPerSec: Scalar }
+  /** Công trình tăng tốc đánh `pctPerSecond`% mỗi giây (tối đa `cap`%). */
+  | { readonly type: 'rampAttackSpeed'; readonly pctPerSecond: number; readonly cap: number }
+  /** Tháp Chuông: mỗi `everyTicks` tick lính mình trong `radius` +`attackSpeedPct`% tốc đánh trong `buffTicks` tick; từ cấp `stunFromLevel` địch trong `radius` choáng `stunTicks`. */
+  | {
+      readonly type: 'bellPulse';
+      readonly everyTicks: number;
+      readonly radius: number;
+      readonly attackSpeedPct: Scalar;
+      readonly buffTicks: number;
+      readonly stunFromLevel: number;
+      readonly stunTicks: number;
+    }
+  /** Mỗi `everyTicks` tick, nếu lính của công trình còn ít hơn ban đầu thì sinh lại 1. */
+  | { readonly type: 'respawnLost'; readonly everyTicks: number }
   /** Tháp đánh `count` mục tiêu khác nhau (gần nhất trước) mỗi nhịp. */
   | { readonly type: 'multiAttack'; readonly count: number }
   /** Mỗi `every` địch do lính của công trình này hạ: +`gold` vàng, tối đa `max` mỗi trận. */

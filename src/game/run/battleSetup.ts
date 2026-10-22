@@ -1,5 +1,5 @@
 /** Dựng BattleSetup từ RunState (spec §5.3: G1 = cấp 1; §3.6: cấp địch). Thuần, không sửa đầu vào. */
-import { ENEMY_LEVEL_STAT } from '../../data/battle';
+import { EMBER_TICKS, ENEMY_LEVEL_STAT } from '../../data/battle';
 import {
   MAX_UNITS_PER_BUILDING,
   STRUCT_HP,
@@ -40,13 +40,21 @@ const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatShe
   // Bùa Sóng Ngầm (`knockback` flat): mỗi đòn đẩy lùi thêm, kể cả đòn vốn không đẩy.
   const kbBonus = sheet ? sheet.knockback.flat : 0;
   const kbBase = listed.find((h) => h.type === 'knockback');
-  const extraOnHit =
-    kbBonus > 0
-      ? [
-          ...listed.filter((h) => h.type !== 'knockback'),
-          { type: 'knockback' as const, px: (kbBase && kbBase.type === 'knockback' ? kbBase.px : 0) + kbBonus },
-        ]
-      : listed;
+  const kbPx = (kbBase && kbBase.type === 'knockback' ? kbBase.px : 0) + kbBonus;
+  // Bỏng (§8.6): bỏng gốc cộng Bùa Than Hồng (flat), rồi nhân phần trăm của Lò Cao.
+  const burnBase = listed.find((h) => h.type === 'burn');
+  const burnDps = sheet
+    ? finalStat(burnBase && burnBase.type === 'burn' ? burnBase.dps : 0, sheet.burnDps)
+    : burnBase && burnBase.type === 'burn'
+      ? burnBase.dps
+      : 0;
+  const extraOnHit = [
+    ...listed.filter((h) => h.type !== 'knockback' && h.type !== 'burn'),
+    ...(kbPx > 0 ? [{ type: 'knockback' as const, px: kbPx }] : []),
+    ...(burnDps > 0
+      ? [{ type: 'burn' as const, dps: burnDps, ticks: burnBase && burnBase.type === 'burn' ? burnBase.ticks : EMBER_TICKS }]
+      : []),
+  ];
   const interval = sheet
     ? Math.max(a.interval / (1 + sheet.attackSpeed.pct / 100), a.interval * 0.5)
     : a.interval;
@@ -135,8 +143,28 @@ const spawnedStats = (
     shield: 0,
     deathSpawn: null,
     tags: u.tags,
-    behaviours: u.behaviours,
+    behaviours:
+      sheet.rampAs.flat > 0
+        ? [...(u.behaviours ?? []), { type: 'rampAttackSpeed' as const, pctPerSecond: sheet.rampAs.flat, cap: sheet.rampAsCap.flat }]
+        : u.behaviours,
     defIndex: defIndexOf(content, u.id),
+    ...(sheet.prewind.flat > 0 ? { prewind: sheet.prewind.flat } : {}),
+  };
+};
+
+/** Giây lên dây trước và tăng tốc đánh dần của một công trình (gốc của thẻ cộng Bùa Tích Tắc). */
+const timingExtras = (
+  sheet: StatSheet,
+  effects: readonly { type: string }[],
+): Pick<StructureSetup, 'prewind' | 'rampAs'> => {
+  const own = effects.find((e) => e.type === 'rampAttackSpeed') as
+    | { pctPerSecond: number; cap: number }
+    | undefined;
+  const pps = (own?.pctPerSecond ?? 0) + sheet.rampAs.flat;
+  const cap = (own?.cap ?? 0) + sheet.rampAsCap.flat;
+  return {
+    ...(sheet.prewind.flat > 0 ? { prewind: sheet.prewind.flat } : {}),
+    ...(pps > 0 ? { rampAs: { pps, cap } } : {}),
   };
 };
 
@@ -171,6 +199,7 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
       taunt: 0,
       shieldPulse: null,
       ...throneMercenaries(state, content, b.counters.privateers ?? 0),
+      ...timingExtras(sheet, []),
     };
   }
   if (card.kind === 'tome' || card.kind === 'enchantment') {
@@ -223,6 +252,8 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
         }
       : null;
   const auraFx = card.effects.find((e) => e.type === 'healAura');
+  const bellFx = card.effects.find((e) => e.type === 'bellPulse');
+  const respawnFx = card.effects.find((e) => e.type === 'respawnLost');
   const multiFx = card.effects.find((e) => e.type === 'multiAttack');
   const goldFx = card.effects.find((e) => e.type === 'killGold');
   return {
@@ -250,6 +281,21 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
       ? { healAura: { radius: auraFx.radius, hps: scalarAt(auraFx.hpPerSec, level) } }
       : {}),
     ...(multiFx && multiFx.type === 'multiAttack' ? { multiAttack: multiFx.count } : {}),
+    ...timingExtras(sheet, card.effects),
+    ...(bellFx && bellFx.type === 'bellPulse'
+      ? {
+          bell: {
+            everyTicks: bellFx.everyTicks,
+            radius: bellFx.radius,
+            pct: scalarAt(bellFx.attackSpeedPct, level),
+            ticks: bellFx.buffTicks,
+            stun: level >= bellFx.stunFromLevel ? bellFx.stunTicks : 0,
+          },
+        }
+      : {}),
+    ...(respawnFx && respawnFx.type === 'respawnLost' && spawn && spawn.count > 0
+      ? { respawn: { everyTicks: respawnFx.everyTicks, stats: spawn.stats, count: spawn.count } }
+      : {}),
     ...(goldFx && goldFx.type === 'killGold'
       ? { killGold: { every: goldFx.every, gold: goldFx.gold, max: goldFx.max } }
       : {}),

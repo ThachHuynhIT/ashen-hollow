@@ -27,7 +27,8 @@ export function tickBehaviours(w: BattleWorld): void {
       speedPct += stacks * w.stepSpeedPct[i]!;
     }
     if (w.enrageDmgPct[i]! > 0 && w.hp[i]! * 100 < w.enrageBelow[i]! * w.maxHp[i]!) dmgPct += w.enrageDmgPct[i]!;
-    const asPct = Math.min(w.rampAsPps[i]! * secs, w.rampAsCap[i]!);
+    const buff = w.tick < w.buffAsUntil[i]! ? w.buffAsPct[i]! : 0;
+    const asPct = Math.min(w.rampAsPps[i]! * secs, w.rampAsCap[i]!) + buff;
     w.dmg[i] = w.baseDmg[i]! * (1 + dmgPct / 100);
     w.speed[i] = w.baseSpeed[i]! * (1 + speedPct / 100);
     if (w.baseInterval[i]! > 0) {
