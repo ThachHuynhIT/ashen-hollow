@@ -125,8 +125,15 @@ describe('post-battle queue order', () => {
   /** Year 10 victory over the third attack of Stone with a quest card waiting. */
   const setup = (): RunState => {
     const s = fight(10, {
-      enemyKings: ['stone', 'arcane'],
-      enemies: { stone: { attacks: 2, status: 'pending' }, arcane: { attacks: 0, status: 'pending' } },
+      enemyKings: ['stone', 'arcane', 'grove', 'tide', 'forge', 'clock'],
+      enemies: {
+        stone: { attacks: 2, status: 'pending' },
+        arcane: { attacks: 0, status: 'pending' },
+        grove: { attacks: 0, status: 'pending' },
+        tide: { attacks: 0, status: 'pending' },
+        forge: { attacks: 0, status: 'pending' },
+        clock: { attacks: 0, status: 'pending' },
+      },
       quests: [quest('quest_three_barracks')],
     });
     return threeBarracks({ ...s, army: { attacker: 'stone', attackNo: 3, budget: 10, level: 1, statMult: 1, waves: [] } });

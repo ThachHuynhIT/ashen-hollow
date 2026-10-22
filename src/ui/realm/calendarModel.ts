@@ -1,16 +1,19 @@
 import { unlockCost } from '../../data/run';
 import type { Rules } from '../../data/rules';
-import type { KingId } from '../../data/types';
+import type { BossId, KingId } from '../../data/types';
 import { calendarFor, type CalendarSlot } from '../../game/run/calendar';
 import type { IllegalReason, RunState } from '../../game/run/state';
 
 /** One year of the calendar strip / modal. */
 export interface CalendarCell {
   year: number;
-  /** Who attacks that year: raiders, or the enemy king of that slot. */
-  attacker: 'raiders' | KingId;
-  /** Which attack of that king (1..3), null for raiders. */
+  /** Who attacks that year: raiders, the enemy king of that slot, a two-king coalition or a boss. */
+  attacker: 'raiders' | 'coalition' | 'boss' | KingId;
+  /** Which attack of that king (1..3), null for raiders, coalitions and bosses. */
   attack: 1 | 2 | 3 | null;
+  /** The two kings of a coalition. */
+  kings?: readonly KingId[];
+  boss?: BossId;
   /** The year being played now. */
   current: boolean;
 }
@@ -21,6 +24,11 @@ const cell = (
   enemyKings: readonly KingId[],
   current: boolean,
 ): CalendarCell => {
+  if (slot.kind === 'coalition') {
+    const kings = slot.kings.flatMap((n) => (enemyKings[n - 1] ? [enemyKings[n - 1]!] : []));
+    return { year, attacker: 'coalition', attack: null, kings, current };
+  }
+  if (slot.kind === 'boss') return { year, attacker: 'boss', attack: null, boss: slot.boss, current };
   const king = slot.kind === 'king' ? enemyKings[slot.king - 1] : undefined;
   if (slot.kind === 'raiders' || king === undefined)
     return { year, attacker: 'raiders', attack: null, current };

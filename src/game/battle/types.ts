@@ -1,5 +1,6 @@
 import type {
   BannerDef,
+  BossId,
   CardId,
   DamageType,
   KingId,
@@ -25,8 +26,13 @@ export interface ArmyWave {
 
 /** Đạo quân địch đã bốc sẵn ở đầu năm (spec §3.6). */
 export interface ArmyPlan {
-  /** Thổ Phỉ hoặc id vua địch (G2). */
-  attacker: 'raiders' | KingId;
+  /** Thổ Phỉ, id vua địch, Liên Quân hai vua hoặc boss. */
+  attacker: 'raiders' | 'coalition' | 'boss' | KingId;
+  /** Hai vua của Liên Quân (chỉ có ở `coalition`). */
+  kings?: readonly KingId[];
+  /** Boss và thứ tự của nó (chỉ có ở `boss`). */
+  boss?: BossId;
+  bossOrdinal?: 1 | 2 | 3;
   /** Lần tấn công thứ mấy (1..3) của vua địch; không có với Thổ Phỉ. */
   attackNo?: 1 | 2 | 3;
   /** id cờ hiệu của vua địch, nếu có. */

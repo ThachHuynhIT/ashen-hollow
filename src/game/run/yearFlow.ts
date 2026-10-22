@@ -1,13 +1,13 @@
 /** Khởi tạo ván và bước sang năm mới (spec §3.2, §5.5 bước 1, 6). Thuần, không sửa đầu vào. */
 import { hashSeed } from '../../core/random';
-import { RULES_G1, PLAYABLE_KINGS_G2, type Rules } from '../../data/rules';
+import { ALL_KINGS, RULES_G1, PLAYABLE_KINGS_G2, type Rules } from '../../data/rules';
 import { RUN, START_DECK_G1 } from '../../data/run';
 import { yearIncome } from './income';
 import type { KingId } from '../../data/types';
-import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
-import { calendarFor, pickEnemyKings, slotMultFor, startDeck } from './calendar';
+import { pickEnemyKings, pickEnemyKingsWithState, startDeck } from './calendar';
+import { buildYearArmy } from './enemyArmy';
 import { runYearGrowth } from '../cards/custom';
 import { freeRerollsPerYear } from './decrees';
 import { finishYearStart } from './flow';
@@ -20,27 +20,7 @@ export function startYear(input: RunState, content: Content): RunState {
   // Bước 3 §5.5: tăng trưởng của thẻ (Cây Mầm, Bùa Rễ Sâu…) sau khi sang năm, trước thu nhập.
   const state = runYearGrowth({ ...input, year: input.year + 1 }, content);
   const year = state.year;
-  const slot = calendarFor(state.rules)[year - 1] ?? { kind: 'raiders' as const };
-  const kingId = slot.kind === 'king' ? state.enemyKings[slot.king - 1] : undefined;
-  const king = kingId === undefined ? null : content.enemyKing(kingId);
-  // Cờ hiệu `enemyCostPct` làm đổi giá đơn vị khi tính ngân sách (spec §3.6).
-  const costMult =
-    1 +
-    (king?.banner.effects.reduce((sum, e) => (e.type === 'enemyCostPct' ? sum + e.pct : sum), 0) ?? 0) / 100;
-  const entries = (kingId === undefined ? content.raiderRoster() : content.enemyRoster(kingId)).map((r) => ({
-    unit: r.unit.id,
-    weight: r.weight,
-    enemyCost: r.unit.enemyCost * costMult,
-  }));
-  const army = composeArmy(
-    entries,
-    armyBudget(year, slotMultFor(slot)),
-    year,
-    state.seed,
-    slot.kind === 'king' && king !== null && kingId !== undefined
-      ? { attacker: kingId, attackNo: slot.attack, banner: king.banner.id }
-      : {},
-  );
+  const army = buildYearArmy(state, content);
   // Thứ tự §5.5: phí duy trì (kiểm với vàng đang có) → thuế → thu nhập công trình.
   const income = yearIncome(state, content, state.gold);
   const gained = RUN.taxPerYear + Math.max(0, income.delta);
@@ -85,7 +65,14 @@ export function newRun(
     movedYear: null,
   };
   const deck = rules.calendar === 'raiders' ? [...START_DECK_G1] : startDeck(content.king(kingId));
-  const enemyKings = rules.calendar === 'raiders' ? [] : pickEnemyKings(seed, kingId, PLAYABLE_KINGS_G2);
+  const full = rules.calendar === 'full';
+  const picked = full ? pickEnemyKingsWithState(seed, kingId, ALL_KINGS, 6) : null;
+  const enemyKings =
+    picked !== null
+      ? picked.kings
+      : rules.calendar === 'raiders'
+        ? []
+        : pickEnemyKings(seed, kingId, PLAYABLE_KINGS_G2);
   const base: RunState = {
     version: RUN_SAVE_VERSION,
     rules,
@@ -123,7 +110,7 @@ export function newRun(
     rng: {
       draw: hashSeed(`${seed}:draw`),
       reward: hashSeed(`${seed}:reward`),
-      calendar: hashSeed(`${seed}:calendar`),
+      calendar: picked?.rngState ?? hashSeed(`${seed}:calendar`),
       council: hashSeed(`${seed}:council`),
       quest: hashSeed(`${seed}:quest`),
     },

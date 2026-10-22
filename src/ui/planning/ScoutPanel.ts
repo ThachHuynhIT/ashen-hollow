@@ -10,7 +10,13 @@ import { addUiText, bindPress, createPanel, frameBorder, type UiBox } from '../t
 
 /** Display name of each attacker (§10.4 Trinh sát: "tên … của kẻ tấn công"). */
 const attackerName = (plan: ArmyPlan, content: Content): string =>
-  plan.attacker === 'raiders' ? 'Thổ Phỉ' : content.king(plan.attacker).nameVi;
+  plan.attacker === 'raiders'
+    ? 'Thổ Phỉ'
+    : plan.attacker === 'boss'
+      ? 'Boss'
+      : plan.attacker === 'coalition'
+        ? 'Liên Quân'
+        : content.enemyKing(plan.attacker).nameVi;
 
 /** Edge name and an arrow pointing into the field from that edge. */
 const EDGE_TEXT: Record<Edge, string> = { N: '↓ Bắc', E: '← Đông', S: '↑ Nam', W: '→ Tây' };
@@ -106,8 +112,8 @@ export class ScoutPanel {
       cy += this.text(inset, cy, 'Trinh sát', 16, true).height + LINE_GAP;
       if (plan) {
         cy += this.text(inset, cy, `${name} · Cấp ${plan.level}`, 13).height + LINE_GAP;
-        if (plan.attacker !== 'raiders') {
-          const banner = this.content.king(plan.attacker).banner;
+        if (plan.attacker !== 'raiders' && plan.attacker !== 'boss' && plan.attacker !== 'coalition') {
+          const banner = this.content.enemyKing(plan.attacker).banner;
           const line = this.text(inset, cy, `Cờ hiệu ${banner.nameVi}: ${banner.textVi}`, 12, false, UI_PALETTE.woodDark);
           line.setWordWrapWidth(w - 2 * inset);
           cy += line.height + LINE_GAP;

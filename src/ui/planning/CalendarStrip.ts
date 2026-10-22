@@ -17,7 +17,12 @@ import {
 /** "Năm 3 — Vua Đá Núi tấn công (lần 1/3)" / "Năm 5 — Thổ Phỉ". */
 export const calendarCellText = (cell: CalendarCell, content: Content): string[] => {
   if (cell.attacker === 'raiders') return [`Năm ${cell.year}`, 'Thổ Phỉ tấn công.'];
-  const name = content.king(cell.attacker).nameVi;
+  if (cell.attacker === 'boss') return [`Năm ${cell.year}`, 'Boss tấn công.'];
+  if (cell.attacker === 'coalition') {
+    const names = (cell.kings ?? []).map((k) => content.enemyKing(k).nameVi).join(' + ');
+    return [`Năm ${cell.year}`, `Liên Quân ${names} tấn công.`];
+  }
+  const name = content.enemyKing(cell.attacker).nameVi;
   return [`Năm ${cell.year}`, `${name} tấn công (lần ${cell.attack}/3).`];
 };
 
@@ -95,14 +100,14 @@ export class CalendarCellView {
 
     const cx = w / 2;
     const cy = h / 2 + 3;
-    if (cell.attacker === 'raiders') {
+    if (cell.attacker === 'raiders' || cell.attacker === 'boss' || cell.attacker === 'coalition') {
       const tex = this.scene.textures;
       if (tex.exists(SPRITES_KEY) && tex.get(SPRITES_KEY).has(iconFrame('skull'))) {
         this.add(this.scene.add.image(cx, cy, SPRITES_KEY, iconFrame('skull')).setOrigin(0.5));
       }
       return;
     }
-    const king = this.content.king(cell.attacker);
+    const king = this.content.enemyKing(cell.attacker);
     const side = Math.max(14, Math.round(w * 0.3));
     const badge = this.scene.add
       .rectangle(cx, cy, side, side, PALETTE[king.color])

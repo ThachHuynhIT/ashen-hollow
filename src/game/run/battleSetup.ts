@@ -358,7 +358,10 @@ export function buildBattleSetup(state: RunState, content: Content): BattleSetup
   });
 
   const mult = ENEMY_LEVEL_STAT[army.level - 1]! * army.statMult;
-  const bannerDef = army.attacker === 'raiders' ? null : content.enemyKing(army.attacker).banner;
+  const bannerDef =
+    army.attacker === 'raiders' || army.attacker === 'coalition' || army.attacker === 'boss'
+      ? null
+      : content.enemyKing(army.attacker).banner;
   const banner = bannerDef?.effects ?? [];
   const speedScale = foeSpeedMult(state);
   const waves: WaveSetup[] = army.waves.map((w) => ({

@@ -221,9 +221,11 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
 
       // Chinh phục (spec §3.7): lần tấn công thứ 3 của một vua — thắng thì bị chinh phục, thua thì rút lui.
       let conquered: KingId | null = null;
-      const attacker = state.army?.attacker;
-      const enemy = attacker && attacker !== 'raiders' ? state.enemies[attacker] : undefined;
-      if (attacker && attacker !== 'raiders' && enemy) {
+      const raw = state.army?.attacker;
+      // Thổ Phỉ, Liên Quân và boss không tính vào lần tấn công của vua nào (§3.7).
+      const attacker = raw && raw !== 'raiders' && raw !== 'coalition' && raw !== 'boss' ? raw : undefined;
+      const enemy = attacker ? state.enemies[attacker] : undefined;
+      if (attacker && enemy) {
         enemy.attacks += 1;
         if (enemy.attacks >= 3 && enemy.status === 'pending') {
           if (result.won) {

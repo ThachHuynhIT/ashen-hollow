@@ -12,5 +12,20 @@ export interface Rules {
 /** Các vua chơi được ở G2; hai vua còn lại (trừ vua người chơi) là kẻ địch. */
 export const PLAYABLE_KINGS_G2: readonly KingId[] = ['wheat', 'stone', 'arcane'];
 
+/** Cả chín vua theo id, thứ tự cố định để xáo bằng `Rng(calendar)` ổn định. */
+export const ALL_KINGS: readonly KingId[] = [
+  'arcane',
+  'clock',
+  'forge',
+  'grove',
+  'moon',
+  'nomad',
+  'stone',
+  'tide',
+  'wheat',
+];
+
 export const RULES_G1: Rules = { years: 10, calendar: 'raiders', autoStart: true };
 export const RULES_G2: Rules = { years: 15, calendar: 'short', autoStart: false };
+/** Ván đầy đủ G3: 30 năm, lịch §3.5, hội đồng, nhiệm vụ và boss. */
+export const RULES_FULL: Rules = { years: 30, calendar: 'full', autoStart: false };
