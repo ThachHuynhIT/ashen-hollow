@@ -1,5 +1,5 @@
 /** Khởi tạo ván và bước sang năm mới (spec §3.2, §5.5 bước 1, 6). Thuần, không sửa đầu vào. */
-import { Rng, hashSeed } from '../../core/random';
+import { hashSeed } from '../../core/random';
 import { RULES_G1, PLAYABLE_KINGS_G2, type Rules } from '../../data/rules';
 import { RUN, START_DECK_G1 } from '../../data/run';
 import { yearIncome } from './income';
@@ -8,8 +8,7 @@ import { armyBudget, composeArmy } from '../battle/compose';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, initialPlots } from './board';
 import { calendarFor, pickEnemyKings, slotMultFor, startDeck } from './calendar';
-import { refillHand } from './deck';
-import { hasPlayableCard } from './playable';
+import { finishYearStart } from './flow';
 import { RUN_SAVE_VERSION } from './state';
 import type { RunState } from './state';
 
@@ -37,34 +36,24 @@ export function startYear(state: RunState, content: Content): RunState {
       ? { attacker: kingId, attackNo: slot.attack, banner: king.banner.id }
       : {},
   );
-  const rng = new Rng(state.rng.draw);
-  // A hand with no playable card would repeat every year (nothing drawn, battle auto-starts):
-  // send it to the discard pile so other cards can reach the hand.
-  const recycle = state.hand.length > 0 && !hasPlayableCard(state, content);
-  const piles = refillHand(
-    recycle ? [] : state.hand,
-    state.drawPile,
-    recycle ? [...state.discardPile, ...state.hand] : state.discardPile,
-    rng,
-    RUN.handSize,
-  );
   // Thứ tự §5.5: phí duy trì (kiểm với vàng đang có) → thuế → thu nhập công trình.
   const income = yearIncome(state, content, state.gold);
   const gained = RUN.taxPerYear + Math.max(0, income.delta);
-  return {
+  // Rút bài tách khỏi chuẩn bị năm để bước nhiệm vụ (G3) chen vào giữa (§5.5 bước 5).
+  const prepared: RunState = {
     ...state,
     year,
     phase: 'planning',
     army,
-    ...piles,
     played: false,
     offers: null,
     rerollsThisYear: 0,
     idleUids: income.idleUids,
     gold: state.gold + RUN.taxPerYear + income.delta,
     stats: { ...state.stats, goldEarned: state.stats.goldEarned + gained },
-    rng: { ...state.rng, draw: rng.getState() },
+    yearStartPendingDraw: true,
   };
+  return finishYearStart(prepared, content);
 }
 
 /** Mặc định `RULES_G1` cho tới khi G2c chuyển giao diện sang G2. */
@@ -82,6 +71,9 @@ export function newRun(
     enchants: [],
     placedYear: 1,
     permanent: {},
+    ageBonus: 0,
+    counters: {},
+    movedYear: null,
   };
   const deck = rules.calendar === 'raiders' ? [...START_DECK_G1] : startDeck(content.king(kingId));
   const enemyKings = rules.calendar === 'raiders' ? [] : pickEnemyKings(seed, kingId, PLAYABLE_KINGS_G2);
@@ -110,12 +102,31 @@ export function newRun(
     played: false,
     army: null,
     offers: null,
+    pendingOffers: [],
+    decrees: [],
+    quests: [],
+    offeredQuestIds: [],
+    freeRerollsLeft: 0,
+    interventionDmgPct: 0,
+    difficulty: 0,
+    yearStartPendingDraw: false,
     rng: {
       draw: hashSeed(`${seed}:draw`),
       reward: hashSeed(`${seed}:reward`),
       calendar: hashSeed(`${seed}:calendar`),
+      council: hashSeed(`${seed}:council`),
+      quest: hashSeed(`${seed}:quest`),
     },
-    stats: { kills: 0, battlesWon: 0, battlesLost: 0, goldEarned: 0, conquered: 0 },
+    stats: {
+      kills: 0,
+      battlesWon: 0,
+      battlesLost: 0,
+      goldEarned: 0,
+      conquered: 0,
+      bossesWon: 0,
+      bossesDefeated: [],
+      completedYears: 0,
+    },
     nextUid: 1,
     won: null,
   };

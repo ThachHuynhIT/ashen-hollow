@@ -87,7 +87,7 @@ const bld = (
   level: Level = 1,
   enchants: BuildingState['enchants'] = [],
   permanent: BuildingState['permanent'] = {},
-): BuildingState => ({ uid, cardId: cardId as CardId, level, enchants, placedYear: 1, permanent });
+): BuildingState => ({ uid, cardId: cardId as CardId, level, enchants, placedYear: 1, permanent, ageBonus: 0, counters: {}, movedYear: null });
 
 const board = (built: [number, BuildingState][]): RunState => {
   const s = runState();

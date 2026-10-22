@@ -6,6 +6,7 @@ import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
 import { hasAnyTarget, targetCount } from '../game/run/board';
+import { cardOffer } from '../game/run/flow';
 import type { IllegalReason, RunState } from '../game/run/state';
 import { SPRITES_KEY, iconFrame } from '../render/atlas';
 import { ContentBox } from '../ui/ContentBox';
@@ -266,7 +267,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.handCount = state.hand.length;
     this.hand.layout(centerHand(this.lay.hand, this.handCount));
 
-    const offers = (state.phase === 'reward' || state.phase === 'conquest') && state.offers;
+    const offers = state.phase === 'reward' || state.phase === 'conquest' ? cardOffer(state) : null;
     // The reward step is followed by a conquest step: a new offer replaces the open modal.
     const offerKey = offers ? `${offers.kind}:${offers.cardIds.join(',')}` : null;
     if (this.reward && offerKey !== this.rewardKey) {

@@ -60,7 +60,7 @@ const at = (
       level: level ?? 1,
       enchants: [],
       placedYear: 1,
-      permanent: {},
+      permanent: {}, ageBonus: 0, counters: {}, movedYear: null,
     };
     plots[plot] = { ...plots[plot]!, unlocked: true, building: b };
   });

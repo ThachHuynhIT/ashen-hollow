@@ -5,6 +5,7 @@ import type { BattleResult } from '../battle/types';
 import { contentWith, fakeKing, fakeKingCards, runState } from '../testing/fixtures';
 import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
+import { cardOffer } from './flow';
 import type { IllegalReason, RunCommand, RunState } from './state';
 
 const content = contentWith({
@@ -85,7 +86,7 @@ describe('conquering a king (spec §3.7)', () => {
   it('after the reward comes a mandatory conquest pick of 3 distinct cards of that king', () => {
     const afterReward = ok(applyCommand(won(), { type: 'pickOffer', index: 0 }, content));
     expect(afterReward.phase).toBe('conquest');
-    const offers = afterReward.offers!;
+    const offers = cardOffer(afterReward)!;
     expect(offers.kind).toBe('conquest');
     expect(offers.king).toBe('stone');
     expect(offers.cardIds).toHaveLength(3);
@@ -108,7 +109,7 @@ describe('conquering a king (spec §3.7)', () => {
 
   it('adds the chosen card to the deck and discard pile and starts the next year', () => {
     const s = ok(applyCommand(won(), { type: 'pickOffer', index: 0 }, content));
-    const chosen = s.offers!.cardIds[1]!;
+    const chosen = cardOffer(s)!.cardIds[1]!;
     const next = ok(applyCommand(s, { type: 'pickOffer', index: 1 }, content));
     expect(next.phase).toBe('planning');
     expect(next.year).toBe(s.year + 1);

@@ -12,7 +12,7 @@ const bld = (uid: number, cardId: BuildingState['cardId'] = 'wheat_scarecrow'): 
   uid,
   cardId,
   level: 1,
-  enchants: [], placedYear: 1, permanent: {}
+  enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null
 });
 
 /** Throne on 12 and a barracks on 7 (both in the opening 3×3). */

@@ -81,3 +81,12 @@ describe('startYear follows the calendar', () => {
     }
   });
 });
+
+describe('startYear draws within the same call (no held-back draw outside the quest step)', () => {
+  it('leaves yearStartPendingDraw false and a full hand', () => {
+    const next = startYear(before(2), content);
+    expect(next.yearStartPendingDraw).toBe(false);
+    expect(next.phase).toBe('planning');
+    expect(next.hand).toHaveLength(3);
+  });
+});

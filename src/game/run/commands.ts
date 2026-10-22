@@ -108,6 +108,9 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
             level: 1,
             enchants: [],
             placedYear: state.year,
+            ageBonus: 0,
+            counters: {},
+            movedYear: null,
             permanent: {},
           });
           state.nextUid += 1;
@@ -245,6 +248,7 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       if ((state.phase !== 'reward' && state.phase !== 'conquest') || state.offers === null) {
         return fail('wrongPhase');
       }
+      if (state.offers.kind === 'council' || state.offers.kind === 'quest') return fail('wrongPhase');
       const { index } = cmd;
       const conquest = state.phase === 'conquest';
       if (conquest && index === null) return fail('badTarget'); // bắt buộc chọn một thẻ
@@ -281,6 +285,13 @@ export function applyCommand(input: RunState, cmd: RunCommand, content: Content)
       }
       return { state: begin({ ...picked, pendingConquest: null }, content, events), events };
     }
+
+    // Hội đồng và nhiệm vụ: luật thật ở G3a-A3/A4; ngoài pha của chúng thì không hợp lệ.
+    case 'chooseDecree':
+    case 'setCouncilSelection':
+    case 'enactDecree':
+    case 'answerQuest':
+      return fail('wrongPhase');
 
     case 'advance':
       if (state.phase !== 'yearEnd') return fail('wrongPhase');

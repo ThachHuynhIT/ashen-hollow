@@ -266,3 +266,43 @@ export interface KingDef {
   /** Cờ hiệu khi làm địch. */
   readonly banner: BannerDef;
 }
+
+/** Sắc lệnh hội đồng (spec §7.1) — danh sách đóng 18 id. */
+export type DecreeId = `decree_${
+  | 'harvest_tax'
+  | 'expand_borders'
+  | 'mobilize'
+  | 'recast_crown'
+  | 'royal_armory'
+  | 'new_armor'
+  | 'royal_archers'
+  | 'merchant_guild'
+  | 'fourth_hand'
+  | 'bigger_boulder'
+  | 'quick_reflex'
+  | 'amnesty'
+  | 'treasury'
+  | 'academy'
+  | 'purge'
+  | 'trade'
+  | 'rune_festival'
+  | 'moat'}`;
+
+/** Nhiệm vụ (spec §7.2) — danh sách đóng 13 id. */
+export type QuestId = `quest_${
+  | 'untouched'
+  | 'three_barracks'
+  | 'no_reroll'
+  | 'slaughter'
+  | 'double_rune'
+  | 'land_grab'
+  | 'master_builder'
+  | 'blitz'
+  | 'hoard'
+  | 'no_help'
+  | 'offering'
+  | 'diversity'
+  | 'wager'}`;
+
+/** Boss (spec §7.3) — năm 10, 20, 30. */
+export type BossId = 'boss_bog_ogre' | 'boss_hornet_queen' | 'boss_crownless_king';

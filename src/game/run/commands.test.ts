@@ -12,6 +12,7 @@ import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
 import type { IllegalReason, PlayTarget, RunCommand, RunState } from './state';
 import { refillHand } from './deck';
+import { cardOffer } from './flow';
 import { startDeck } from './calendar';
 import { newRun } from './yearFlow';
 
@@ -145,7 +146,7 @@ describe('play / discard', () => {
       uid: 1,
       cardId: 'wheat_militia',
       level: 1,
-      enchants: [], placedYear: s.year, permanent: {}
+      enchants: [], placedYear: s.year, permanent: {}, ageBonus: 0, counters: {}, movedYear: null
     });
     expect(r.state.nextUid).toBe(2);
     expect(r.state.hand).toEqual(['neutral_barracks', 'neutral_move']);
@@ -171,8 +172,8 @@ describe('play / discard', () => {
 
   it('move relocates and swaps', () => {
     const base = runState({ hand: ['neutral_move'] });
-    const b7 = { uid: 1, cardId: 'wheat_militia' as CardId, level: 1 as const, enchants: [], placedYear: 1, permanent: {} };
-    const b6 = { uid: 2, cardId: 'neutral_barracks' as CardId, level: 1 as const, enchants: [], placedYear: 1, permanent: {} };
+    const b7 = { uid: 1, cardId: 'wheat_militia' as CardId, level: 1 as const, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
+    const b6 = { uid: 2, cardId: 'neutral_barracks' as CardId, level: 1 as const, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
     const plots = structuredClone(base.plots);
     plots[7]!.building = b7;
     const moved = ok(applyCommand({ ...base, plots }, play(0, two(7, 6)), CONTENT));
@@ -246,7 +247,7 @@ describe('errors', () => {
     expect(errorOf(s, play(0, { kind: 'none' }))).toBe('badTarget');
     expect(errorOf(s, play(2, two(7, 6)))).toBe('noTarget');
     const occ = runState({ hand });
-    occ.plots[6]!.building = { uid: 1, cardId: 'wheat_scarecrow', level: 1, enchants: [], placedYear: 1, permanent: {} };
+    occ.plots[6]!.building = { uid: 1, cardId: 'wheat_scarecrow', level: 1, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
     expect(errorOf(occ, play(0, plot(6)))).toBe('occupied');
     expect(errorOf(occ, play(2, two(7, 6)))).toBe('noBuilding');
     const clear = runState({ hand: ['neutral_clear_land'] });
@@ -354,7 +355,7 @@ describe('gold', () => {
       level: 3,
       enchants: [],
       placedYear: 1,
-      permanent: {},
+      permanent: {}, ageBonus: 0, counters: {}, movedYear: null,
     };
     const next = ok(applyCommand(s, { type: 'advance' }, c)).state;
     expect(next.gold).toBe(10 + RUN.taxPerYear + 3);
@@ -410,7 +411,7 @@ describe('a hand with no playable card', () => {
     });
     const plots = s.plots.map((p, i) =>
       p.unlocked && i !== 12
-        ? { ...p, building: { uid: i + 10, cardId: 'wheat_scarecrow' as const, level: 1 as const, enchants: [], placedYear: 1, permanent: {} } }
+        ? { ...p, building: { uid: i + 10, cardId: 'wheat_scarecrow' as const, level: 1 as const, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null } }
         : p,
     );
     return {
@@ -454,7 +455,7 @@ describe('battle flow', () => {
     const s = planned({ phase: 'battle', year: 3 });
     const r = ok(applyCommand(s, { type: 'battleResult', result: result(true, 7) }, CONTENT));
     expect(r.state.phase).toBe('reward');
-    expect(r.state.offers!.cardIds).toHaveLength(3);
+    expect(cardOffer(r.state)!.cardIds).toHaveLength(3);
     expect(r.state.stats.battlesWon).toBe(1);
     expect(r.state.stats.kills).toBe(7);
     expect(r.state.rng.reward).not.toBe(s.rng.reward);
@@ -524,8 +525,8 @@ describe('rewards', () => {
     const s = reward();
     const r = ok(applyCommand(s, { type: 'pickOffer', index: 0 }, CONTENT));
     expect(r.state.deck).toHaveLength(12);
-    expect(r.state.deck[11]).toBe(s.offers!.cardIds[0]);
-    const picked = s.offers!.cardIds[0]!;
+    expect(r.state.deck[11]).toBe(cardOffer(s)!.cardIds[0]);
+    const picked = cardOffer(s)!.cardIds[0]!;
     expect(
       [...r.state.hand, ...r.state.drawPile, ...r.state.discardPile].filter((c) => c === picked),
     ).toHaveLength(r.state.deck.filter((c) => c === picked).length);
@@ -537,7 +538,7 @@ describe('rewards', () => {
   it('the chosen reward is in the next hand right away, not buried in the discard pile', () => {
     for (const index of [0, 1, 2]) {
       const s = reward();
-      const chosen = s.offers!.cardIds[index]!;
+      const chosen = cardOffer(s)!.cardIds[index]!;
       const next = ok(applyCommand(s, { type: 'pickOffer', index }, CONTENT)).state;
       expect(next.hand).toContain(chosen);
       expect(next.hand).toHaveLength(3);
@@ -556,13 +557,13 @@ describe('rewards', () => {
               hand: [],
               played: true,
               year,
-              rng: { draw: seed, reward: seed * 7919, calendar: 1 },
+              rng: { draw: seed, reward: seed * 7919, calendar: 1, council: 2, quest: 3 },
             }),
             { type: 'battleResult', result: result(true) },
             CONTENT,
           ),
         ).state;
-        for (const id of s.offers!.cardIds) expect(g1.has(id), `${id} in G1 rewards`).toBe(true);
+        for (const id of cardOffer(s)!.cardIds) expect(g1.has(id), `${id} in G1 rewards`).toBe(true);
       }
     }
   });
@@ -693,5 +694,39 @@ describe('extra error branches', () => {
     const b = ok(applyCommand(s, cmd, CONTENT));
     expect(a).toEqual(b);
     expect(a.state.offers).toEqual(b.state.offers);
+  });
+});
+
+describe('G3 commands and offers outside their phase', () => {
+  const cmds: RunCommand[] = [
+    { type: 'chooseDecree', index: 0 },
+    { type: 'setCouncilSelection', selection: { plots: [], cardId: null, deckIndices: [] } },
+    { type: 'enactDecree' },
+    { type: 'answerQuest', accept: true },
+  ];
+
+  it.each(cmds)('%j is wrongPhase while planning', (cmd) => {
+    expect(applyCommand(runState(), cmd, CONTENT)).toEqual({ error: 'wrongPhase' });
+  });
+
+  it('pickOffer refuses a council or quest offer', () => {
+    const base = runState();
+    const council = {
+      ...base,
+      phase: 'reward' as const,
+      offers: {
+        kind: 'council' as const,
+        decreeIds: ['decree_treasury' as const],
+        selected: null,
+        selection: { plots: [], cardId: null, deckIndices: [] },
+      },
+    };
+    expect(applyCommand(council, { type: 'pickOffer', index: 0 }, CONTENT)).toEqual({ error: 'wrongPhase' });
+    const quest = {
+      ...base,
+      phase: 'reward' as const,
+      offers: { kind: 'quest' as const, questId: 'quest_untouched' as const },
+    };
+    expect(applyCommand(quest, { type: 'pickOffer', index: null }, CONTENT)).toEqual({ error: 'wrongPhase' });
   });
 });

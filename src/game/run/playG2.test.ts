@@ -37,7 +37,7 @@ const bld = (uid: number, cardId: string, level: Level = 1, enchants: BuildingSt
   level,
   enchants,
   placedYear: 1,
-  permanent: {},
+  permanent: {}, ageBonus: 0, counters: {}, movedYear: null,
 });
 
 /** Planning state holding exactly `hand`, with buildings at the given plots. */

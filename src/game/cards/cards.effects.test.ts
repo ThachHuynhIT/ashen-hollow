@@ -21,7 +21,7 @@ export const bld = (
   level,
   enchants,
   placedYear: 1,
-  permanent: {},
+  permanent: {}, ageBonus: 0, counters: {}, movedYear: null,
 });
 
 /** A fresh run with `built` placed (plots opened as needed) and the given overrides. */

@@ -4,6 +4,7 @@ import { rerollCost, unlockCost } from '../../../data/run';
 import type { CardDef } from '../../../data/types';
 import type { Content } from '../../cards/registry';
 import { adjacentToUnlocked, checkPlay, targetCount } from '../../run/board';
+import { cardOffer } from '../../run/flow';
 import type { PlayTarget, RunCommand, RunState } from '../../run/state';
 
 export type Bot = (state: RunState, content: Content, rng: Rng) => RunCommand;
@@ -68,13 +69,13 @@ export const randomBot: Bot = (state, content, rng) => {
       return options.length === 0 ? { type: 'startBattle' } : rng.pick(options);
     }
     case 'reward': {
-      const count = state.offers?.cardIds.length ?? 0;
+      const count = cardOffer(state)?.cardIds.length ?? 0;
       if (count === 0 || rng.int(0, 3) === 0) return { type: 'pickOffer', index: null };
       return { type: 'pickOffer', index: rng.int(0, count - 1) };
     }
     case 'conquest': {
       // Chinh phục bắt buộc chọn một thẻ.
-      const count = state.offers?.cardIds.length ?? 0;
+      const count = cardOffer(state)?.cardIds.length ?? 0;
       return { type: 'pickOffer', index: count === 0 ? 0 : rng.int(0, count - 1) };
     }
     case 'yearEnd':
