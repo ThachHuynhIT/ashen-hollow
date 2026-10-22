@@ -54,6 +54,8 @@ export interface BattleResult {
   unitsLost: number;
   capped: number;
   inputs: BattleCommand[];
+  /** Vàng thu/chi trong trận (cướp biển, hiến vàng…); mặc định 0, áp trước vàng thắng trận (§5.5). */
+  goldDelta?: number;
 }
 
 /** Chỉ số đòn đánh đã giải (cấp, bùa…) dùng trong trận. */

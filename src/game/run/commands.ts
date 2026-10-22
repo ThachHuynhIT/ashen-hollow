@@ -16,14 +16,15 @@ import {
   sacrificeBuilding,
   unlockPlot,
 } from './board';
-import { enactDecree, selectDecree, setCouncilSelection } from './council';
+import { enactDecree, rollCouncil, selectDecree, setCouncilSelection } from './council';
 import { handLimit, rerollPrice, rewardCount } from './decrees';
 import { refillHand } from './deck';
+import { cardOffer, enqueueOffers } from './flow';
 import { hasPlayableCard } from './playable';
-import { answerQuest, recordQuestCommand } from './quests';
+import { answerQuest, recordQuestCommand, settleQuests } from './quests';
 import { rollConquestOffers, rollOffers } from './rewards';
 import type { IllegalReason, RunCommand, RunState } from './state';
-import { startYear } from './yearFlow';
+import { advanceAfterBattle, finishYear } from './yearEnd';
 
 export type RunEvent =
   | { type: 'cardPlayed'; cardId: CardId }
@@ -38,9 +39,10 @@ const fail = (error: IllegalReason): CommandResult => ({ error });
 const manhattan = (a: number, b: number): number =>
   Math.abs(plotCol(a) - plotCol(b)) + Math.abs(plotRow(a) - plotRow(b));
 
-function begin(state: RunState, content: Content, events: RunEvent[]): RunState {
-  const next = startYear(state, content);
-  events.push({ type: 'yearStarted', year: next.year });
+/** Ghi sự kiện năm mới / hết ván do bước vừa rồi gây ra; trả lại `next`. */
+function settledEvents(before: RunState, next: RunState, events: RunEvent[]): RunState {
+  if (next.year !== before.year) events.push({ type: 'yearStarted', year: next.year });
+  if (next.phase === 'ended' && before.phase !== 'ended') events.push({ type: 'runEnded', won: next.won === true });
   return next;
 }
 
@@ -195,15 +197,18 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
     case 'battleResult': {
       if (state.phase !== 'battle') return fail('wrongPhase');
       const { result } = cmd;
+      const full = state.rules.calendar === 'full';
       state.stats.kills += result.kills;
+      state.stats.completedYears += 1;
       events.push({ type: 'battleEnded', won: result.won });
+      // Vàng trong trận trước, rồi vàng thắng trận (§5.5 bước 9); vàng không âm.
+      state.gold = Math.max(0, state.gold + (result.goldDelta ?? 0));
       if (result.won) {
         state.stats.battlesWon += 1;
         const prize = battleGold(state.year);
         state.gold += prize;
         state.stats.goldEarned += prize;
-      }
-      else {
+      } else {
         state.stats.battlesLost += 1;
         state.lives -= 1;
       }
@@ -227,43 +232,49 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
         }
       }
 
-      const finalYear = state.year >= state.rules.years;
-      if (state.lives <= 0 || finalYear) {
-        // §3.10: sau trận năm cuối, còn mạng thì thắng ván (thắng hay thua trận đều vậy).
-        state.lives = Math.max(state.lives, 0);
-        state.phase = 'ended';
-        state.won = state.lives > 0;
-        state.offers = null;
-        events.push({ type: 'runEnded', won: state.won });
-      } else if (result.won) {
-        const rng = new Rng(state.rng.reward);
+      // Nhiệm vụ (theo thứ tự nhận); thưởng chọn thẻ đã nằm trong hàng đợi.
+      let s = settleQuests(state, result, 'afterBattle', content);
+      const finalYear = s.year >= s.rules.years;
+      if (s.lives <= 0 || (finalYear && !full)) {
+        // §3.10: hết mạng thì thua ngay; sau trận năm cuối còn mạng thì thắng ván (luật G1/G2: không thưởng).
+        s.lives = Math.max(s.lives, 0);
+        s = { ...s, phase: 'ended', won: s.lives > 0, offers: null, pendingOffers: [], pendingConquest: null };
+        events.push({ type: 'runEnded', won: s.won === true });
+        return { state: s, events };
+      }
+      if (result.won && !finalYear) {
+        const rng = new Rng(s.rng.reward);
         // G1 (lịch toàn Thổ Phỉ) chỉ thưởng các thẻ G1: giao diện G1 chưa chơi được thẻ G2.
-        const g1 = state.rules.calendar === 'raiders';
+        const g1 = s.rules.calendar === 'raiders';
         const only = (cards: readonly CardDef[]): readonly CardDef[] =>
           g1 ? cards.filter((c) => START_DECK_G1.includes(c.id)) : cards;
-        const cardIds = rollOffers(rng, state.year, {
-          king: only(content.king(state.kingId).cards),
-          neutral: only(content.neutralPool()),
-        }, rewardCount(state));
-        state.rng.reward = rng.getState();
-        state.offers = { kind: 'reward', cardIds };
-        state.pendingConquest = conquered;
-        state.phase = 'reward';
-      } else {
-        state.offers = null;
-        state.phase = 'yearEnd';
+        const cardIds = rollOffers(
+          rng,
+          s.year,
+          { king: only(content.king(s.kingId).cards), neutral: only(content.neutralPool()) },
+          rewardCount(s),
+        );
+        s.rng.reward = rng.getState();
+        s = enqueueOffers({ ...s, pendingConquest: conquered }, [{ kind: 'reward', cardIds }]);
       }
-      return { state, events };
+      // Hội đồng sau thắng hay thua (chỉ ván đầy đủ, còn mạng, không phải năm cuối).
+      if (full && !finalYear && (RUN.councilYears as readonly number[]).includes(s.year)) s = rollCouncil(s);
+      if (s.offers === null) {
+        // Không còn bước nào: năm cuối kết thúc ván ngay, còn lại nghỉ ở yearEnd chờ `advance`.
+        s = finalYear ? finishYear(s, content) : { ...s, phase: 'yearEnd' };
+      }
+      return { state: settledEvents(input, s, events), events };
     }
 
     case 'pickOffer': {
       if ((state.phase !== 'reward' && state.phase !== 'conquest') || state.offers === null) {
         return fail('wrongPhase');
       }
-      if (state.offers.kind === 'council' || state.offers.kind === 'quest') return fail('wrongPhase');
+      const offer = cardOffer(state);
+      if (offer === null) return fail('wrongPhase');
       const { index } = cmd;
-      const conquest = state.phase === 'conquest';
-      if (conquest && index === null) return fail('badTarget'); // bắt buộc chọn một thẻ
+      // Chỉ thưởng thường được bỏ qua; chinh phục và thưởng nhiệm vụ bắt buộc chọn một thẻ.
+      if (offer.kind !== 'reward' && index === null) return fail('badTarget');
       let { deck, drawPile } = state;
       let gold = state.gold;
       let goldEarned = state.stats.goldEarned;
@@ -271,31 +282,33 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
         gold += RUN.skipRewardGold;
         goldEarned += RUN.skipRewardGold;
       } else {
-        const picked = Number.isInteger(index) ? state.offers.cardIds[index] : undefined;
+        const picked = Number.isInteger(index) ? offer.cardIds[index] : undefined;
         if (picked === undefined) return fail('badTarget');
         deck = [...deck, picked];
         // Lên đầu chồng rút: thẻ vừa chọn có ngay trên tay năm sau (không bị chôn trong chồng bỏ).
         drawPile = [picked, ...drawPile];
       }
-      const stats = { ...state.stats, goldEarned };
-      const picked = { ...state, deck, drawPile, gold, stats };
-      if (!conquest && state.pendingConquest !== null) {
-        // Sau thưởng tới chinh phục: ba thẻ của vua bại trận, bắt buộc chọn một.
+      let next: RunState = {
+        ...state,
+        deck,
+        drawPile,
+        gold,
+        stats: { ...state.stats, goldEarned },
+        offers: null,
+      };
+      if (offer.kind === 'reward' && state.pendingConquest !== null) {
+        // Sau thưởng tới chinh phục: ba thẻ của vua bại trận, bắt buộc chọn một; đứng trước các bước còn lại.
         const king = content.king(state.pendingConquest);
         const rng = new Rng(state.rng.reward);
         const cardIds = rollConquestOffers(rng, king);
-        return {
-          state: {
-            ...picked,
-            phase: 'conquest',
-            pendingConquest: null,
-            offers: { kind: 'conquest', cardIds, king: king.id },
-            rng: { ...state.rng, reward: rng.getState() },
-          },
-          events,
+        next = {
+          ...next,
+          pendingConquest: null,
+          pendingOffers: [{ kind: 'conquest', cardIds, king: king.id }, ...next.pendingOffers],
+          rng: { ...state.rng, reward: rng.getState() },
         };
       }
-      return { state: begin({ ...picked, pendingConquest: null }, content, events), events };
+      return { state: settledEvents(input, advanceAfterBattle(next, content), events), events };
     }
 
     case 'chooseDecree':
@@ -317,6 +330,6 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
 
     case 'advance':
       if (state.phase !== 'yearEnd') return fail('wrongPhase');
-      return { state: begin(state, content, events), events };
+      return { state: settledEvents(input, finishYear(state, content), events), events };
   }
 }

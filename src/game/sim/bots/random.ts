@@ -1,12 +1,14 @@
 /** Bot chơi ngẫu nhiên hợp lệ (spec §13.3): dùng cho headless/cân bằng, luôn sinh lệnh hợp lệ. */
 import type { Rng } from '../../../core/random';
+import { decree } from '../../run/decrees';
+import { QUESTS } from '../../../data/quests';
 import { unlockCost } from '../../../data/run';
 import type { CardDef } from '../../../data/types';
 import type { Content } from '../../cards/registry';
-import { adjacentToUnlocked, checkPlay, targetCount } from '../../run/board';
+import { adjacentToUnlocked, checkPlay, targetCount, unlockPlot } from '../../run/board';
 import { rerollPrice } from '../../run/decrees';
 import { cardOffer } from '../../run/flow';
-import type { PlayTarget, RunCommand, RunState } from '../../run/state';
+import type { CouncilSelection, PlayTarget, RunCommand, RunState } from '../../run/state';
 
 export type Bot = (state: RunState, content: Content, rng: Rng) => RunCommand;
 
@@ -46,6 +48,31 @@ const playOptions = (state: RunState, content: Content): RunCommand[] => {
   return options;
 };
 
+/**
+ * Bước hội đồng: chọn sắc lệnh, rồi dựng phần chọn phụ HỢP LỆ và ổn định (lấy ô thấp nhất, thẻ hiếm
+ * đầu tiên, không loại bài) để lần gọi sau thấy đã khớp và ban hành.
+ */
+const councilCommand = (state: RunState, content: Content, rng: Rng): RunCommand => {
+  const offer = state.offers;
+  if (offer?.kind !== 'council') throw new Error('randomBot: no council offer');
+  if (offer.selected === null) return { type: 'chooseDecree', index: rng.int(0, offer.decreeIds.length - 1) };
+  const want: CouncilSelection = { plots: [], cardId: null, deckIndices: [] };
+  const action = decree(offer.selected).action;
+  if (action === 'expand') {
+    let plots = state.plots;
+    const target = Math.min(2, plots.filter((p) => !p.unlocked).length);
+    while (want.plots.length < target) {
+      const plot = plots.findIndex((p, i) => !p.unlocked && adjacentToUnlocked(plots, i));
+      want.plots.push(plot);
+      plots = unlockPlot(plots, plot);
+    }
+  } else if (action === 'academy') {
+    want.cardId = content.king(state.kingId).cards.find((c) => c.rarity === 'rare')?.id ?? null;
+  }
+  if (JSON.stringify(want) !== JSON.stringify(offer.selection)) return { type: 'setCouncilSelection', selection: want };
+  return { type: 'enactDecree' };
+};
+
 export const randomBot: Bot = (state, content, rng) => {
   switch (state.phase) {
     case 'planning': {
@@ -69,8 +96,17 @@ export const randomBot: Bot = (state, content, rng) => {
       // Không có nước đi hợp lệ nghĩa là không lá nào chơi được: startBattle hợp lệ.
       return options.length === 0 ? { type: 'startBattle' } : rng.pick(options);
     }
+    case 'quest': {
+      const fee = state.offers?.kind === 'quest' ? QUESTS.find((q) => q.id === (state.offers as { questId: string }).questId)!.acceptGold : 0;
+      return { type: 'answerQuest', accept: state.gold >= fee && rng.int(0, 1) === 1 };
+    }
+    case 'council':
+      return councilCommand(state, content, rng);
     case 'reward': {
-      const count = cardOffer(state)?.cardIds.length ?? 0;
+      const offer = cardOffer(state);
+      const count = offer?.cardIds.length ?? 0;
+      // Thưởng nhiệm vụ không được bỏ qua.
+      if (offer?.kind === 'questReward') return { type: 'pickOffer', index: count === 0 ? 0 : rng.int(0, count - 1) };
       if (count === 0 || rng.int(0, 3) === 0) return { type: 'pickOffer', index: null };
       return { type: 'pickOffer', index: rng.int(0, count - 1) };
     }

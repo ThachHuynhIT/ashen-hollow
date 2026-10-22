@@ -61,6 +61,26 @@ export function rollOffers(
 }
 
 /**
+ * Bốc tối đa `count` thẻ HIẾM khác nhau (thưởng nhiệm vụ, spec §7.2): mỗi lần chọn nguồn vua /
+ * trung lập theo `REWARD.kingShare` như §3.8, nguồn hết thẻ hiếm thì đổi nguồn; hết cả hai thì
+ * dừng với ít thẻ hơn (không lặp vô hạn).
+ */
+export function rollRareOffers(rng: Rng, pools: RewardPools, count: number): CardId[] {
+  const picked: CardId[] = [];
+  const rare = (pool: readonly CardDef[]): CardDef[] =>
+    pool.filter((c) => c.rarity === 'rare' && !picked.includes(c.id));
+  for (let n = 0; n < count; n++) {
+    const first = rng.next() < REWARD.kingShare ? pools.king : pools.neutral;
+    const second = first === pools.king ? pools.neutral : pools.king;
+    let candidates = rare(first);
+    if (candidates.length === 0) candidates = rare(second);
+    if (candidates.length === 0) break;
+    picked.push(candidates[Math.floor(rng.next() * candidates.length)]!.id);
+  }
+  return picked;
+}
+
+/**
  * Ba thẻ khác nhau của vua bại trận để chọn một (spec §3.7): xáo `king.cards` (không gồm Ngai)
  * bằng `Rng` rồi lấy 3; vua có ít hơn 3 thẻ thì trả hết.
  */
