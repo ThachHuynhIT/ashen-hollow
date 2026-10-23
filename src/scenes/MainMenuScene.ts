@@ -4,7 +4,9 @@ import { UI_PALETTE } from '../data/uiPalette';
 import type { RunState } from '../game/run/state';
 import { UI_KEY, addPixelTexture } from '../render/atlas';
 import { HILL_LAYERS, MENU_SKY_H, menuPixelScale, paintHills, paintSky } from '../render/uiArt';
+import { resolveShortcut, shortcutFlags } from '../ui/input/shortcuts';
 import { MENU_BUTTON, layoutMenu } from '../ui/menuLayout';
+import { openHelp } from './helpLauncher';
 import {
   addUiText,
   createButton,
@@ -54,6 +56,11 @@ const MENU_ENTRIES: readonly MenuEntry[] = [
     onClick: (scene) => {
       scene.scene.start(SCENES.kingSelect);
     },
+  },
+  {
+    label: 'Trợ giúp',
+    enabled: true,
+    onClick: (scene) => openHelp(scene, null, null),
   },
 ];
 
@@ -126,10 +133,18 @@ export class MainMenuScene extends Phaser.Scene {
 
     this.layout();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
+    this.input.keyboard?.on(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.onKey, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.off(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.onKey, this);
       this.guard.invalidate();
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
     });
+  }
+
+  private onKey(event: KeyboardEvent): void {
+    if (resolveShortcut(event.key, 'menu', shortcutFlags(event)) !== 'help.toggle') return;
+    event.preventDefault();
+    openHelp(this, null, null);
   }
 
   /** Reads the saved run; the answer is dropped if the menu was left or reopened meanwhile. */

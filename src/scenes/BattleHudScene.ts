@@ -22,7 +22,8 @@ import { InspectionView } from '../ui/info/InspectionView';
 import { entityAt } from '../ui/info/infoLines';
 import { buildingInfoModel, plotOfEntity, unitInfoModel } from '../ui/info/inspectionModel';
 import { battleControls } from '../ui/info/inspectionReserved';
-import { resolveShortcut, shortcutFlags } from '../ui/input/shortcuts';
+import { resolveShortcut, shortcutFlags, shortcutLabel } from '../ui/input/shortcuts';
+import { openHelp } from './helpLauncher';
 import { bossReadout, type BossReadout } from '../ui/battle/battleReadout';
 import { DRAG_SLOP, GAP, MARGIN, textContent, type Point, type Rect } from '../ui/hud/layout';
 import { RESULT_BUTTON, centredPanel, resultLayout } from '../ui/modals/modalLayout';
@@ -137,6 +138,7 @@ export class BattleHudScene extends Phaser.Scene {
   private hoveredId: number | null = null;
   private autoBtn!: Button;
   private wavesBtn!: Button;
+  private helpBtn!: Button;
   private scoutModal: {
     root: Phaser.GameObjects.Container;
     overlay: Phaser.GameObjects.Rectangle;
@@ -274,6 +276,13 @@ export class BattleHudScene extends Phaser.Scene {
       onClick: () => (this.scoutModal ? this.closeScout() : this.openScout()),
       tooltip: tip(['Các đợt địch', 'Xem lại đạo quân năm nay.']),
     });
+    this.helpBtn = createButton(this, 0, 0, '?', {
+      width: this.lay.help.w,
+      height: this.lay.help.h,
+      fontSize: 22,
+      onClick: () => this.bus.emit('ui:help', { open: true }),
+      tooltip: tip([`Trợ giúp (${shortcutLabel('help')})`, 'Thẻ bài, cơ chế, phím tắt...']),
+    });
     this.cooldown = this.add.graphics();
     this.cooldownText = addUiText(this, 0, 0, '', 22, UI_PALETTE.creamLight)
       .setOrigin(0.5)
@@ -293,6 +302,9 @@ export class BattleHudScene extends Phaser.Scene {
       }),
       bus.on('log', ({ text }) => this.toasts.push(text)),
       bus.on('battle:ended', ({ result }) => this.onEnded(result)),
+      bus.on('ui:help', ({ open, tab }) => {
+        if (open) openHelp(this, this.bus, this.controller.runner?.clock.speed ?? null, tab);
+      }),
     );
 
     this.input.keyboard?.on(Phaser.Input.Keyboard.Events.ANY_KEY_DOWN, this.onKey, this);
@@ -808,6 +820,7 @@ export class BattleHudScene extends Phaser.Scene {
     this.autoBtn.container.setPosition(au.x + au.w / 2, au.y + au.h / 2);
     const wv = l.waves;
     this.wavesBtn.container.setPosition(wv.x + wv.w / 2, wv.y + wv.h / 2);
+    this.helpBtn.container.setPosition(l.help.x + l.help.w / 2, l.help.y + l.help.h / 2);
     this.layoutScout();
     this.info.layout(this.screen(), battleControls(l));
 

@@ -63,6 +63,8 @@ export interface PlanningLayout {
   zoom: number;
   lives: Rect;
   gold: Rect;
+  /** The "Trợ giúp" button, just right of the gold box. */
+  help: Rect;
   year: Rect;
   /** Five 52×52 cells: this year and the next four. */
   calendar: readonly Rect[];
@@ -169,6 +171,9 @@ const cellRow = (x: number, y: number): Rect[] =>
 const WIDE_DESKTOP = 1100;
 const DECREE_PANEL_W = 260;
 
+/** Help button next to the gold box (same height); 52 wide, so it is a comfortable touch target too. */
+const helpRect = (gold: Rect): Rect => ({ x: gold.x + gold.w + GAP, y: gold.y, w: 52, h: gold.h });
+
 const desktopLayout = (screen: Size, handSize: number): PlanningLayout => {
   const { w, h } = screen;
   const zoom = planningZoom(screen);
@@ -217,6 +222,7 @@ const desktopLayout = (screen: Size, handSize: number): PlanningLayout => {
     zoom,
     lives,
     gold,
+    help: helpRect(gold),
     year,
     calendar,
     board,
@@ -267,6 +273,7 @@ const mobileLayout = (screen: Size, handSize: number): PlanningLayout => {
     zoom: PLANNING_ZOOM,
     lives,
     gold,
+    help: helpRect(gold),
     year,
     calendar,
     board,
@@ -327,6 +334,7 @@ export interface BattleLayout {
   clock: Rect;
   lives: Rect;
   gold: Rect;
+  help: Rect;
   foes: Rect;
   speed: readonly Rect[];
   intervene: Rect;
@@ -346,7 +354,7 @@ const WAVES = { w: 44, h: 44 } as const;
 export const battleLayout = (screen: Size): BattleLayout => {
   const { w, h } = screen;
   const desktop = isDesktop(w);
-  const { lives, gold } = planningLayout(screen);
+  const { lives, gold, help } = planningLayout(screen);
   const clock = {
     x: Math.round((w - CLOCK.w) / 2),
     y: desktop ? MARGIN : MARGIN + Math.max(lives.h, FOES.h) + GAP,
@@ -378,7 +386,7 @@ export const battleLayout = (screen: Size): BattleLayout => {
     w: WAVES.w,
     h: WAVES.h,
   };
-  return { clock, lives, gold, foes, speed, intervene, auto, waves };
+  return { clock, lives, gold, help, foes, speed, intervene, auto, waves };
 };
 
 /**

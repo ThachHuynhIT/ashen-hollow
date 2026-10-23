@@ -7,4 +7,5 @@ export const SCENES = {
   planningHud: 'PlanningHud',
   battleHud: 'BattleHud',
   runEnd: 'RunEnd',
+  help: 'Help',
 } as const;

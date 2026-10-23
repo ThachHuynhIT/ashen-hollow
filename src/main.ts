@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { PALETTE, toCss } from './data/palette';
 import { BattleHudScene } from './scenes/BattleHudScene';
 import { BootScene } from './scenes/BootScene';
+import { HelpScene } from './scenes/HelpScene';
 import { KingSelectScene } from './scenes/KingSelectScene';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { PlanningHudScene } from './scenes/PlanningHudScene';
@@ -34,6 +35,7 @@ const game = new Phaser.Game({
     PlanningHudScene,
     BattleHudScene,
     RunEndScene,
+    HelpScene,
   ],
 });
 

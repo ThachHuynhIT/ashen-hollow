@@ -28,7 +28,8 @@ import { handLimit } from '../game/run/decrees';
 import { InspectionView } from '../ui/info/InspectionView';
 import { buildingInfoModel } from '../ui/info/inspectionModel';
 import { planningControls } from '../ui/info/inspectionReserved';
-import { resolveShortcut, shortcutFlags } from '../ui/input/shortcuts';
+import { resolveShortcut, shortcutFlags, shortcutLabel } from '../ui/input/shortcuts';
+import { openHelp } from './helpLauncher';
 import { cardBadge, willLevelUpTo } from '../ui/cards/cardText';
 import { CalendarStrip } from '../ui/planning/CalendarStrip';
 import { HandView } from '../ui/planning/HandView';
@@ -103,6 +104,7 @@ export class PlanningHudScene extends Phaser.Scene {
   private rerollBtn!: Button;
   private deckBtn!: Button;
   private scoutBtn!: Button;
+  private helpBtn!: Button;
   private actionSize = { w: 0, h: 0 };
   private calendarModal: CalendarModal | null = null;
   private deckModal: DeckModal | null = null;
@@ -203,6 +205,13 @@ export class PlanningHudScene extends Phaser.Scene {
       onClick: () => this.bus.emit('ui:open-modal', { modal: 'scout' }),
       tooltip: tip(['Trinh sát', 'Xem đội quân địch năm nay.']),
     });
+    this.helpBtn = createButton(this, 0, 0, '?', {
+      width: this.lay.help.w,
+      height: this.lay.help.h,
+      fontSize: 22,
+      onClick: () => this.bus.emit('ui:help', { open: true }),
+      tooltip: tip([`Trợ giúp (${shortcutLabel('help')})`, 'Thẻ bài, cơ chế, phím tắt...']),
+    });
     this.fight = createButton(this, 0, 0, 'Ra trận', {
       width: this.lay.fight.w,
       height: this.lay.fight.h,
@@ -241,6 +250,9 @@ export class PlanningHudScene extends Phaser.Scene {
       }),
       bus.on('ui:open-modal', ({ modal }) => this.openModal(modal)),
       bus.on('ui:close-modal', () => this.closeModals()),
+      bus.on('ui:help', ({ open, tab }) => {
+        if (open) openHelp(this, this.bus, null, tab);
+      }),
       bus.on('ui:inspect', ({ plot, x, y }) => this.inspect(plot, { x, y })),
       bus.on('ui:select-card', ({ handIndex }) => {
         if (handIndex !== null) this.inspect(null, { x: 0, y: 0 });
@@ -780,6 +792,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.calendar.layout(l.calendar);
     this.scout.setVisible(l.scout !== null);
     if (l.scout) this.scout.layout(l.scout, 'full');
+    this.helpBtn.container.setPosition(l.help.x + l.help.w / 2, l.help.y + l.help.h / 2);
     this.scoutBtn.setVisible(l.scoutButton !== null);
     if (l.scoutButton) {
       this.scoutBtn.container.setPosition(l.scoutButton.x + l.scoutButton.w / 2, l.scoutButton.y + l.scoutButton.h / 2);

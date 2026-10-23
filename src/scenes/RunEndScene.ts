@@ -13,6 +13,7 @@ import {
 } from '../ui/theme';
 import { runSummary } from '../ui/info/infoLines';
 import { resolveShortcut, shortcutFlags } from '../ui/input/shortcuts';
+import { openHelp } from './helpLauncher';
 import { SCENES } from './keys';
 
 export interface RunEndData {
@@ -85,7 +86,10 @@ export class RunEndScene extends Phaser.Scene {
 
   private onKey(event: KeyboardEvent): void {
     const action = resolveShortcut(event.key, 'runEnd', shortcutFlags(event));
-    if (action === 'help.toggle') event.preventDefault(); // the Help view is wired in G3e E4d
+    if (action === 'help.toggle') {
+      event.preventDefault();
+      openHelp(this, null, null);
+    }
     else if (action === 'newRun') this.newRun();
     else if (action === 'back') this.toMenu();
   }

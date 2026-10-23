@@ -30,6 +30,12 @@ describe('layoutMenu', () => {
     expect(m.footer).toEqual({ x: 640, y: 720 - MENU_FOOTER_H / 2 });
   });
 
+  it('keeps three buttons (with Trợ giúp) clear of the logo and footer on PC and phones', () => {
+    check({ w: 1280, h: 720 }, DESKTOP_LOGO, 3);
+    check({ w: 1920, h: 1080 }, DESKTOP_LOGO, 3);
+    check({ w: 375, h: 812 }, PHONE_LOGO, 3);
+  });
+
   it('fits a 375×812 phone', () => {
     check({ w: 375, h: 812 }, PHONE_LOGO, 1);
   });

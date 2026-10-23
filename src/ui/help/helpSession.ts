@@ -14,3 +14,9 @@ export const openHelpSession = (speed: GameSpeed | null, current?: HelpSession):
 export const closeHelpSession = (session: HelpSession): { speed: GameSpeed | null } => ({
   speed: session.open ? session.restoreSpeed : null,
 });
+
+/** Tốc độ cần gửi để tạm dừng khi mở Trợ giúp: chỉ khi trận đang chạy (1–3); đã dừng (0) hoặc không có trận (null) thì không gửi. */
+export const helpPauseSpeed = (speed: GameSpeed | null): 0 | null => (speed !== null && speed !== 0 ? 0 : null);
+
+/** Tốc độ cần gửi khi đóng: trả đúng tốc độ cũ, nhưng không bao giờ tự bỏ tạm dừng (0) hay gửi khi không có trận. */
+export const helpResumeSpeed = (speed: GameSpeed | null): GameSpeed | null => (speed !== null && speed !== 0 ? speed : null);
