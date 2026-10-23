@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { toCss } from '../data/palette';
 import { UI_PALETTE } from '../data/uiPalette';
+import type { RunState } from '../game/run/state';
 import { UI_KEY, addPixelTexture } from '../render/atlas';
 import { HILL_LAYERS, MENU_SKY_H, menuPixelScale, paintHills, paintSky } from '../render/uiArt';
 import { MENU_BUTTON, layoutMenu } from '../ui/menuLayout';
@@ -14,7 +15,10 @@ import {
   type Button,
   type UiBox,
 } from '../ui/theme';
+import { LoadGuard, resumeTarget } from '../ui/resumeModel';
 import { SCENES } from './keys';
+import type { RealmData } from './RealmScene';
+import { getSession, takeStorageWarning } from './sessionRegistry';
 
 const TITLE = 'Crowned Kingdoms';
 const SUBTITLE = 'Một vương quốc nhỏ, chín ngai vàng';
@@ -26,18 +30,24 @@ const FIREFLIES = 24;
 
 /**
  * One §10.2 menu button. Buttons of features that do not exist yet are simply not listed
- * ("Tiếp tục" G3, "Vương Miện" G4, "Cài đặt" G5). "Ván mới" opens the king select.
+ * ("Vương Miện" G4, "Cài đặt" G5). "Tiếp tục" starts disabled and is enabled once a valid
+ * saved run has loaded; "Ván mới" opens the king select.
  */
 interface MenuEntry {
   readonly label: string;
   readonly enabled: boolean;
-  readonly onClick: (scene: Phaser.Scene) => void;
+  readonly onClick: (scene: MainMenuScene) => void;
 }
 
 /** A fresh run seed; scenes may use wall-clock randomness (the run itself is seeded). */
 export const newRunSeed = (): number => (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
 
 const MENU_ENTRIES: readonly MenuEntry[] = [
+  {
+    label: 'Tiếp tục',
+    enabled: false,
+    onClick: (scene) => scene.resume(),
+  },
   {
     label: 'Ván mới',
     enabled: true,
@@ -57,6 +67,11 @@ export class MainMenuScene extends Phaser.Scene {
   private subtitle!: Phaser.GameObjects.Text;
   private footer!: Phaser.GameObjects.Text;
   private buttons: Button[] = [];
+  private notice!: Phaser.GameObjects.Text;
+  /** Saved run waiting behind "Tiếp tục"; null while loading or when there is none. */
+  private saved: RunState | null = null;
+  /** A load that resolves for an older create (or after shutdown) is ignored. */
+  private readonly guard = new LoadGuard();
 
   constructor() {
     super(SCENES.mainMenu);
@@ -102,12 +117,44 @@ export class MainMenuScene extends Phaser.Scene {
     this.footer = this.add
       .text(0, 0, `v${__APP_VERSION__}`, textStyle(11, UI_PALETTE.creamLight))
       .setOrigin(0.5);
+    this.notice = this.add
+      .text(0, 0, takeStorageWarning(this) ?? '', textStyle(13, UI_PALETTE.creamLight))
+      .setOrigin(0.5, 1)
+      .setAlign('center');
+    this.saved = null;
+    this.loadSaved(this.guard.begin());
 
     this.layout();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.guard.invalidate();
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
     });
+  }
+
+  /** Reads the saved run; the answer is dropped if the menu was left or reopened meanwhile. */
+  private loadSaved(token: number): void {
+    const session = getSession(this);
+    if (!session) return;
+    void session.load().then((result) => {
+      if (!this.guard.isCurrent(token)) return;
+      const target = resumeTarget(result);
+      this.saved = target.state;
+      this.buttons[0]?.setEnabled(target.enabled);
+      if (target.warning !== null) this.showNotice(target.warning);
+    });
+  }
+
+  private showNotice(text: string): void {
+    this.notice.setText(text);
+    this.layout();
+  }
+
+  /** "Tiếp tục": open the saved run exactly as it was written. */
+  resume(): void {
+    if (this.saved === null) return;
+    const data: RealmData = { resume: this.saved };
+    this.scene.start(SCENES.realm, data);
   }
 
   update(_time: number, delta: number): void {
@@ -146,6 +193,8 @@ export class MainMenuScene extends Phaser.Scene {
       button.container.setPosition(at.x, at.y);
     });
     this.footer.setPosition(m.footer.x, m.footer.y);
+    this.notice.setWordWrapWidth(Math.max(120, width - 32));
+    this.notice.setPosition(m.footer.x, m.footer.y - 18);
   }
 
   /** Fireflies drift over the hills; one that wanders off screen comes back elsewhere. */

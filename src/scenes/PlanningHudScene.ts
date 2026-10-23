@@ -11,6 +11,7 @@ import { cardOffer } from '../game/run/flow';
 import type { IllegalReason, RunState } from '../game/run/state';
 import { SPRITES_KEY, iconFrame } from '../render/atlas';
 import { ContentBox } from '../ui/ContentBox';
+import { ToastStack } from '../ui/ToastStack';
 import { Tooltip } from '../ui/Tooltip';
 import { LONG_PRESS_MS, textContent, type TooltipContent } from '../ui/hud/layout';
 import { CalendarModal } from '../ui/modals/CalendarModal';
@@ -114,6 +115,7 @@ export class PlanningHudScene extends Phaser.Scene {
   private pending: Pending = NO_PENDING;
   /** A locked plot offered for purchase (set by RealmScene), shown with its price and ✓/✕. */
   private buy: { plot: number; price: number } | null = null;
+  private toasts!: ToastStack;
   private illegal: IllegalReason | null = null;
   private illegalTimer: Phaser.Time.TimerEvent | null = null;
   private plotTimer: Phaser.Time.TimerEvent | null = null;
@@ -142,6 +144,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.lay = this.currentLayout();
 
     this.tooltip = new Tooltip(this);
+    this.toasts = new ToastStack(this, MODAL_DEPTH + 50);
     this.info = new InfoPanel(this, MODAL_DEPTH - 50);
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
@@ -213,6 +216,7 @@ export class PlanningHudScene extends Phaser.Scene {
         this.refreshPending();
       }),
       bus.on('run:illegal', ({ reason }) => this.flashIllegal(reason)),
+      bus.on('log', ({ text }) => this.toasts.push(text)),
       bus.on('ui:pending-buy', ({ plot, price }) => {
         this.buy = plot === null ? null : { plot, price };
         this.refreshPending();
@@ -681,6 +685,7 @@ export class PlanningHudScene extends Phaser.Scene {
 
   private layout(): void {
     const l = (this.lay = this.currentLayout());
+    this.toasts.setAnchor(this.scale.width / 2, l.lives.y + l.lives.h + 8, this.scale.width - 32);
     this.livesBox.resize(l.lives.w, l.lives.h);
     this.livesBox.image.setPosition(l.lives.x, l.lives.y);
     const midY = l.lives.y + l.lives.h / 2;
@@ -744,6 +749,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.hand.destroy();
     this.scout.destroy();
     this.hint.destroy();
+    this.toasts.destroy();
     this.tooltip.destroy();
   }
 }
