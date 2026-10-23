@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BATTLE } from '../../data/battle';
 import { RUN } from '../../data/run';
 import { CONTENT } from '../../game/cards/registry';
+import type * as BossesModule from '../../data/bosses';
+import type * as DecreesModule from '../../data/decrees';
+import type * as QuestsModule from '../../data/quests';
+import type * as RunModule from '../../data/run';
 import { mechanicEntries } from './mechanics';
 
 const text = (entries: readonly { title: string; lines: readonly string[] }[]): string =>
@@ -60,19 +64,19 @@ describe('help_reacts_to_balance_changes', () => {
   it('shows changed run, quest, decree and boss numbers and no longer the old ones', async () => {
     vi.resetModules();
     vi.doMock('../../data/run', async (orig) => {
-      const m = await orig<typeof import('../../data/run')>();
+      const m = await orig<typeof RunModule>();
       return { ...m, RUN: { ...m.RUN, taxPerYear: 71 } };
     });
     vi.doMock('../../data/quests', async (orig) => {
-      const m = await orig<typeof import('../../data/quests')>();
+      const m = await orig<typeof QuestsModule>();
       return { ...m, QUEST_RULES: { ...m.QUEST_RULES, wagerFee: 93 } };
     });
     vi.doMock('../../data/decrees', async (orig) => {
-      const m = await orig<typeof import('../../data/decrees')>();
+      const m = await orig<typeof DecreesModule>();
       return { ...m, DECREE_RULES: { ...m.DECREE_RULES, reward: 77 } };
     });
     vi.doMock('../../data/bosses', async (orig) => {
-      const m = await orig<typeof import('../../data/bosses')>();
+      const m = await orig<typeof BossesModule>();
       return { ...m, BOSS_RULES: { ...m.BOSS_RULES, bog: { ...m.BOSS_RULES.bog, mudRange: 987 } } };
     });
     const { CONTENT: content } = await import('../../game/cards/registry');
