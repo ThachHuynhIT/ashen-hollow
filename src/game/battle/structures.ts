@@ -5,7 +5,7 @@
  */
 import { queueDamage } from './combat';
 import { BATTLE } from '../../data/battle';
-import { KIND_UNIT, TEAM_ALLY, addUnit, spawnOffset, type BattleWorld } from './world';
+import { KIND_UNIT, TEAM_ALLY, addUnit, spawnOffset, stunFor, type BattleWorld } from './world';
 
 const dueAt = (world: BattleWorld, every: number): boolean =>
   every > 0 && world.tick > 0 && world.tick % every === 0;
@@ -13,7 +13,7 @@ const dueAt = (world: BattleWorld, every: number): boolean =>
 /** Xung vòng tròn: mỗi `pulseEvery` tick (lần đầu ở tick = pulseEvery) mọi địch trong `pulseRadius`. */
 export const pulsePhase = (world: BattleWorld): void => {
   for (let i = 0; i < world.count; i++) {
-    if (world.alive[i] === 0 || !dueAt(world, world.pulseEvery[i]!)) continue;
+    if (world.alive[i] === 0 || world.tick < world.disabledUntil[i]! || !dueAt(world, world.pulseEvery[i]!)) continue;
     const r2 = world.pulseRadius[i]! * world.pulseRadius[i]!;
     for (let j = 0; j < world.count; j++) {
       if (world.alive[j] === 0 || world.team[j] === world.team[i]) continue;
@@ -39,7 +39,7 @@ export const pulsePhase = (world: BattleWorld): void => {
 /** Xung khiên: lính mình trong `shieldRadius` nhận `shieldAmount` khiên, tối đa 2× (spec §6.5). */
 export const shieldPulsePhase = (world: BattleWorld): void => {
   for (let i = 0; i < world.count; i++) {
-    if (world.alive[i] === 0 || !dueAt(world, world.shieldEvery[i]!)) continue;
+    if (world.alive[i] === 0 || world.tick < world.disabledUntil[i]! || !dueAt(world, world.shieldEvery[i]!)) continue;
     const amount = world.shieldAmount[i]!;
     const r2 = world.shieldRadius[i]! * world.shieldRadius[i]!;
     for (let j = 0; j < world.count; j++) {
@@ -73,7 +73,7 @@ export const bellPhase = (world: BattleWorld): void => {
         world.buffAsUntil[j] = world.tick + world.bellTicks[i]!;
         world.tuned[j] = 1; // tính lại nhịp đánh mỗi tick từ chỉ số gốc
       } else if (world.bellStun[i]! > 0) {
-        world.stunTicks[j] = Math.max(world.stunTicks[j]!, world.bellStun[i]!);
+        world.stunTicks[j] = Math.max(world.stunTicks[j]!, stunFor(world, j, world.bellStun[i]!));
       }
     }
   }

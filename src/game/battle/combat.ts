@@ -5,7 +5,9 @@
  */
 import { BATTLE } from '../../data/battle';
 import { deathBehaviours, hitBehaviours } from './behaviours';
+import { afterBossDamage } from './bosses';
 import { mitigate } from './damage';
+import { BOSS_RULES } from '../../data/bosses';
 import { edgeDistance, inRange, pickShotTarget, pickShotTargets } from './targeting';
 import {
   DMG_FIRE,
@@ -14,8 +16,10 @@ import {
   TEAM_ALLY,
   TEAM_FOE,
   addUnit,
+  bossImmune,
   heal,
   spawnOffset,
+  stunFor,
   type BattleWorld,
   type QueuedDamage,
 } from './world';
@@ -259,6 +263,8 @@ export const attackPhase = (world: BattleWorld): void => {
     if (world.alive[i] === 0 || world.interval[i]! <= 0) continue;
     const cd = Math.max(world.cooldown[i]! - 1, 0);
     world.cooldown[i] = cd;
+    if (world.tick < world.disabledUntil[i]!) continue; // tháp bị Ném Bùn vô hiệu
+    if (i === world.bossId && world.bossLanded) continue; // Nữ Hoàng đáp xuống không tấn công
     if (cd > 0 || world.stunTicks[i]! > 0) continue; // choáng: không đánh, cooldown vẫn giảm (§8.6)
     let t: number;
     if (world.kind[i] === KIND_UNIT) {
@@ -337,7 +343,7 @@ export const projectilePhase = (world: BattleWorld): void => {
 
 /** Chậm (§8.6): lấy mạnh nhất, làm mới thời gian, tối đa maxSlowPct. */
 const applySlow = (w: BattleWorld, id: number, pct: number, ticks: number): void => {
-  if (pct <= 0 || ticks <= 0) return;
+  if (pct <= 0 || ticks <= 0 || bossImmune(w, id)) return;
   w.slowPct[id] = Math.min(Math.max(w.slowPct[id]!, pct), BATTLE.maxSlowPct);
   w.slowTicks[id] = Math.max(w.slowTicks[id]!, ticks);
 };
@@ -360,7 +366,9 @@ export const applyDamagePhase = (world: BattleWorld): void => {
     const q: QueuedDamage = queue[i]!;
     const v = q.victim;
     if (world.alive[v] === 0 || world.hp[v]! <= 0) continue;
-    const dmg = Math.max(0, mitigateCode(q.raw, q.type, world.armor[v]!));
+    // Nữ Hoàng đáp xuống nhận thêm sát thương (tính mỗi đòn, không chồng theo tick).
+    const landed = v === world.bossId && world.bossLanded ? 1 + BOSS_RULES.hornet.landDmgTakenPct / 100 : 1;
+    const dmg = Math.max(0, mitigateCode(q.raw, q.type, world.armor[v]!)) * landed;
     // Khiên hấp thụ trước HP, sau giáp (§8.5).
     const absorbed = Math.min(world.shield[v]!, dmg);
     world.shield[v] = world.shield[v]! - absorbed;
@@ -372,9 +380,11 @@ export const applyDamagePhase = (world: BattleWorld): void => {
     } else {
       applySlow(world, v, q.slowPct, q.slowTicks);
       // +1: step 9 of this very tick decrements it, so the victim stays locked `stunTicks` ticks after this one.
-      if (q.stunTicks > 0) world.stunTicks[v] = Math.max(world.stunTicks[v]!, q.stunTicks + 1);
+      const stun = stunFor(world, v, q.stunTicks);
+      if (stun > 0) world.stunTicks[v] = Math.max(world.stunTicks[v]!, stun + 1);
     }
     if (q.sourceId >= 0) hitBehaviours(world, q.sourceId, v, dmg, q.knock);
+    if (v === world.bossId) afterBossDamage(world, v);
   }
 };
 
@@ -415,6 +425,7 @@ export const deathPhase = (world: BattleWorld): void => {
     if (world.alive[i] === 0 || world.hp[i]! > 0) continue;
     if (deathBehaviours(world, i)) continue; // sống lại: không chết, không tính hạ gục
     world.alive[i] = 0;
+    if (world.isBossSummon[i] === 1) world.bossSummonsAlive -= 1;
     if (world.deathSpawn[i]) parents.push(i);
     world.events.push({ type: 'death', id: i });
     if (world.kind[i] === KIND_UNIT) world.souls[world.team[i] === TEAM_FOE ? TEAM_FOE : TEAM_ALLY] += 1;

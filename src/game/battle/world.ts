@@ -228,6 +228,19 @@ export class BattleWorld {
   readonly bellStun = new Int32Array(BATTLE.entityCap);
   readonly respawnEvery = new Int32Array(BATTLE.entityCap);
   readonly respawnCount = new Int32Array(BATTLE.entityCap);
+  /** Tháp bị Ném Bùn vô hiệu tới tick này (không đánh, không xung, không khiên). */
+  readonly disabledUntil = new Int32Array(BATTLE.entityCap);
+  /** 1 = công trình loại tháp (mục tiêu của Ném Bùn). */
+  readonly isTower = new Uint8Array(BATTLE.entityCap);
+  /** 1 = lính do boss triệu hồi (tính vào trần `bossSummonCap`). */
+  readonly isBossSummon = new Uint8Array(BATTLE.entityCap);
+  /** Số lượng bộ đếm: số lính boss đang sống, và số lính boss đã sinh (chọn vị trí `SPAWN_OFFSETS`). */
+  bossSummonsAlive = 0;
+  bossSummonSeq = 0;
+  /** Gọi Ếch đã dùng chưa; Hạ Cánh đang diễn ra và tick kết thúc. */
+  bossFrogsCalled = false;
+  bossLanded = false;
+  bossLandEnd = -1;
   /** Số mục tiêu khác nhau mỗi nhịp của công trình (mặc định 1). */
   readonly multiCount = new Int32Array(BATTLE.entityCap).fill(1);
   readonly killGoldEvery = new Int32Array(BATTLE.entityCap);
@@ -369,6 +382,16 @@ export class BattleWorld {
     return id;
   }
 }
+
+/** Boss 3 miễn hoàn toàn choáng và chậm (§7.3). */
+export const bossImmune = (w: BattleWorld, id: number): boolean =>
+  w.bossSpawned && id === w.bossId && w.setup.boss?.ordinal === 3;
+
+/** Choáng lên `id` sau khi áp luật boss: boss 3 miễn, boss khác chỉ còn `bossStunFactor` thời gian (§7.3). */
+export const stunFor = (w: BattleWorld, id: number, ticks: number): number => {
+  if (id !== w.bossId || !w.bossSpawned) return ticks;
+  return bossImmune(w, id) ? 0 : Math.floor(ticks * BATTLE.bossStunFactor);
+};
 
 /** Hồi máu không vượt `maxHp`. */
 export const heal = (w: BattleWorld, id: number, amount: number): void => {
@@ -513,6 +536,7 @@ const addStructure = (w: BattleWorld, s: StructureSetup, isThrone: boolean): num
     w.auraHps[id] = s.healAura.hps;
   }
   w.multiCount[id] = Math.max(s.multiAttack ?? 1, 1);
+  w.isTower[id] = s.kind === 'tower' ? 1 : 0;
   if ((s.prewind ?? 0) > 0) {
     w.prewind[id] = s.prewind!;
     w.tuned[id] = 1;

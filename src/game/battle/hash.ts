@@ -169,17 +169,22 @@ export const hashWorld = (world: BattleWorld): number => {
     world.summonEvery,
     world.summonMax,
     world.summonDone,
+    world.disabledUntil,
   ]) {
     h = mixI32(h, a, n);
   }
   h = mixU8(h, world.dmgType, n);
   h = mixU8(h, world.pulseDmgType, n);
-  for (const a of [world.flying, world.boss, world.chargeReady, world.reviveReady, world.revived, world.tuned]) h = mixU8(h, a, n);
+  for (const a of [world.flying, world.boss, world.chargeReady, world.reviveReady, world.revived, world.tuned, world.isTower, world.isBossSummon]) h = mixU8(h, a, n);
   h = mixNum(h, world.goldDelta);
   h = mixWord(h, world.battleGoldSettled ? 1 : 0);
   h = mixWord(h, world.bossSpawned ? 1 : 0);
   h = mixNum(h, world.bossId);
   h = mixNum(h, world.bossSpawnTick);
+  h = mixNum(h, world.bossSummonsAlive);
+  h = mixNum(h, world.bossSummonSeq);
+  h = mixWord(h, (world.bossFrogsCalled ? 1 : 0) | (world.bossLanded ? 2 : 0));
+  h = mixNum(h, world.bossLandEnd);
   h = mixNum(h, world.undyingLeft);
   h = mixNum(h, world.regenPct);
   h = mixNum(h, world.bannerRampPps);

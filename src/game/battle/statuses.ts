@@ -5,6 +5,7 @@
  * `tick % 10 = 0`. Không dùng Rng; duyệt theo thứ tự tạo / id tăng dần.
  */
 import { STATUS } from '../../data/battle';
+import { afterBossDamage } from './bosses';
 import { mitigate } from './damage';
 import { KIND_UNIT, TEAM_FOE, heal, type BattleWorld } from './world';
 
@@ -46,6 +47,7 @@ const damage = (w: BattleWorld, victim: number, raw: number, fire: boolean, key:
   w.hp[victim] = w.hp[victim]! - (dmg - absorbed);
   w.events.push({ type: 'hit', id: victim, dmg });
   if (w.hp[victim]! <= 0 && w.killerUid[victim]! < 0) w.killerUid[victim] = key < FOE_KEY_BASE ? key : -1;
+  if (victim === w.bossId) afterBossDamage(w, victim);
 };
 
 /** Bước 9: hồi máu từ aura, sát thương bỏng/độc ở tick chia hết cho 10; trừ thời gian mỗi tick. */
