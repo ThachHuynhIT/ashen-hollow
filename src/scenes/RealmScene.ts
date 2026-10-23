@@ -8,7 +8,7 @@ import { createGameBus, type GameEvents } from '../game/events';
 import { RunController } from '../game/run/RunController';
 import { checkTargetStep, targetCount } from '../game/run/board';
 import type { PlayTarget, RunState } from '../game/run/state';
-import { RULES_G2 } from '../data/rules';
+import { RULES_FULL } from '../data/rules';
 import type { KingId } from '../data/types';
 import { newRun } from '../game/run/yearFlow';
 import { BoardRenderer } from '../render/BoardRenderer';
@@ -21,13 +21,14 @@ import { lockedPlotTap, plotHighlights, plotIllegalReason } from '../ui/planning
 import { lockedPlotPrice } from '../ui/realm/calendarModel';
 import { realmCamera, realmCameraMix } from '../ui/realm/realmLayout';
 import { SCENES } from './keys';
+import { STORAGE_WARNING_KEY, WARNING_EVENT, getSession } from './sessionRegistry';
 import type { RunEndData } from './RunEndScene';
 
-export interface RealmData {
-  seed: number;
-  /** Chosen king; the king-select scene passes it (default: Wheat). */
-  kingId: KingId;
-}
+/**
+ * Launch data of the realm: a new run (seed + chosen king, from the king-select scene) or a
+ * saved run to resume exactly as written (`resume`, from the menu's "Tiếp tục").
+ */
+export type RealmData = { seed: number; kingId: KingId } | { resume: RunState };
 
 /** Launch data of the HUD scenes layered over the realm. */
 export interface RealmHudData {
@@ -65,6 +66,12 @@ export class RealmScene extends Phaser.Scene {
   private inBattle = false;
   /** The controller's auto-start check runs once, on the first frame after the HUD is up. */
   private kicked = false;
+  /** A resumed run saved at the year's end goes on to the next year (its summary is not stored). */
+  private resumedAtYearEnd = false;
+  /** "advance" was sent and its answer (the next year's first step) is still to come. */
+  private awaitingAdvance = false;
+  /** The battle HUD (and its summary with Tiếp tục) is the screen in charge until the planning HUD comes back. */
+  private battleHudUp = false;
   private readonly onResize = (): void => this.placeCamera();
   /** The running planning ↔ battle camera ease, if any. */
   private cameraEase: Phaser.Tweens.Tween | null = null;
@@ -75,23 +82,26 @@ export class RealmScene extends Phaser.Scene {
     super(SCENES.realm);
   }
 
-  create(data: Partial<RealmData> = {}): void {
+  create(data: RealmData | undefined): void {
     // Scene instances are reused: reset every per-run field first.
     this.pending = null;
     this.pendingBuy = null;
     this.inBattle = false;
     this.kicked = false;
+    this.resumedAtYearEnd = false;
+    this.awaitingAdvance = false;
+    this.battleHudUp = false;
     this.cameraEase = null;
     this.down = null;
-    const seed = data.seed ?? 1;
+    const resume = data !== undefined && 'resume' in data ? data.resume : null;
+    const fresh = data !== undefined && 'seed' in data ? data : { seed: 1, kingId: 'wheat' as KingId };
+    const initial = resume ?? newRun(fresh.seed, fresh.kingId, CONTENT, RULES_FULL);
+    const seed = initial.seed;
+    this.resumedAtYearEnd = resume?.phase === 'yearEnd';
 
     buildSpritesTexture(this.textures, CONTENT); // no-op once PreloadScene built it
     this.bus = createGameBus();
-    this.controller = new RunController(
-      this.bus,
-      CONTENT,
-      newRun(seed, data.kingId ?? 'wheat', CONTENT, RULES_G2),
-    );
+    this.controller = new RunController(this.bus, CONTENT, initial, getSession(this)?.persistence);
     this.cameras.main.setBackgroundColor(PALETTE.grass);
     this.field = new FieldRenderer(this, seed);
     this.board = new BoardRenderer(this, CONTENT);
@@ -118,7 +128,17 @@ export class RealmScene extends Phaser.Scene {
     this.showPlanning(this.controller.state);
     const hud: RealmHudData = { bus: this.bus, controller: this.controller };
     this.scene.launch(SCENES.planningHud, hud);
+    // Only a new run replaces the saved one; resuming never rewrites it.
+    if (resume === null) void this.controller.checkpointInitial();
+    // A save that fails mid-run is told once, through the toast stack of whichever HUD is up.
+    this.game.events.on(WARNING_EVENT, this.onStorageWarning, this);
   }
+
+  private readonly onStorageWarning = (text: unknown): void => {
+    if (typeof text !== 'string') return;
+    this.registry.remove(STORAGE_WARNING_KEY);
+    this.bus.emit('log', { text });
+  };
 
   update(_time: number, delta: number): void {
     // Taken before update: the tick that ends the battle drops the runner, and that final
@@ -126,6 +146,7 @@ export class RealmScene extends Phaser.Scene {
     if (!this.kicked) {
       this.kicked = true;
       this.controller.kickoff(); // starts the battle at once when no card in hand is playable
+      if (this.resumedAtYearEnd) this.onContinue();
     }
     const runner = this.controller.runner;
     this.controller.update(delta);
@@ -142,6 +163,19 @@ export class RealmScene extends Phaser.Scene {
 
   private onState(state: RunState): void {
     if (state.phase === 'planning') this.showPlanning(state);
+    // After "advance" the next year may open straight into a council, a quest or planning; a battle
+    // starting at once keeps the battle HUD (onBattleStarted).
+    if (this.awaitingAdvance && state.phase !== 'yearEnd') {
+      this.awaitingAdvance = false;
+      this.continueFlow();
+      return;
+    }
+    // A year ended or the run finished while a card / decree / quest modal was closing (no battle summary
+    // is waiting for its Tiếp tục): go on by ourselves.
+    if (!this.battleHudUp) {
+      if (state.phase === 'yearEnd') this.bus.emit('ui:command', { command: { type: 'advance' } });
+      else if (state.phase === 'ended') this.continueFlow();
+    }
   }
 
   private showPlanning(state: RunState): void {
@@ -164,6 +198,7 @@ export class RealmScene extends Phaser.Scene {
   }
 
   private onBattleStarted(): void {
+    this.battleHudUp = true;
     this.inBattle = true;
     this.setPending(null);
     this.setPendingBuy(null);
@@ -175,22 +210,26 @@ export class RealmScene extends Phaser.Scene {
     this.scene.launch(SCENES.battleHud, hud);
   }
 
-  /** "Tiếp tục" after the battle summary (BattleHudScene). */
+  /** A resumed or finished battle's summary asked to go on: wait for the pending save, then follow the phase. */
   private onContinue(): void {
+    void this.controller.whenIdle().then(() => this.continueFlow());
+  }
+
+  private continueFlow(): void {
     const state = this.controller.state;
-    if (state.phase === 'reward' || state.phase === 'conquest') {
-      this.relaunchPlanningHud(); // shows the RewardModal
-    } else if (state.phase === 'yearEnd') {
+    if (state.phase === 'yearEnd') {
+      this.awaitingAdvance = true;
       this.bus.emit('ui:command', { command: { type: 'advance' } });
-      // advancing may start the next battle at once (nothing playable): keep the battle HUD
-      if (this.controller.state.phase === 'planning') this.relaunchPlanningHud();
     } else if (state.phase === 'ended') {
       const data: RunEndData = { state };
       this.scene.start(SCENES.runEnd, data);
+    } else if (state.phase !== 'battle') {
+      this.relaunchPlanningHud(); // reward, conquest, council, quest or planning: the planning HUD shows it
     }
   }
 
   private relaunchPlanningHud(): void {
+    this.battleHudUp = false;
     this.scene.stop(SCENES.battleHud);
     const hud: RealmHudData = { bus: this.bus, controller: this.controller };
     this.scene.launch(SCENES.planningHud, hud);
@@ -382,6 +421,7 @@ export class RealmScene extends Phaser.Scene {
   private teardown(): void {
     this.cameraEase?.stop();
     this.cameraEase = null;
+    this.game.events.off(WARNING_EVENT, this.onStorageWarning, this);
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);

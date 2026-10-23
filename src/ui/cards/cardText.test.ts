@@ -40,7 +40,7 @@ describe('willLevelUpTo', () => {
     level,
     enchants: [],
     placedYear: 1,
-    permanent: {},
+    permanent: {}, ageBonus: 0, counters: {}, movedYear: null,
   });
   const board = (a: BuildingState['level'], b?: BuildingState['level']) => {
     let plots = placeBuilding(initialPlots(), THRONE_PLOT, bld(0, CONTENT.king('wheat').throne.id, 1));

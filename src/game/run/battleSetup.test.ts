@@ -17,10 +17,10 @@ const roster = CONTENT.raiderRoster().map((r) => ({
 
 function makeState(army: ArmyPlan | null): RunState {
   const plots = initialPlots();
-  plots[12]!.building = { uid: 0, cardId: 'wheat_throne', level: 1, enchants: [], placedYear: 1, permanent: {} };
-  plots[7]!.building = { uid: 3, cardId: 'wheat_militia', level: 1, enchants: [], placedYear: 1, permanent: {} };
-  plots[11]!.building = { uid: 5, cardId: 'neutral_archer_tower', level: 1, enchants: [], placedYear: 1, permanent: {} };
-  plots[13]!.building = { uid: 4, cardId: 'neutral_barracks', level: 1, enchants: [], placedYear: 2, permanent: {} };
+  plots[12]!.building = { uid: 0, cardId: 'wheat_throne', level: 1, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
+  plots[7]!.building = { uid: 3, cardId: 'wheat_militia', level: 1, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
+  plots[11]!.building = { uid: 5, cardId: 'neutral_archer_tower', level: 1, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
+  plots[13]!.building = { uid: 4, cardId: 'neutral_barracks', level: 1, enchants: [], placedYear: 2, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
   return {
     version: 1,
     rules: RULES_G1,
@@ -38,6 +38,7 @@ function makeState(army: ArmyPlan | null): RunState {
     autoFire: false,
     gold: 0,
     rerollsThisYear: 0,
+    paidRerollsThisYear: 0,
     purchasedPlots: 0,
     idleUids: [],
     enemyKings: [],
@@ -46,8 +47,16 @@ function makeState(army: ArmyPlan | null): RunState {
     played: true,
     army,
     offers: null,
-    rng: { draw: 1, reward: 2, calendar: 3 },
-    stats: { kills: 0, battlesWon: 0, battlesLost: 0, goldEarned: 0, conquered: 0 },
+    pendingOffers: [],
+    decrees: [],
+    quests: [],
+    offeredQuestIds: [],
+    freeRerollsLeft: 0,
+    interventionDmgPct: 0,
+    difficulty: 0,
+    yearStartPendingDraw: false,
+    rng: { draw: 1, reward: 2, calendar: 3, council: 4, quest: 5 },
+    stats: { kills: 0, battlesWon: 0, battlesLost: 0, goldEarned: 0, conquered: 0, bossesWon: 0, bossesDefeated: [], completedYears: 0 },
     nextUid: 6,
     won: null,
   };
@@ -94,7 +103,7 @@ describe('buildBattleSetup', () => {
 
   it('maps slow on-hit for the scarecrow', () => {
     const s = makeState(army1);
-    s.plots[7]!.building = { uid: 9, cardId: 'wheat_scarecrow', level: 1, enchants: [], placedYear: 1, permanent: {} };
+    s.plots[7]!.building = { uid: 9, cardId: 'wheat_scarecrow', level: 1, enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null };
     const t = buildBattleSetup(s, CONTENT).structures[0]!;
     expect(t.attack!.slowPct).toBe(20);
     expect(t.attack!.slowTicks).toBe(20);

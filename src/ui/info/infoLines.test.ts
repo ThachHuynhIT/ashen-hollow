@@ -2,16 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../game/cards/registry';
 import { describeCard } from '../../game/cards/describe';
 import { createBattle, spawnWave, type BattleWorld } from '../../game/battle/world';
-import type { BuildingState } from '../../game/run/state';
+import type { BuildingState, RunState } from '../../game/run/state';
 import { battleSetup, structure, unitStats } from '../../game/testing/fixtures';
 import { UI_PALETTE } from '../../data/uiPalette';
-import { buildingInfoLines, entityAt, entityInfoLines, infoContent, placeInfoBox } from './infoLines';
+import { RULES_FULL } from '../../data/rules';
+import { bossWorld } from '../../game/battle/bossKit';
+import { addDot } from '../../game/battle/statuses';
+import { runState } from '../../game/testing/fixtures';
+import { buildingInfoLines, entityAt, entityInfoLines, infoContent, placeInfoBox, runSummary, statusLines } from './infoLines';
 
 const building = (cardId: BuildingState['cardId'], level: BuildingState['level'] = 1): BuildingState => ({
   uid: 1,
   cardId,
   level,
-  enchants: [], placedYear: 1, permanent: {}
+  enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null
 });
 
 describe('infoContent', () => {
@@ -185,5 +189,72 @@ describe('placeInfoBox', () => {
       expect(p.x + size.w).toBeLessThanOrEqual(screen.w);
       expect(p.y + size.h).toBeLessThanOrEqual(screen.h);
     }
+  });
+});
+
+describe('statusLines', () => {
+  it('lists burn and poison with their damage per second and time left', () => {
+    const w = world();
+    const id = 2;
+    expect(statusLines(w, id)).toEqual([]);
+    addDot(w, id, 'burn', 7, 4, 30, 1); // 4 per second for 30 ticks
+    addDot(w, id, 'poison', 8, 2, 50, 3);
+    addDot(w, id, 'poison', 8, 2, 50, 3); // second stack
+    const lines = statusLines(w, id);
+    expect(lines).toContain('Đang bỏng: 4/s (còn 3s)');
+    expect(lines).toContain('Nhiễm độc: 4/s (còn 5s)');
+    expect(entityInfoLines(w, id, CONTENT)).toEqual(expect.arrayContaining(lines));
+  });
+
+  it('says slowed, disabled, enraged and revived', () => {
+    const w = world();
+    const id = 2;
+    w.slowPct[id] = 30;
+    w.slowTicks[id] = 25;
+    w.disabledUntil[id] = w.tick + 5;
+    w.enrageDmgPct[id] = 40;
+    w.enrageBelow[id] = 50;
+    w.hp[id] = w.maxHp[id]! * 0.4;
+    w.revived[id] = 1;
+    const lines = statusLines(w, id);
+    expect(lines).toContain('Bị làm chậm 30% (còn 3s)');
+    expect(lines).toContain('Bị vô hiệu');
+    expect(lines).toContain('Nổi giận: +40% sát thương');
+    expect(lines).toContain('Đã hồi sinh');
+    w.hp[id] = w.maxHp[id]!;
+    expect(statusLines(w, id)).not.toContain('Nổi giận: +40% sát thương');
+  });
+
+  it('names a boss and shows its landing', () => {
+    const w = bossWorld(2);
+    expect(entityInfoLines(w, w.bossId, CONTENT)[0]).toBe('Nữ Hoàng Ong Bắp Cày');
+    expect(statusLines(w, w.bossId)).not.toContain('Đang hạ cánh: nhận thêm sát thương');
+    w.bossLanded = true;
+    expect(statusLines(w, w.bossId)).toContain('Đang hạ cánh: nhận thêm sát thương');
+  });
+});
+
+describe('runSummary', () => {
+  const full = (over: Partial<RunState['stats']> = {}): RunState => {
+    const s = runState({ rules: RULES_FULL, enemyKings: ['grove', 'tide', 'forge', 'clock', 'moon', 'nomad'] });
+    return { ...s, stats: { ...s.stats, completedYears: 12, battlesWon: 10, battlesLost: 2, kills: 345, conquered: 4, goldEarned: 99, ...over } };
+  };
+
+  it('shows completed years, conquered kings, bosses and no meta points', () => {
+    const lines = runSummary(full({ bossesDefeated: ['boss_bog_ogre'], bossesWon: 1 }));
+    expect(lines).toContain('Năm hoàn thành: 12 / 30');
+    expect(lines).toContain('Vua đã chinh phục: 4 / 6');
+    expect(lines).toContain('Boss đã hạ: 1 / 3');
+    expect(lines).toContain('Trận thắng: 10 · Trận thua: 2');
+    expect(lines.join(' ')).not.toMatch(/điểm vương miện|mở khoá/i);
+  });
+
+  it('gives the golden crown line only when boss 3 was defeated', () => {
+    expect(runSummary(full({ bossesDefeated: ['boss_bog_ogre', 'boss_hornet_queen'] })).join('|')).not.toContain('Vương Miện Vàng');
+    expect(runSummary(full({ bossesDefeated: ['boss_crownless_king'] })).join('|')).toContain('Vương Miện Vàng');
+  });
+
+  it('has no boss line in the short rules', () => {
+    expect(runSummary(runState()).join('|')).not.toContain('Boss đã hạ');
   });
 });

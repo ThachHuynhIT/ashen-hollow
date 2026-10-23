@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RULES_G1, RULES_G2 } from '../../data/rules';
+import { RULES_FULL, RULES_G1, RULES_G2 } from '../../data/rules';
 import type { KingId } from '../../data/types';
 import type { IllegalReason } from '../../game/run/state';
 import { calendarCells, fullCalendar, illegalText, lockedPlotPrice } from './calendarModel';
@@ -65,6 +65,7 @@ describe('lockedPlotPrice and illegalText', () => {
 
   it('has Vietnamese text for every illegal reason', () => {
     const all: Record<IllegalReason, true> = {
+      lastLife: true,
       locked: true,
       throne: true,
       occupied: true,
@@ -83,5 +84,47 @@ describe('lockedPlotPrice and illegalText', () => {
     for (const reason of Object.keys(all) as IllegalReason[])
       expect(illegalText(reason).trim().length, reason).toBeGreaterThan(0);
     expect(illegalText('notEnoughGold')).toBe('Không đủ vàng.');
+  });
+});
+
+describe('the 30-year calendar', () => {
+  const kings: KingId[] = ['grove', 'tide', 'forge', 'clock', 'moon', 'nomad'];
+  const full = (year: number) => ({ year, rules: RULES_FULL, enemyKings: kings, enemies: {} });
+  const cells = fullCalendar(RULES_FULL, kings);
+
+  it('has 30 years and skulls on the boss years 10, 20 and 30', () => {
+    expect(cells).toHaveLength(30);
+    expect(cells.filter((c) => c.attacker === 'boss').map((c) => [c.year, c.boss])).toEqual([
+      [10, 'boss_bog_ogre'],
+      [20, 'boss_hornet_queen'],
+      [30, 'boss_crownless_king'],
+    ]);
+  });
+
+  it('marks the councils at 5, 10, 15, 20, 25 and the quests at 3, 7, 12, 17, 22, 27', () => {
+    expect(cells.filter((c) => c.council).map((c) => c.year)).toEqual([5, 10, 15, 20, 25]);
+    expect(cells.filter((c) => c.quest).map((c) => c.year)).toEqual([3, 7, 12, 17, 22, 27]);
+  });
+
+  it('shows coalition years with the two kings of that slot', () => {
+    const coalitions = cells.filter((c) => c.attacker === 'coalition');
+    expect(coalitions.map((c) => c.year)).toEqual([23, 25, 27, 28, 29]);
+    expect(coalitions[0]!.kings).toEqual(['grove', 'tide']);
+    expect(coalitions.every((c) => c.kings?.length === 2)).toBe(true);
+  });
+
+  it('the strip near the end: 28 → 28..30, 30 → only 30', () => {
+    expect(calendarCells(full(28), 5).map((c) => c.year)).toEqual([28, 29, 30]);
+    expect(calendarCells(full(30), 5).map((c) => c.year)).toEqual([30]);
+  });
+
+  it('has no council or quest marker in the short and G1 calendars', () => {
+    expect(fullCalendar(RULES_G2, ['stone', 'arcane']).some((c) => c.council || c.quest)).toBe(false);
+    expect(fullCalendar(RULES_G1, []).some((c) => c.council || c.quest)).toBe(false);
+  });
+
+  it('a shortened full run has no council in its last year', () => {
+    const rules = { ...RULES_FULL, years: 10 };
+    expect(fullCalendar(rules, kings).filter((c) => c.council).map((c) => c.year)).toEqual([5]);
   });
 });

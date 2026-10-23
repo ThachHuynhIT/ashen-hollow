@@ -87,7 +87,7 @@ const bld = (
   level: Level = 1,
   enchants: BuildingState['enchants'] = [],
   permanent: BuildingState['permanent'] = {},
-): BuildingState => ({ uid, cardId: cardId as CardId, level, enchants, placedYear: 1, permanent });
+): BuildingState => ({ uid, cardId: cardId as CardId, level, enchants, placedYear: 1, permanent, ageBonus: 0, counters: {}, movedYear: null });
 
 const board = (built: [number, BuildingState][]): RunState => {
   const s = runState();
@@ -198,5 +198,31 @@ describe('collectStatSheet', () => {
     const copy = structuredClone(s);
     collectStatSheet(s, content, 6);
     expect(s).toEqual(copy);
+  });
+});
+
+describe('collectStatSheet with decrees', () => {
+  const withDecrees = (decrees: RunState['decrees']): RunState => ({
+    ...board([[6, bld(1, 'wheat_militia')]]),
+    decrees,
+  });
+
+  it('applies decree modifiers board-wide and additively with the building own modifiers', () => {
+    const s = withDecrees(['decree_royal_armory', 'decree_new_armor', 'decree_mobilize']);
+    const sheet = collectStatSheet(s, content, 6);
+    expect(sheet.dmg.pct).toBe(10);
+    expect(sheet.hp.pct).toBe(15);
+    expect(sheet.unitCount.flat).toBe(1);
+  });
+
+  it('never touches buildings of another kind, and does nothing with no decrees', () => {
+    const s = { ...withDecrees(['decree_royal_armory']), plots: board([[6, bld(1, 'wheat_militia')], [7, bld(2, 'wheat_field')]]).plots };
+    expect(collectStatSheet(s, content, 7).dmg.pct).toBe(0);
+    expect(collectStatSheet(withDecrees([]), content, 6)).toEqual(emptySheet());
+  });
+
+  it('keeps permanent percentages after the decree layer (both add)', () => {
+    const s = { ...withDecrees(['decree_royal_armory']), plots: board([[6, bld(1, 'wheat_militia', 1, [], { dmg: 5 })]]).plots };
+    expect(collectStatSheet(s, content, 6).dmg.pct).toBe(15);
   });
 });

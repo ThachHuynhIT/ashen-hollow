@@ -6,7 +6,7 @@
  */
 import { BATTLE } from '../../data/battle';
 import { separationPush } from './steering';
-import { isRage } from './targeting';
+import { edgeDistance, isRage } from './targeting';
 import { KIND_UNIT, TEAM_FOE, type BattleWorld } from './world';
 
 /** Rảnh và cách nhà < SNAP px → đặt đúng vào nhà (không rung). */
@@ -19,7 +19,7 @@ const sx = new Float64Array(BATTLE.entityCap);
 const sy = new Float64Array(BATTLE.entityCap);
 const sr = new Float64Array(BATTLE.entityCap);
 const sFixed = new Uint8Array(BATTLE.entityCap);
-const sFlying = new Uint8Array(BATTLE.entityCap); // luôn 0 trong G1
+const sFlying = new Uint8Array(BATTLE.entityCap);
 const sTeam = new Uint8Array(BATTLE.entityCap);
 const sAnchored = new Uint8Array(BATTLE.entityCap);
 /** Theo id: 1 nếu lính đang trong tầm mục tiêu ở bước đi vừa rồi (đứng yên đánh). */
@@ -39,6 +39,14 @@ const steer = (w: BattleWorld, i: number, rage: boolean): void => {
     const dx = w.prevX[t]! - px;
     const dy = w.prevY[t]! - py;
     const d = Math.sqrt(dx * dx + dy * dy);
+    // Kite (§8.4): địch quá gần trong lúc hồi đòn thì lùi thẳng ra xa nó.
+    if (w.kiteDist[i]! > 0 && w.cooldown[i]! > 0 && d > 0 && edgeDistance(w, i, t) < w.kiteDist[i]!) {
+      if (step > 0) {
+        w.x[i] = px - (dx / d) * step;
+        w.y[i] = py - (dy / d) * step;
+      }
+      return;
+    }
     const gap = d - w.radius[i]! - w.radius[t]! - w.range[i]!;
     if (gap <= 0) engaged[i] = 1;
     if (gap <= 0 || step <= 0) return; // đã trong tầm (d > 0 khi gap > 0)
@@ -80,7 +88,7 @@ export const moveEntities = (world: BattleWorld): void => {
     sy[m] = world.y[i]!;
     sr[m] = world.radius[i]!;
     sFixed[m] = world.kind[i] === KIND_UNIT ? 0 : 1;
-    sFlying[m] = 0;
+    sFlying[m] = world.flying[i]!;
     sTeam[m] = world.team[i]!;
     sAnchored[m] = engaged[i]!;
     m += 1;

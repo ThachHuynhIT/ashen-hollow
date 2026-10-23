@@ -70,6 +70,9 @@ export interface PlanningLayout {
   /** The scouting report column (desktop); null on mobile, where `scoutButton` opens it. */
   scout: Rect | null;
   scoutButton: Rect | null;
+  /** The decrees-and-quests column (wide desktop); null elsewhere, where `decreeButton` opens it. */
+  decreePanel: Rect | null;
+  decreeButton: Rect | null;
   hand: readonly Rect[];
   /** "Đổi bài", "Bán bài" and "Bộ bài". */
   reroll: Rect;
@@ -83,11 +86,22 @@ export interface PlanningLayout {
   hint: Rect;
 }
 
-const handRow = (screen: Size, card: { w: number; h: number; gap: number }): Rect[] => {
-  const total = 3 * card.w + 2 * card.gap;
+/**
+ * The hand row for `count` cards. A fourth card (Bàn Tay Thứ Tư) that would not fit the screen
+ * shrinks every card, keeping the aspect ratio, so the row fits between the margins.
+ */
+const handRow = (screen: Size, card: { w: number; h: number; gap: number }, count = 3): Rect[] => {
+  const n = Math.max(1, count);
+  const avail = screen.w - 2 * MARGIN;
+  let { w, h } = card;
+  if (n * w + (n - 1) * card.gap > avail) {
+    w = Math.max(1, Math.floor((avail - (n - 1) * card.gap) / n));
+    h = Math.round((card.h * w) / card.w);
+  }
+  const total = n * w + (n - 1) * card.gap;
   const x0 = Math.round((screen.w - total) / 2);
-  const y = screen.h - card.h - HAND_BOTTOM;
-  return [0, 1, 2].map((i) => ({ x: x0 + i * (card.w + card.gap), y, w: card.w, h: card.h }));
+  const y = screen.h - h - HAND_BOTTOM;
+  return Array.from({ length: n }, (_, i) => ({ x: x0 + i * (w + card.gap), y, w, h }));
 };
 
 /**
@@ -151,7 +165,11 @@ const besidePlot = (cell: Rect, screen: Size): { confirm: Rect; cancel: Rect } =
 const cellRow = (x: number, y: number): Rect[] =>
   Array.from({ length: CALENDAR_CELLS }, (_, i) => ({ x: x + i * (CELL + GAP), y, w: CELL, h: CELL }));
 
-const desktopLayout = (screen: Size): PlanningLayout => {
+/** From this width the decree / quest column fits between the board and the screen edge. */
+const WIDE_DESKTOP = 1100;
+const DECREE_PANEL_W = 260;
+
+const desktopLayout = (screen: Size, handSize: number): PlanningLayout => {
   const { w, h } = screen;
   const zoom = planningZoom(screen);
   const cell = BATTLE.plot * zoom;
@@ -164,9 +182,10 @@ const desktopLayout = (screen: Size): PlanningLayout => {
     w: DESK.top.year,
     h: DESK.top.h,
   };
+  const wide = w >= WIDE_DESKTOP;
   const calendarW = CALENDAR_CELLS * CELL + (CALENDAR_CELLS - 1) * GAP;
   const calendar = cellRow(w - MARGIN - calendarW, MARGIN);
-  const hand = handRow(screen, DESK.card);
+  const hand = handRow(screen, DESK.card, handSize);
   const first = hand[0]!;
   const last = hand[hand.length - 1]!;
   // Centred like the battle camera's throne, lowered no further than the hand allows.
@@ -203,6 +222,10 @@ const desktopLayout = (screen: Size): PlanningLayout => {
     board,
     scout,
     scoutButton: null,
+    decreePanel: wide
+      ? { x: MARGIN, y: DESK.scout.y, w: DECREE_PANEL_W, h: Math.max(0, scoutBottom - DESK.scout.y) }
+      : null,
+    decreeButton: wide ? null : { x: MARGIN, y: lives.y + lives.h + GAP * 2, w: DESK.button.w, h: BUTTON },
     hand,
     reroll,
     sell,
@@ -218,7 +241,7 @@ const desktopLayout = (screen: Size): PlanningLayout => {
   };
 };
 
-const mobileLayout = (screen: Size): PlanningLayout => {
+const mobileLayout = (screen: Size, handSize: number): PlanningLayout => {
   const { w } = screen;
   const boardPx = BATTLE.plot * PLANNING_ZOOM * BOARD_SIDE;
   const lives = { x: MARGIN, y: MARGIN, w: PHONE.top.lives, h: PHONE.top.h };
@@ -233,7 +256,7 @@ const mobileLayout = (screen: Size): PlanningLayout => {
     w: boardPx,
     h: boardPx,
   };
-  const hand = handRow(screen, PHONE.card);
+  const hand = handRow(screen, PHONE.card, handSize);
   const pair = aboveBoard(screen, board);
   const b = PHONE.buttons;
   const sell = { x: w - MARGIN - b.w, y: b.y, w: b.w, h: b.h };
@@ -249,6 +272,8 @@ const mobileLayout = (screen: Size): PlanningLayout => {
     board,
     scout: null,
     scoutButton,
+    decreePanel: null,
+    decreeButton: { x: MARGIN, y: b.y, w: b.w, h: b.h },
     hand,
     reroll,
     sell,
@@ -265,8 +290,8 @@ const mobileLayout = (screen: Size): PlanningLayout => {
 };
 
 /** §10.4. */
-export const planningLayout = (screen: Size): PlanningLayout =>
-  isDesktop(screen.w) ? desktopLayout(screen) : mobileLayout(screen);
+export const planningLayout = (screen: Size, handSize = 3): PlanningLayout =>
+  isDesktop(screen.w) ? desktopLayout(screen, handSize) : mobileLayout(screen, handSize);
 
 /** Screen cell of `plot` (row-major 5×5, plot 0 = top-left of the board). */
 export const plotScreenRect = (layout: PlanningLayout, plot: number): Rect => {

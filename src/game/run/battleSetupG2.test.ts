@@ -87,7 +87,7 @@ const bld = (uid: number, cardId: string, level: Level = 1, enchants: BuildingSt
   level,
   enchants,
   placedYear: 1,
-  permanent: {},
+  permanent: {}, ageBonus: 0, counters: {}, movedYear: null,
 });
 
 const board = (built: [number, BuildingState][], over: Partial<RunState> = {}): RunState => {

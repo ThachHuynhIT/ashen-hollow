@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { attackStats, battleSetup, structure, unitStats } from '../testing/fixtures';
+import { realBoss } from './bossKit';
 import { battleResult, stepBattle } from './step';
 import type { BattleSetup, Edge } from './types';
 import { createBattle, drainEvents } from './world';
@@ -141,5 +142,58 @@ describe('battle benchmark (§8.10)', () => {
     const avgMs = Number(once()) / TICKS / 1e6;
     console.info(`[benchmark] G2 stepBattle avg ${avgMs.toFixed(3)} ms/tick over ${TICKS} ticks`);
     expect(avgMs).toBeLessThanOrEqual(LIMIT_MS);
+  });
+
+  it(`G3 scenario (boss, summons, burn, poison, heal auras, ramps) averages <= ${LIMIT_MS} ms per tick`, () => {
+    const colossus = unitStats({
+      unit: 'colossus',
+      hp: 300,
+      dmg: 10,
+      speed: 0.5,
+      behaviours: [{ type: 'stepBuff', everyTicks: 100, dmgPct: 20, speedPct: 10, maxStacks: 6 }],
+    });
+    const spider = unitStats({
+      unit: 'spider',
+      hp: 28,
+      dmg: 6,
+      speed: 1.5,
+      onHit: [{ type: 'poison', dps: 2, ticks: 30, maxStacks: 3 }],
+      behaviours: [{ type: 'rampDmg', pctPerSecond: 2, cap: 80 }],
+    });
+    const setup = battleSetup({
+      year: 20,
+      boss: realBoss(2),
+      structures: [
+        ...[6, 7, 8, 11, 13, 16, 17, 18].map((plot) =>
+          structure(plot, { cardId: 'wheat_militia', spawn: { stats: spider, count: 20 } }),
+        ),
+        ...[2, 10, 22].map((plot) =>
+          structure(plot, {
+            cardId: 'neutral_archer_tower',
+            kind: 'tower',
+            attack: attackStats({ dmg: 7, range: 88, interval: 12, projectileSpeed: 8, onHit: [{ type: 'burn', dps: 2, ticks: 30 }] }),
+            targeting: 'closestToThrone',
+            healAura: { radius: 64, hps: 3 },
+          }),
+        ),
+      ],
+      waves: [
+        {
+          spawnTick: 0,
+          spawns: EDGES.flatMap((edge) => Array.from({ length: 30 }, (_, i) => ({ stats: i % 4 === 0 ? colossus : bandit, edge }))),
+        },
+      ],
+    });
+    const w = createBattle(setup);
+    const start = process.hrtime.bigint();
+    let steps = 0;
+    for (let i = 0; i < 300 && battleResult(w) === null; i++) {
+      stepBattle(w, []);
+      drainEvents(w);
+      steps += 1;
+    }
+    const meanMs = Number(process.hrtime.bigint() - start) / 1e6 / Math.max(steps, 1);
+    expect(steps).toBeGreaterThan(100);
+    expect(meanMs).toBeLessThanOrEqual(LIMIT_MS);
   });
 });

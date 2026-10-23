@@ -5,13 +5,13 @@ import { CardView } from '../cards/CardView';
 import type { Rect } from '../hud/layout';
 import type { TooltipHost } from '../theme';
 
-/** The three-card hand of the planning HUD (§10.4). Pure display; clicks go to `onSelect`. */
+/** The hand of the planning HUD (§10.4): three slots, four with Bàn Tay Thứ Tư. Pure display; clicks go to `onSelect`. */
 export class HandView {
   private readonly cards: CardView[];
   private handler: ((index: number) => void) | null = null;
   private dropper: ((index: number, x: number, y: number) => void) | null = null;
 
-  constructor(scene: Phaser.Scene, content: Content, tooltip: TooltipHost, slots = 3) {
+  constructor(scene: Phaser.Scene, content: Content, tooltip: TooltipHost, slots = 4) {
     this.cards = Array.from({ length: slots }, (_, i) => {
       const card = new CardView(scene, content, { w: 120, h: 168 }, tooltip);
       card.onClick(() => this.handler?.(i));

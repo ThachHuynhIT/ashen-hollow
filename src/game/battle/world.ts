@@ -56,6 +56,18 @@ export class ProjectilePool {
   readonly alive = new Uint8Array(BATTLE.projectileCap);
 }
 
+/** Bỏng / độc đang chạy trên một mục tiêu (§8.6); khoá `key` = uid công trình (phe mình) hoặc 1e6 + defIndex (địch). */
+export interface Dot {
+  victim: number;
+  kind: 'burn' | 'poison';
+  key: number;
+  dps: number;
+  /** Tick còn lại. */
+  ticks: number;
+  /** Số lớp (độc); bỏng luôn 1. */
+  stacks: number;
+}
+
 /** Một đòn chờ áp ở §8.9 bước 8 (`type` là mã dmgType, `sourceId` là id người đánh, −1 nếu không có). */
 export interface QueuedDamage {
   victim: number;
@@ -67,6 +79,8 @@ export interface QueuedDamage {
   sourceId: number;
   /** Choáng gây ra khi trúng (tick); 0 = không. */
   stunTicks: number;
+  /** Đẩy thêm (px) từ người đánh khi trúng, ví dụ đòn xung phong; 0 = không. */
+  knock: number;
 }
 
 /** Tảng đá hoàng gia đang rơi (§7.4), theo thứ tự tạo. */
@@ -157,6 +171,103 @@ export class BattleWorld {
   /** sourceUid của đòn đưa HP về ≤ 0 trong tick (thống kê killsBySource); −1 = chưa có. */
   readonly killerUid = new Int32Array(BATTLE.entityCap);
 
+  // ---- hành vi và hiệu ứng trúng của G3 (spec §5.1, §8.3, §8.6) ----
+  /** Chỉ số gốc; hành vi tăng tiến tính lại dmg / interval / speed / maxHp từ các giá trị này mỗi tick. */
+  readonly baseDmg = new Float64Array(BATTLE.entityCap);
+  readonly baseInterval = new Float64Array(BATTLE.entityCap);
+  readonly baseSpeed = new Float64Array(BATTLE.entityCap);
+  readonly baseMaxHp = new Float64Array(BATTLE.entityCap);
+  readonly coneRange = new Float64Array(BATTLE.entityCap);
+  readonly coneCos = new Float64Array(BATTLE.entityCap);
+  readonly burnDps = new Float64Array(BATTLE.entityCap);
+  readonly poisonDps = new Float64Array(BATTLE.entityCap);
+  readonly lifestealPct = new Float64Array(BATTLE.entityCap);
+  readonly healAllyHp = new Float64Array(BATTLE.entityCap);
+  readonly healAllyRadius = new Float64Array(BATTLE.entityCap);
+  readonly knockPx = new Float64Array(BATTLE.entityCap);
+  readonly pullPx = new Float64Array(BATTLE.entityCap);
+  readonly killHealHp = new Float64Array(BATTLE.entityCap);
+  readonly auraRadius = new Float64Array(BATTLE.entityCap);
+  readonly auraHps = new Float64Array(BATTLE.entityCap);
+  readonly rampDmgPps = new Float64Array(BATTLE.entityCap);
+  readonly rampDmgCap = new Float64Array(BATTLE.entityCap);
+  readonly rampAsPps = new Float64Array(BATTLE.entityCap);
+  readonly rampAsCap = new Float64Array(BATTLE.entityCap);
+  readonly stepDmgPct = new Float64Array(BATTLE.entityCap);
+  readonly stepSpeedPct = new Float64Array(BATTLE.entityCap);
+  readonly enrageBelow = new Float64Array(BATTLE.entityCap);
+  readonly enrageDmgPct = new Float64Array(BATTLE.entityCap);
+  readonly soulPct = new Float64Array(BATTLE.entityCap);
+  readonly chargeMult = new Float64Array(BATTLE.entityCap);
+  readonly chargeKb = new Float64Array(BATTLE.entityCap);
+  readonly kiteDist = new Float64Array(BATTLE.entityCap);
+  readonly revivePct = new Float64Array(BATTLE.entityCap);
+  /** Giây "lên dây trước" (§8.6). */
+  readonly prewind = new Float64Array(BATTLE.entityCap);
+  readonly burnTicks = new Int32Array(BATTLE.entityCap);
+  readonly poisonTicks = new Int32Array(BATTLE.entityCap);
+  readonly poisonMax = new Int32Array(BATTLE.entityCap);
+  readonly pullEvery = new Int32Array(BATTLE.entityCap);
+  /** Số đòn đã trúng, đếm cho `pull`. */
+  readonly pullHits = new Int32Array(BATTLE.entityCap);
+  readonly stepEvery = new Int32Array(BATTLE.entityCap);
+  readonly stepMax = new Int32Array(BATTLE.entityCap);
+  readonly chargeStun = new Int32Array(BATTLE.entityCap);
+  readonly killSummonMax = new Int32Array(BATTLE.entityCap);
+  readonly killSummonDone = new Int32Array(BATTLE.entityCap);
+  readonly summonEvery = new Int32Array(BATTLE.entityCap);
+  readonly summonMax = new Int32Array(BATTLE.entityCap);
+  readonly summonDone = new Int32Array(BATTLE.entityCap);
+  /** Tăng tốc đánh tạm thời (Tháp Chuông): % và tick kết thúc. */
+  readonly buffAsPct = new Float64Array(BATTLE.entityCap);
+  readonly buffAsUntil = new Int32Array(BATTLE.entityCap);
+  readonly bellEvery = new Int32Array(BATTLE.entityCap);
+  readonly bellRadius = new Float64Array(BATTLE.entityCap);
+  readonly bellPct = new Float64Array(BATTLE.entityCap);
+  readonly bellTicks = new Int32Array(BATTLE.entityCap);
+  readonly bellStun = new Int32Array(BATTLE.entityCap);
+  readonly respawnEvery = new Int32Array(BATTLE.entityCap);
+  readonly respawnCount = new Int32Array(BATTLE.entityCap);
+  /** Tháp bị Ném Bùn vô hiệu tới tick này (không đánh, không xung, không khiên). */
+  readonly disabledUntil = new Int32Array(BATTLE.entityCap);
+  /** 1 = công trình loại tháp (mục tiêu của Ném Bùn). */
+  readonly isTower = new Uint8Array(BATTLE.entityCap);
+  /** 1 = lính do boss triệu hồi (tính vào trần `bossSummonCap`). */
+  readonly isBossSummon = new Uint8Array(BATTLE.entityCap);
+  /** Số lượng bộ đếm: số lính boss đang sống, và số lính boss đã sinh (chọn vị trí `SPAWN_OFFSETS`). */
+  bossSummonsAlive = 0;
+  bossSummonSeq = 0;
+  /** Gọi Ếch đã dùng chưa; Hạ Cánh đang diễn ra và tick kết thúc. */
+  /** Khiên Ngai Vỡ: đã cấp chưa, đã bị phá hết chưa, tick kiểm tra hồi đầy kế tiếp. */
+  bossShieldGranted = false;
+  bossShieldBroken = false;
+  bossShieldDeadline = -1;
+  bossFrogsCalled = false;
+  bossLanded = false;
+  bossLandEnd = -1;
+  /** Số mục tiêu khác nhau mỗi nhịp của công trình (mặc định 1). */
+  readonly multiCount = new Int32Array(BATTLE.entityCap).fill(1);
+  readonly killGoldEvery = new Int32Array(BATTLE.entityCap);
+  readonly killGoldAmount = new Float64Array(BATTLE.entityCap);
+  readonly killGoldMax = new Int32Array(BATTLE.entityCap);
+  /** Đẩy lùi của xung vòng tròn (px). */
+  readonly pulseKnock = new Float64Array(BATTLE.entityCap);
+  /** Vị trí đơn vị trong registry đã sắp (khoá bỏng/độc của địch); −1 nếu không có. */
+  readonly defIndex = new Int32Array(BATTLE.entityCap).fill(-1);
+  /** Id thực thể có đòn kết liễu (killHeal); −1 = chưa có. */
+  readonly killerId = new Int32Array(BATTLE.entityCap).fill(-1);
+  /** 1 = đơn vị bay (§8.4). */
+  readonly flying = new Uint8Array(BATTLE.entityCap);
+  /** 1 = boss: miễn đẩy / kéo. */
+  readonly boss = new Uint8Array(BATTLE.entityCap);
+  /** 1 = đã sống lại một lần (Bất Tử và `reviveOnce` dùng chung, không ai sống lại hai lần). */
+  readonly revived = new Uint8Array(BATTLE.entityCap);
+  /** 1 = còn đòn xung phong chưa dùng; 1 = còn một lần sống lại. */
+  readonly chargeReady = new Uint8Array(BATTLE.entityCap);
+  readonly reviveReady = new Uint8Array(BATTLE.entityCap);
+  /** 1 = có hành vi tăng tiến cần tính lại mỗi tick. */
+  readonly tuned = new Uint8Array(BATTLE.entityCap);
+
   /** DMG_* (0 physical, 1 fire, 2 magic). */
   readonly dmgType = new Uint8Array(BATTLE.entityCap);
   /** DMG_* của xung vòng tròn. */
@@ -165,12 +276,41 @@ export class BattleWorld {
   readonly deathSpawn: ({ stats: UnitStats; count: number } | null)[] = new Array(BATTLE.entityCap).fill(null);
   /** Id đơn vị hoặc cardId — render chọn frame. */
   readonly label: string[] = new Array<string>(BATTLE.entityCap).fill('');
+  /** Chỉ số lính sinh lại của Ổ Nhện (không băm: suy ra từ setup). */
+  readonly respawnStats: (UnitStats | null)[] = new Array(BATTLE.entityCap).fill(null);
+  /** Chỉ số lính triệu hồi của Tháp Bóng Đêm và Vòng Triệu Hồi (suy ra từ setup). */
+  readonly killSummonStats: (UnitStats | null)[] = new Array(BATTLE.entityCap).fill(null);
+  readonly summonStats: (UnitStats | null)[] = new Array(BATTLE.entityCap).fill(null);
 
   readonly projectiles = new ProjectilePool();
   projectileCount = 0;
 
   events: BattleEvent[] = [];
   damageQueue: QueuedDamage[] = [];
+  /** Bỏng / độc đang chạy, theo thứ tự tạo. */
+  dots: Dot[] = [];
+  /** Đã cộng vàng cuối trận (killGold) chưa. */
+  battleGoldSettled = false;
+  /** Hồn của mỗi phe: số lính của phe đó đã chết trong trận (§8.9 bước 10). */
+  souls: [number, number] = [0, 0];
+  /** Vàng thu/chi trong trận (cướp biển…); cộng vào kết quả trận. */
+  goldDelta = 0;
+
+  // ---- cờ hiệu của vua địch cần logic trong trận (§6.6–6.11) ----
+  /** Tái Sinh: % HP tối đa địch hồi mỗi giây. */
+  regenPct = 0;
+  /** Đếm Ngược: mọi địch +`bannerRampPps`% DMG mỗi giây, tối đa `bannerRampCap`% (cộng với tăng tiến riêng). */
+  bannerRampPps = 0;
+  bannerRampCap = 0;
+  /** Bất Tử: số địch còn được sống lại và HP% khi sống lại. */
+  undyingLeft = 0;
+  undyingHpPct = 0;
+  /** Cướp Bóc: mỗi `lootEveryPct`% HP Ngai mất thêm mất `lootGold` vàng, tối đa `lootMax`; theo dõi mốc HP thấp nhất. */
+  lootEveryPct = 0;
+  lootGold = 0;
+  lootMax = 0;
+  lootSteps = 0;
+  throneMinHp = 0;
 
   // Thống kê (BattleResult)
   kills = 0;
@@ -193,6 +333,15 @@ export class BattleWorld {
   autoFire: boolean;
   /** Bán kính tảng đá (§7.4); khởi tạo từ INTERVENTION.radius để sắc lệnh đổi được. */
   boulderRadius: number = INTERVENTION.radius;
+  /** % sát thương Can Thiệp cộng thêm (sắc lệnh, nhiệm vụ). */
+  boulderDmgPct = 0;
+  /** Hồi chiêu Can Thiệp sau khi giảm. */
+  cooldownTicks: number = INTERVENTION.cooldownTicks;
+
+  /** Id thực thể của boss (−1 tới khi xuất hiện), đã xuất hiện chưa, và tick xuất hiện. */
+  bossId = -1;
+  bossSpawned = false;
+  bossSpawnTick = -1;
 
   /** Trận đã kết thúc (§8.8); khi đó stepBattle không làm gì nữa. */
   ended = false;
@@ -203,6 +352,26 @@ export class BattleWorld {
   constructor(setup: BattleSetup) {
     this.setup = setup;
     this.autoFire = setup.autoFire ?? false;
+    if (setup.intervention) {
+      this.boulderDmgPct = setup.intervention.dmgPct;
+      this.boulderRadius = setup.intervention.radius;
+      this.cooldownTicks = setup.intervention.cooldownTicks;
+    }
+    for (const e of setup.banner?.effects ?? []) {
+      if (e.type === 'enemyRegenPct') this.regenPct += e.pct;
+      else if (e.type === 'enemyRampDmg') {
+        this.bannerRampPps = e.pctPerSecond;
+        this.bannerRampCap = e.cap;
+      } else if (e.type === 'undying') {
+        const total = setup.waves.reduce((n, w) => n + w.spawns.length, 0);
+        this.undyingLeft = Math.floor((total * e.pct) / 100);
+        this.undyingHpPct = e.hpPct;
+      } else if (e.type === 'throneGoldLoss') {
+        this.lootEveryPct = e.everyPct;
+        this.lootGold = e.gold;
+        this.lootMax = e.max;
+      }
+    }
   }
 
   /** Cấp id mới với giá trị mặc định (alive 1, target −1); −1 nếu đã đầy entityCap. */
@@ -217,6 +386,21 @@ export class BattleWorld {
     return id;
   }
 }
+
+/** Boss 3 miễn hoàn toàn choáng và chậm (§7.3). */
+export const bossImmune = (w: BattleWorld, id: number): boolean =>
+  w.bossSpawned && id === w.bossId && w.setup.boss?.ordinal === 3;
+
+/** Choáng lên `id` sau khi áp luật boss: boss 3 miễn, boss khác chỉ còn `bossStunFactor` thời gian (§7.3). */
+export const stunFor = (w: BattleWorld, id: number, ticks: number): number => {
+  if (id !== w.bossId || !w.bossSpawned) return ticks;
+  return bossImmune(w, id) ? 0 : Math.floor(ticks * BATTLE.bossStunFactor);
+};
+
+/** Hồi máu không vượt `maxHp`. */
+export const heal = (w: BattleWorld, id: number, amount: number): void => {
+  w.hp[id] = Math.min(w.maxHp[id]!, w.hp[id]! + amount);
+};
 
 /** Tâm ô `plot` (hàng × 5 + cột) trong toạ độ thế giới (§8.2). */
 export const plotCenter = (plot: number): { x: number; y: number } => {
@@ -264,6 +448,41 @@ export const edgePositions = (edge: Edge, count: number): { x: number; y: number
 
 const setAttack = (w: BattleWorld, id: number, a: AttackStats | null): void => {
   if (a === null) return; // mảng mới tạo đã là 0
+  w.baseDmg[id] = a.dmg;
+  w.baseInterval[id] = a.interval;
+  if (a.cone) {
+    w.coneRange[id] = a.cone.range;
+    w.coneCos[id] = a.cone.halfAngleCos;
+  }
+  for (const h of a.onHit ?? []) {
+    switch (h.type) {
+      case 'burn':
+        w.burnDps[id] = h.dps;
+        w.burnTicks[id] = h.ticks;
+        break;
+      case 'poison':
+        w.poisonDps[id] = h.dps;
+        w.poisonTicks[id] = h.ticks;
+        w.poisonMax[id] = h.maxStacks;
+        break;
+      case 'knockback':
+        w.knockPx[id] = h.px;
+        break;
+      case 'pull':
+        w.pullPx[id] = h.px;
+        w.pullEvery[id] = h.every;
+        break;
+      case 'lifesteal':
+        w.lifestealPct[id] = h.pct;
+        break;
+      case 'healAlly':
+        w.healAllyHp[id] = h.hp;
+        w.healAllyRadius[id] = h.radius;
+        break;
+      default:
+        break; // slow / stun / rampSameTarget đã phẳng hoá trong AttackStats
+    }
+  }
   w.dmg[id] = a.dmg;
   w.dmgType[id] = dmgTypeCode(a.dmgType);
   w.range[id] = a.range;
@@ -314,6 +533,48 @@ const addStructure = (w: BattleWorld, s: StructureSetup, isThrone: boolean): num
     w.pulseDmg[id] = s.pulse.dmg;
     w.pulseDmgType[id] = dmgTypeCode(s.pulse.dmgType);
     w.pulseStun[id] = s.pulse.stunTicks;
+    w.pulseKnock[id] = s.pulse.knockback ?? 0;
+  }
+  if (s.healAura) {
+    w.auraRadius[id] = s.healAura.radius;
+    w.auraHps[id] = s.healAura.hps;
+  }
+  w.multiCount[id] = Math.max(s.multiAttack ?? 1, 1);
+  w.isTower[id] = s.kind === 'tower' ? 1 : 0;
+  if ((s.prewind ?? 0) > 0) {
+    w.prewind[id] = s.prewind!;
+    w.tuned[id] = 1;
+  }
+  if (s.rampAs) {
+    w.rampAsPps[id] = s.rampAs.pps;
+    w.rampAsCap[id] = s.rampAs.cap;
+    w.tuned[id] = 1;
+  }
+  if (s.bell) {
+    w.bellEvery[id] = s.bell.everyTicks;
+    w.bellRadius[id] = s.bell.radius;
+    w.bellPct[id] = s.bell.pct;
+    w.bellTicks[id] = s.bell.ticks;
+    w.bellStun[id] = s.bell.stun;
+  }
+  if (s.summonOnKill) {
+    w.killSummonMax[id] = s.summonOnKill.max;
+    w.killSummonStats[id] = s.summonOnKill.stats;
+  }
+  if (s.summonEvery) {
+    w.summonEvery[id] = s.summonEvery.everyTicks;
+    w.summonMax[id] = s.summonEvery.max;
+    w.summonStats[id] = s.summonEvery.stats;
+  }
+  if (s.respawn) {
+    w.respawnEvery[id] = s.respawn.everyTicks;
+    w.respawnCount[id] = s.respawn.count;
+    w.respawnStats[id] = s.respawn.stats;
+  }
+  if (s.killGold) {
+    w.killGoldEvery[id] = s.killGold.every;
+    w.killGoldAmount[id] = s.killGold.gold;
+    w.killGoldMax[id] = s.killGold.max;
   }
   if (s.shieldPulse) {
     w.shieldEvery[id] = s.shieldPulse.everyTicks;
@@ -354,9 +615,73 @@ export const addUnit = (
   setAttack(w, id, stats);
   w.shield[id] = stats.shield;
   w.deathSpawn[id] = stats.deathSpawn;
+  initBehaviours(w, id, stats);
   w.events.push({ type: 'spawn', id });
   return id;
 };
+
+/** Ghi thẻ, khoá bỏng/độc và mọi hành vi của `stats` vào các mảng của thực thể `id`. */
+function initBehaviours(w: BattleWorld, id: number, stats: UnitStats): void {
+  w.baseSpeed[id] = stats.speed;
+  w.baseMaxHp[id] = stats.hp;
+  w.defIndex[id] = stats.defIndex ?? -1;
+  w.prewind[id] = stats.prewind ?? 0;
+  w.flying[id] = stats.tags?.includes('flying') ? 1 : 0;
+  w.boss[id] = stats.tags?.includes('boss') ? 1 : 0;
+  for (const b of stats.behaviours ?? []) {
+    switch (b.type) {
+      case 'reviveOnce':
+        w.revivePct[id] = b.hpPct;
+        w.reviveReady[id] = 1;
+        break;
+      case 'enrage':
+        w.enrageBelow[id] = b.belowHpPct;
+        w.enrageDmgPct[id] = b.dmgPct;
+        w.tuned[id] = 1;
+        break;
+      case 'rampDmg':
+        w.rampDmgPps[id] = (w.rampDmgPps[id] ?? 0) + b.pctPerSecond; // nhiều nguồn tăng tiến cùng loại cộng với nhau (§5.3)
+        w.rampDmgCap[id] = (w.rampDmgCap[id] ?? 0) + b.cap;
+        w.tuned[id] = 1;
+        break;
+      case 'rampAttackSpeed':
+        w.rampAsPps[id] = (w.rampAsPps[id] ?? 0) + b.pctPerSecond;
+        w.rampAsCap[id] = (w.rampAsCap[id] ?? 0) + b.cap;
+        w.tuned[id] = 1;
+        break;
+      case 'stepBuff':
+        w.stepEvery[id] = b.everyTicks;
+        w.stepDmgPct[id] = b.dmgPct;
+        w.stepSpeedPct[id] = b.speedPct;
+        w.stepMax[id] = b.maxStacks;
+        w.tuned[id] = 1;
+        break;
+      case 'charge':
+        w.chargeMult[id] = b.dmgMult;
+        w.chargeKb[id] = b.knockback;
+        w.chargeStun[id] = b.stunTicks;
+        w.chargeReady[id] = 1;
+        break;
+      case 'kite':
+        w.kiteDist[id] = b.distance;
+        break;
+      case 'healAura':
+        w.auraRadius[id] = b.radius;
+        w.auraHps[id] = b.hpPerSec;
+        break;
+      case 'killHeal':
+        w.killHealHp[id] = b.hp;
+        break;
+      case 'soulScaling':
+        w.soulPct[id] = b.pctPerSoul;
+        w.tuned[id] = 1;
+        break;
+      default:
+        break; // deathSpawn đã có ở addUnit; boss là việc của task boss
+    }
+  }
+  if (w.prewind[id]! > 0 || (w.team[id] === TEAM_FOE && w.bannerRampPps > 0)) w.tuned[id] = 1;
+}
 
 /** Vị trí lính thứ k quanh tâm (§8.7): SPAWN_OFFSETS[k % 16], vòng thứ hai trở đi × 1.5 làm tròn. */
 export const spawnOffset = (k: number): { dx: number; dy: number } => {
@@ -369,6 +694,7 @@ export const spawnOffset = (k: number): { dx: number; dy: number } => {
 export const createBattle = (setup: BattleSetup): BattleWorld => {
   const w = new BattleWorld(setup);
   addStructure(w, setup.throne, true);
+  w.throneMinHp = w.maxHp[w.throneId]!;
   const sorted = [...setup.structures].sort((a, b) => a.plot - b.plot || a.uid - b.uid);
   for (const s of sorted) addStructure(w, s, false);
   for (const s of sorted) {
@@ -381,6 +707,37 @@ export const createBattle = (setup: BattleSetup): BattleWorld => {
       }
       const o = spawnOffset(k);
       const id = addUnit(w, s.spawn.stats, TEAM_ALLY, c.x + o.dx, c.y + o.dy, c.x, c.y, s.uid);
+      if (id < 0) w.capped += 1;
+      else w.playerUnits += 1;
+    }
+  }
+  // Triệu hồi đầu trận (§8.7): Đàn Tế theo ô, rồi lính đánh thuê của Hợp Đồng tại Ngai.
+  for (const s of sorted) {
+    const start = s.startSummon;
+    if (!start) continue;
+    const c = plotCenter(s.plot);
+    for (let k = 0; k < start.count; k++) {
+      if (w.playerUnits >= BATTLE.playerUnitCap) {
+        w.capped += 1;
+        continue;
+      }
+      const o = spawnOffset(k);
+      const id = addUnit(w, start.stats, TEAM_ALLY, c.x + o.dx, c.y + o.dy, c.x, c.y, s.uid);
+      if (id < 0) w.capped += 1;
+      else w.playerUnits += 1;
+    }
+  }
+  // Triệu hồi đầu trận tại Ngai (§8.7): lính đánh thuê của Hợp Đồng.
+  const at = setup.throne.spawnAtThrone;
+  if (at) {
+    const c = plotCenter(setup.throne.plot);
+    for (let k = 0; k < at.count; k++) {
+      if (w.playerUnits >= BATTLE.playerUnitCap) {
+        w.capped += 1;
+        continue;
+      }
+      const o = spawnOffset(k);
+      const id = addUnit(w, at.stats, TEAM_ALLY, c.x + o.dx, c.y + o.dy, c.x, c.y, setup.throne.uid);
       if (id < 0) w.capped += 1;
       else w.playerUnits += 1;
     }

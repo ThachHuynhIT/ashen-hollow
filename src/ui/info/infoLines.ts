@@ -1,10 +1,11 @@
 /** Nội dung bảng thông tin nhà / lính (spec §10.7) và chỗ đặt bảng; thuần, không Phaser. */
+import { TICKS_PER_SECOND } from '../../core/SimClock';
 import { STRUCT_HP } from '../../data/scaling';
 import type { CardDef } from '../../data/types';
 import { KIND_UNIT, type BattleWorld } from '../../game/battle/world';
 import { describeCard } from '../../game/cards/describe';
 import type { Content } from '../../game/cards/registry';
-import type { BuildingState } from '../../game/run/state';
+import type { BuildingState, RunState } from '../../game/run/state';
 import { UI_PALETTE } from '../../data/uiPalette';
 import type { Point, Size, TooltipContent } from '../hud/layout';
 
@@ -114,7 +115,33 @@ export const entityInfoLines = (world: BattleWorld, id: number, content: Content
   }
   lines.push(`Giáp: ${Math.round(world.armor[id]! * 100)}%`);
   if (world.shield[id]! > 0) lines.push(`Khiên: ${Math.ceil(world.shield[id]!)}`);
+  lines.push(...statusLines(world, id));
+  return lines;
+};
+
+const seconds = (ticks: number): number => Math.ceil(ticks / TICKS_PER_SECOND);
+
+/** Trạng thái đang có trên thực thể: choáng, chậm, bỏng, độc, vô hiệu, hạ cánh, nổi giận, đã hồi sinh. */
+export const statusLines = (world: BattleWorld, id: number): string[] => {
+  const lines: string[] = [];
   if (world.stunTicks[id]! > 0) lines.push('Đang choáng');
+  if (world.slowTicks[id]! > 0 && world.slowPct[id]! > 0) {
+    lines.push(`Bị làm chậm ${Math.round(world.slowPct[id]!)}% (còn ${seconds(world.slowTicks[id]!)}s)`);
+  }
+  const dots = world.dots.filter((d) => d.victim === id);
+  for (const [kind, label] of [['burn', 'Đang bỏng'], ['poison', 'Nhiễm độc']] as const) {
+    const of = dots.filter((d) => d.kind === kind);
+    if (of.length === 0) continue;
+    const dps = of.reduce((sum, d) => sum + d.dps * d.stacks, 0);
+    const left = Math.max(...of.map((d) => d.ticks));
+    lines.push(`${label}: ${Math.round(dps)}/s (còn ${seconds(left)}s)`);
+  }
+  if (world.disabledUntil[id]! > world.tick) lines.push('Bị vô hiệu');
+  if (id === world.bossId && world.bossLanded) lines.push('Đang hạ cánh: nhận thêm sát thương');
+  if (world.enrageDmgPct[id]! > 0 && world.hp[id]! * 100 < world.enrageBelow[id]! * world.maxHp[id]!) {
+    lines.push(`Nổi giận: +${Math.round(world.enrageDmgPct[id]!)}% sát thương`);
+  }
+  if (world.revived[id] === 1) lines.push('Đã hồi sinh');
   return lines;
 };
 
@@ -128,4 +155,22 @@ export const placeInfoBox = (anchor: Point, size: Size, screen: Size): Point => 
     x: Math.max(0, Math.min(x, screen.w - size.w)),
     y: Math.max(0, Math.min(y, screen.h - size.h)),
   };
+};
+
+/**
+ * Tóm tắt cuối ván (spec §10.8, G3): năm hoàn thành, vua đã chinh phục, boss đã hạ, vương miện vàng
+ * (chỉ khi boss 3 thật sự bị hạ). Điểm Vương Miện và mở khoá là của G4 nên chưa hiện ở đây.
+ */
+export const runSummary = (state: RunState): string[] => {
+  const s = state.stats;
+  const lines = [
+    `Năm hoàn thành: ${s.completedYears} / ${state.rules.years}`,
+    `Trận thắng: ${s.battlesWon} · Trận thua: ${s.battlesLost}`,
+    `Địch đã hạ: ${s.kills}`,
+    `Vua đã chinh phục: ${s.conquered} / ${state.enemyKings.length || 2}`,
+  ];
+  if (state.rules.calendar === 'full') lines.push(`Boss đã hạ: ${s.bossesDefeated.length} / 3`);
+  lines.push(`Vàng kiếm được: ${s.goldEarned}`);
+  if (s.bossesDefeated.includes('boss_crownless_king')) lines.push('Vương Miện Vàng: đã hạ Vua Không Ngai!');
+  return lines;
 };

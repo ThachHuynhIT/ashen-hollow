@@ -23,7 +23,7 @@ const bld = (uid: number, cardId: BuildingState['cardId'] = 'wheat_scarecrow'): 
   uid,
   cardId,
   level: 1,
-  enchants: [], placedYear: 1, permanent: {}
+  enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null
 });
 
 const withThrone = (): PlotState[] =>

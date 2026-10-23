@@ -1413,14 +1413,14 @@ Mỗi G có plan riêng (`docs/superpowers/plans/`), kết thúc bằng bản ch
 ### G3 — Ván đầy đủ: hội đồng, nhiệm vụ, boss, 30 năm, lưu ván
 
 - Lịch đầy đủ §3.5 (`RULES_FULL`, bỏ `RULES_G1/G2`), Liên Quân, sắc lệnh §7.1, nhiệm vụ §7.2, 3 boss §7.3, Ngai lên cấp sau boss.
-- Dữ liệu **phía địch** của 6 vua còn lại (`units`, `enemyRoster`, `banner` trong `src/data/kings/*.ts`) để đủ 6 vua địch; thẻ/Ngai/perk của họ chưa có.
+- Dữ liệu **phía địch** của 6 vua còn lại (`units`, `enemyRoster`, `banner` trong `src/data/kings/*.ts`) để đủ 6 vua địch, cùng **9 thẻ chinh phục của mỗi vua đó (54 thẻ, cột G = G3)** và cơ chế để chơi chúng (hành vi, trạng thái, tăng tiến theo tuổi…); Ngai, bị động và perk của họ chưa có.
 - Lưu ván IndexedDB §9.3 (chưa có meta), nút "Tiếp tục".
 
 **Done khi:** headless hoàn thành ván 30 năm với 3 vua × 3 seed; chơi tay một ván trong trình duyệt qua ít nhất boss 1 và một hội đồng; tải lại trang giữa pha Lập kế hoạch và giữa trận khôi phục đúng §9.3; mọi sắc lệnh/nhiệm vụ/kỹ năng boss có test.
 
 ### G4 — Đủ 9 vua, perk, meta-progression
 
-- Ngai + 9 thẻ của Rừng Xanh, Thuỷ Triều, Lò Rèn, Đồng Hồ, Ánh Trăng, Du Mục (cột G = G4) và 27 perk; hai thẻ trung lập meta.
+- Ngai, bị động và 27 perk của Rừng Xanh, Thuỷ Triều, Lò Rèn, Đồng Hồ, Ánh Trăng, Du Mục, và cho phép chọn đủ 9 vua khi bắt đầu ván; hai thẻ trung lập meta. Các thẻ của sáu vua này đã có từ G3, không làm lại.
 - Meta §9.1–9.2 (Điểm Vương Miện, thông thạo, mở khoá, độ khó Gai), meta save, `CrownsScene`, perk + độ khó ở Chọn vua.
 
 **Done khi:** 9 vua chơi được, Du Mục khoá đúng điều kiện; mọi thẻ/perk G4 có test; điểm cuối ván khớp công thức; mở khoá còn sau khi tải lại trang; headless 9 vua × 3 seed pass.

@@ -1,9 +1,12 @@
 import Phaser from 'phaser';
+import { CONTENT } from '../game/cards/registry';
+import { browserIdbFactory, createSession } from '../platform/session';
 import { SCENES } from './keys';
+import { setSession, setStorageWarning } from './sessionRegistry';
 
 /**
- * First scene. Loads only what the loading screen itself needs (nothing yet), then hands
- * over to Preload. Platform setup (storage, locale, Tauri/Capacitor bridges) goes here.
+ * First scene. Loads only what the loading screen itself needs (nothing yet), opens the
+ * save storage (IndexedDB, or memory with one warning), then hands over to Preload.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -11,6 +14,12 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start(SCENES.preload);
+    const game = this.game;
+    createSession(browserIdbFactory(), (text) => setStorageWarning(game, text), CONTENT)
+      .catch(() => createSession(null, (text) => setStorageWarning(game, text), CONTENT))
+      .then((session) => {
+        setSession(game, session);
+        this.scene.start(SCENES.preload);
+      });
   }
 }

@@ -40,4 +40,4 @@ Bạn là vua của một vương quốc nhỏ trên bàn cờ 5×5. Mỗi năm 
 
 ## Trạng thái
 
-G0, G1 và G2 xong: "Ván mới" → chọn 1 trong 3 vua (Lúa Mì, Đá Núi, Phép Thuật), ván 15 năm (rút 3 thẻ, chơi hoặc bán 1 thẻ lên bàn 5×5, vàng để đổi bài và mua ô, cấp và Bùa, lịch với hai vua địch và cờ hiệu, chinh phục vua sau lần tấn công thứ 3, trận tự động + Can Thiệp), headless + bot `random`. Tiếp theo: G3. Xem [ROADMAP.md](ROADMAP.md).
+G0 đến G3 xong: "Tiếp tục" hoặc "Ván mới" → chọn 1 trong 3 vua (Lúa Mì, Đá Núi, Phép Thuật), ván 30 năm (rút 3 thẻ, chơi hoặc bán 1 thẻ lên bàn 5×5, vàng để đổi bài và mua ô, cấp và Bùa, lịch với sáu vua địch, Liên Quân và cờ hiệu, chinh phục vua sau lần tấn công thứ 3 và nhận thẻ của họ, hội đồng với 18 sắc lệnh, 13 nhiệm vụ, 3 boss, trận tự động + Can Thiệp), lưu ván IndexedDB, headless + bot `random` và `scripted`. Tiếp theo: G4 (Ngai, bị động và perk của sáu vua mới, chọn đủ 9 vua, meta). Xem [ROADMAP.md](ROADMAP.md).

@@ -1,6 +1,8 @@
 /** Dựng setup trận nhỏ cho test (không dùng trong mã chạy thật). */
-import type { BannerDef, CardDef, KingDef, KingId, UnitDef } from '../../data/types';
+import type { BannerDef, CardDef, CardId, KingDef, KingId, UnitDef } from '../../data/types';
+import { enemyFromKing } from '../../data/kings';
 import { CONTENT, type Content } from '../cards/registry';
+import { RULES_FULL } from '../../data/rules';
 import { newRun } from '../run/yearFlow';
 import type { RunState } from '../run/state';
 import type { AttackStats, BattleSetup, StructureSetup, UnitStats } from '../battle/types';
@@ -158,6 +160,15 @@ export const contentWith = (extra: {
     unit: (id) => units.get(id) ?? CONTENT.unit(id),
     king: (id) => kingMap.get(id) ?? CONTENT.king(id),
     kings: () => [...CONTENT.kings().filter((k) => !kingMap.has(k.id)), ...kings],
+    enemyKing: (id) => {
+      const king = kingMap.get(id);
+      return king ? enemyFromKing(king) : CONTENT.enemyKing(id);
+    },
+    enemyKings: () => CONTENT.enemyKings().map((k) => (kingMap.has(k.id) ? enemyFromKing(kingMap.get(k.id)!) : k)),
+    conquestCards: (id) => {
+      const king = kingMap.get(id);
+      return king ? king.cards : CONTENT.conquestCards(id);
+    },
     enemyRoster: (id) => {
       const king = kingMap.get(id);
       if (!king) return CONTENT.enemyRoster(id);
@@ -190,3 +201,36 @@ export const fakeKingCards = (king: KingId): CardDef[] => {
     ...[1, 2].map((n) => make(`${king}_r${n}`, 'rare')),
   ];
 };
+
+/** Đặt công trình `cardId` cấp `level` vào ô `plot` (mở ô); trả state mới. */
+export const withBuilding = (
+  state: RunState,
+  plot: number,
+  cardId: string,
+  level: 1 | 2 | 3 | 4 | 5 = 1,
+  over: Partial<RunState['plots'][number]['building'] & object> = {},
+): RunState => ({
+  ...state,
+  plots: state.plots.map((p, i) =>
+    i === plot
+      ? {
+          unlocked: true,
+          building: {
+            uid: 100 + plot,
+            cardId: cardId as CardId,
+            level,
+            enchants: [],
+            placedYear: 1,
+            permanent: {},
+            ageBonus: 0,
+            counters: {},
+            movedYear: null,
+            ...over,
+          },
+        }
+      : p,
+  ),
+});
+
+/** Test only: a fresh full-rules run (30 years, 30-year calendar, council, quests, bosses). */
+export const fullRunFixture = (seed: number, kingId: KingId): RunState => newRun(seed, kingId, CONTENT, RULES_FULL);

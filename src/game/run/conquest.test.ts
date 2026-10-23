@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { RULES_G2 } from '../../data/rules';
 import { RUN, battleGold } from '../../data/run';
 import type { BattleResult } from '../battle/types';
+import { CONTENT } from '../cards/registry';
 import { contentWith, fakeKing, fakeKingCards, runState } from '../testing/fixtures';
 import { applyCommand } from './commands';
 import type { CommandResult } from './commands';
+import { cardOffer } from './flow';
 import type { IllegalReason, RunCommand, RunState } from './state';
 
 const content = contentWith({
@@ -85,7 +87,7 @@ describe('conquering a king (spec §3.7)', () => {
   it('after the reward comes a mandatory conquest pick of 3 distinct cards of that king', () => {
     const afterReward = ok(applyCommand(won(), { type: 'pickOffer', index: 0 }, content));
     expect(afterReward.phase).toBe('conquest');
-    const offers = afterReward.offers!;
+    const offers = cardOffer(afterReward)!;
     expect(offers.kind).toBe('conquest');
     expect(offers.king).toBe('stone');
     expect(offers.cardIds).toHaveLength(3);
@@ -108,7 +110,7 @@ describe('conquering a king (spec §3.7)', () => {
 
   it('adds the chosen card to the deck and discard pile and starts the next year', () => {
     const s = ok(applyCommand(won(), { type: 'pickOffer', index: 0 }, content));
-    const chosen = s.offers!.cardIds[1]!;
+    const chosen = cardOffer(s)!.cardIds[1]!;
     const next = ok(applyCommand(s, { type: 'pickOffer', index: 1 }, content));
     expect(next.phase).toBe('planning');
     expect(next.year).toBe(s.year + 1);
@@ -156,5 +158,34 @@ describe('end of the run follows state.rules.years', () => {
     expect(last.won).toBe(true);
     const mid = ok(applyCommand(fight(0, { year: 10 }), { type: 'battleResult', result: result(true) }, content));
     expect(mid.phase).toBe('reward');
+  });
+});
+
+describe('conquering a king that cannot be played (G3)', () => {
+  const real = runState({
+    rules: RULES_G2,
+    phase: 'battle',
+    hand: [],
+    played: true,
+    year: 9,
+    enemyKings: ['nomad', 'grove'],
+    enemies: { nomad: { attacks: 2, status: 'pending' }, grove: { attacks: 0, status: 'pending' } },
+  });
+  const nomadFight: RunState = {
+    ...real,
+    army: { attacker: 'nomad', attackNo: 3, budget: 10, level: 1, statMult: 1, waves: [] },
+  };
+
+  it('offers three of the nine Nomad cards without ever looking the king up as a playable one', () => {
+    const won = ok(applyCommand(nomadFight, { type: 'battleResult', result: result(true) }, CONTENT));
+    const afterReward = ok(applyCommand(won, { type: 'pickOffer', index: 0 }, CONTENT));
+    expect(afterReward.phase).toBe('conquest');
+    const offer = cardOffer(afterReward)!;
+    expect(offer).toMatchObject({ kind: 'conquest', king: 'nomad' });
+    expect(new Set(offer.cardIds).size).toBe(3);
+    const nomad = CONTENT.conquestCards('nomad').map((c) => c.id);
+    for (const id of offer.cardIds) expect(nomad).toContain(id);
+    const picked = ok(applyCommand(afterReward, { type: 'pickOffer', index: 0 }, CONTENT));
+    expect(picked.deck).toContain(offer.cardIds[0]);
   });
 });

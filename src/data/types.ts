@@ -58,6 +58,18 @@ export type TargetMode = 'nearest' | 'closestToThrone' | 'lowestHp' | 'highestHp
 export type OnHitDef =
   | { readonly type: 'slow'; readonly pct: number; readonly ticks: number }
   | { readonly type: 'stun'; readonly ticks: number }
+  /** Bỏng `dps` mỗi giây trong `ticks` tick; cùng nguồn làm mới, khác nguồn cộng dồn (§8.6). */
+  | { readonly type: 'burn'; readonly dps: number; readonly ticks: number }
+  /** Độc `dps` mỗi lớp mỗi giây; cộng lớp tới `maxStacks` mỗi nguồn (§8.6). */
+  | { readonly type: 'poison'; readonly dps: number; readonly ticks: number; readonly maxStacks: number }
+  /** Đẩy mục tiêu ra xa `px` (công trình và boss miễn). */
+  | { readonly type: 'knockback'; readonly px: number }
+  /** Cứ `every` đòn kéo mục tiêu về phía người đánh `px`. */
+  | { readonly type: 'pull'; readonly px: number; readonly every: number }
+  /** Hồi `pct`% sát thương gây ra (sau giáp). */
+  | { readonly type: 'lifesteal'; readonly pct: number }
+  /** Hồi `hp` cho đồng minh máu thấp nhất trong `radius` px. */
+  | { readonly type: 'healAlly'; readonly hp: number; readonly radius: number }
   /** Mỗi đòn liên tiếp vào cùng mục tiêu cộng `pctPerHit`% sát thương, tối đa `cap`%. */
   | { readonly type: 'rampSameTarget'; readonly pctPerHit: number; readonly cap: number };
 
@@ -77,14 +89,43 @@ export interface AttackSpec {
   readonly cleave?: number;
   /** nảy sang `count` địch kế tiếp trong `radius`, mỗi lần nhân `falloff` */
   readonly chain?: { readonly count: number; readonly radius: number; readonly falloff: number };
+  /** Hình quạt: mọi địch trong `range` nằm trong góc `halfAngleCos` quanh hướng tới mục tiêu. */
+  readonly cone?: { readonly range: number; readonly halfAngleCos: number };
   readonly onHit?: readonly OnHitDef[];
 }
 
-export type UnitBehaviourDef = {
-  readonly type: 'deathSpawn';
-  readonly unit: UnitId;
-  readonly count: number;
-};
+export type UnitBehaviourDef =
+  /** Chết lần đầu thì sống lại với `hpPct`% HP tối đa (một lần). */
+  | { readonly type: 'reviveOnce'; readonly hpPct: number }
+  /** Dưới `belowHpPct`% HP: +`dmgPct`% sát thương. */
+  | { readonly type: 'enrage'; readonly belowHpPct: number; readonly dmgPct: number }
+  | { readonly type: 'rampDmg'; readonly pctPerSecond: number; readonly cap: number }
+  | { readonly type: 'rampAttackSpeed'; readonly pctPerSecond: number; readonly cap: number }
+  /** Cứ `everyTicks` tick một lớp: +`dmgPct`% DMG và +`speedPct`% tốc, tối đa `maxStacks` lớp. */
+  | {
+      readonly type: 'stepBuff';
+      readonly everyTicks: number;
+      readonly dmgPct: number;
+      readonly speedPct: number;
+      readonly maxStacks: number;
+    }
+  /** Đòn đầu tiên: ×`dmgMult`, đẩy `knockback` px, choáng `stunTicks`. */
+  | {
+      readonly type: 'charge';
+      readonly dmgMult: number;
+      readonly knockback: number;
+      readonly stunTicks: number;
+    }
+  /** Địch gần hơn `distance` px khi đang hồi đòn: lùi ra xa. */
+  | { readonly type: 'kite'; readonly distance: number }
+  /** Hồi `hpPerSec` HP mỗi giây cho lính cùng phe trong `radius` px. */
+  | { readonly type: 'healAura'; readonly radius: number; readonly hpPerSec: number }
+  | { readonly type: 'deathSpawn'; readonly unit: UnitId; readonly count: number }
+  /** Hạ được địch thì hồi `hp`. */
+  | { readonly type: 'killHeal'; readonly hp: number }
+  /** +`pctPerSoul`% HP và DMG mỗi Hồn (lính cùng phe đã chết trong trận). */
+  | { readonly type: 'soulScaling'; readonly pctPerSoul: number }
+  | { readonly type: 'boss'; readonly id: BossId };
 
 export interface UnitDef {
   readonly id: UnitId;
@@ -122,7 +163,12 @@ export type StatKey =
   | 'structureHp'
   | 'knockback'
   | 'burnDps'
-  | 'gold';
+  | 'gold'
+  /** Giây lên dây trước cộng vào đồng hồ tăng tiến (§8.6). */
+  | 'prewind'
+  /** Tăng tốc đánh theo thời gian: % mỗi giây và trần % (cộng từ Bùa Tích Tắc). */
+  | 'rampAs'
+  | 'rampAsCap';
 /** `flatPost`: cộng sau mọi % (Bùa Tia Lửa). */
 export type StatMode = 'flat' | 'pct' | 'flatPost';
 
@@ -136,7 +182,17 @@ export type CustomEffectId =
   | 'archmage_ramp'
   | 'arcane_harmony'
   | 'rune_carving'
-  | 'mirror_enchants';
+  | 'mirror_enchants'
+  | 'spring_rain'
+  | 'treasure_chest'
+  | 'privateers'
+  | 'master_hammer'
+  | 'armory_armor'
+  | 'rewind'
+  | 'blood_pact'
+  | 'eclipse_pact'
+  | 'bazaar_kinds'
+  | 'watchtower_open';
 
 export type EffectDef =
   | { readonly type: 'spawn'; readonly unit: UnitId; readonly count: PerLevel }
@@ -161,6 +217,37 @@ export type EffectDef =
       readonly value: Scalar;
     }
   | { readonly type: 'taunt'; readonly radius: number }
+  /** Lính cùng phe trong `radius` px hồi `hpPerSec` HP mỗi giây (công trình hỗ trợ). */
+  | { readonly type: 'healAura'; readonly radius: number; readonly hpPerSec: Scalar }
+  /** Công trình tăng tốc đánh `pctPerSecond`% mỗi giây (tối đa `cap`%). */
+  | { readonly type: 'rampAttackSpeed'; readonly pctPerSecond: number; readonly cap: number }
+  /** Tháp Chuông: mỗi `everyTicks` tick lính mình trong `radius` +`attackSpeedPct`% tốc đánh trong `buffTicks` tick; từ cấp `stunFromLevel` địch trong `radius` choáng `stunTicks`. */
+  | {
+      readonly type: 'bellPulse';
+      readonly everyTicks: number;
+      readonly radius: number;
+      readonly attackSpeedPct: Scalar;
+      readonly buffTicks: number;
+      readonly stunFromLevel: number;
+      readonly stunTicks: number;
+    }
+  /** Mỗi `everyTicks` tick, nếu lính của công trình còn ít hơn ban đầu thì sinh lại 1. */
+  | { readonly type: 'respawnLost'; readonly everyTicks: number }
+  /** Mỗi lần hạ địch triệu hồi 1 `unit` tại công trình, tối đa `max` mỗi trận (Tháp Bóng Đêm). */
+  | { readonly type: 'summonOnKill'; readonly unit: UnitId; readonly max: Scalar }
+  /** Mỗi `everyTicks` tick triệu hồi 1 `unit` tại ô, tối đa `maxPerBattle` mỗi trận (Vòng Triệu Hồi). */
+  | {
+      readonly type: 'summonEvery';
+      readonly unit: UnitId;
+      readonly everyTicks: Scalar;
+      readonly maxPerBattle: Scalar;
+    }
+  /** Đầu trận triệu hồi `perOffering × offerings` `unit` tại ô, tối đa `cap` (Đàn Tế). */
+  | { readonly type: 'altarSummon'; readonly unit: UnitId; readonly perOffering: Scalar; readonly cap: Scalar }
+  /** Tháp đánh `count` mục tiêu khác nhau (gần nhất trước) mỗi nhịp. */
+  | { readonly type: 'multiAttack'; readonly count: number }
+  /** Mỗi `every` địch do lính của công trình này hạ: +`gold` vàng, tối đa `max` mỗi trận. */
+  | { readonly type: 'killGold'; readonly every: number; readonly gold: number; readonly max: number }
   | {
       readonly type: 'shieldPulse';
       readonly radius: number;
@@ -225,6 +312,8 @@ export interface EnchantCardDef extends CardBase {
   readonly kind: 'enchantment';
   readonly targets: readonly BuildingKind[];
   readonly perStack: readonly EffectDef[];
+  /** Nhân giá trị của mọi stack lên chừng này lần trong trận của năm công trình vừa được dời (Bùa Gió Thảo Nguyên). */
+  readonly movedYearMult?: number;
 }
 
 export interface TomeCardDef extends CardBase {
@@ -241,13 +330,41 @@ export type BannerEffect =
   | { readonly type: 'enemyCostPct'; readonly pct: number }
   | { readonly type: 'enemyStat'; readonly stat: 'hp' | 'speed'; readonly pct: number }
   /** Mỗi địch xuất hiện với khiên = pct% HP tối đa. */
-  | { readonly type: 'enemyShieldPct'; readonly pct: number };
+  | { readonly type: 'enemyShieldPct'; readonly pct: number }
+  /** Tái Sinh: mọi địch hồi pct% HP tối đa mỗi giây. */
+  | { readonly type: 'enemyRegenPct'; readonly pct: number }
+  /** Giáp Sắt: địch +add giáp (kẹp 0.75). */
+  | { readonly type: 'enemyArmor'; readonly add: number }
+  /** Đếm Ngược: địch +pctPerSecond% DMG mỗi giây, tối đa cap%. */
+  | { readonly type: 'enemyRampDmg'; readonly pctPerSecond: number; readonly cap: number }
+  /** Bất Tử: floor(pct% tổng địch) địch đầu tiên bị hạ sống lại một lần với hpPct% HP. */
+  | { readonly type: 'undying'; readonly pct: number; readonly hpPct: number }
+  /** Cướp Bóc: mỗi everyPct% HP Ngai mất thêm, người chơi mất gold vàng (tối đa max mỗi trận). */
+  | { readonly type: 'throneGoldLoss'; readonly everyPct: number; readonly gold: number; readonly max: number }
+  /** Đột Kích: mỗi đợt thêm count mép xuất hiện. */
+  | { readonly type: 'extraEdge'; readonly count: number };
 
 export interface BannerDef {
   readonly id: string;
   readonly nameVi: string;
   readonly textVi: string;
   readonly effects: readonly BannerEffect[];
+}
+
+/**
+ * Phần của một vua cần khi họ là KẺ ĐỊCH: nhận diện, đơn vị, roster, cờ hiệu và các thẻ có thể
+ * thưởng khi chinh phục (spec §3.7). Sáu vua chưa chơi được chỉ tồn tại dưới dạng này.
+ */
+export interface EnemyKingDef {
+  readonly id: KingId;
+  readonly nameVi: string;
+  readonly name: string;
+  readonly color: PaletteColor;
+  readonly units: readonly UnitDef[];
+  readonly enemyRoster: readonly { readonly unit: UnitId; readonly weight: number }[];
+  readonly banner: BannerDef;
+  /** Thẻ của vua này (không gồm Ngai) để chọn khi chinh phục. */
+  readonly conquestCards: readonly CardDef[];
 }
 
 export interface KingDef {
@@ -266,3 +383,43 @@ export interface KingDef {
   /** Cờ hiệu khi làm địch. */
   readonly banner: BannerDef;
 }
+
+/** Sắc lệnh hội đồng (spec §7.1) — danh sách đóng 18 id. */
+export type DecreeId = `decree_${
+  | 'harvest_tax'
+  | 'expand_borders'
+  | 'mobilize'
+  | 'recast_crown'
+  | 'royal_armory'
+  | 'new_armor'
+  | 'royal_archers'
+  | 'merchant_guild'
+  | 'fourth_hand'
+  | 'bigger_boulder'
+  | 'quick_reflex'
+  | 'amnesty'
+  | 'treasury'
+  | 'academy'
+  | 'purge'
+  | 'trade'
+  | 'rune_festival'
+  | 'moat'}`;
+
+/** Nhiệm vụ (spec §7.2) — danh sách đóng 13 id. */
+export type QuestId = `quest_${
+  | 'untouched'
+  | 'three_barracks'
+  | 'no_reroll'
+  | 'slaughter'
+  | 'double_rune'
+  | 'land_grab'
+  | 'master_builder'
+  | 'blitz'
+  | 'hoard'
+  | 'no_help'
+  | 'offering'
+  | 'diversity'
+  | 'wager'}`;
+
+/** Boss (spec §7.3) — năm 10, 20, 30. */
+export type BossId = 'boss_bog_ogre' | 'boss_hornet_queen' | 'boss_crownless_king';

@@ -17,7 +17,7 @@ const bld = (uid: number, cardId: string, level: Level, enchants: BuildingState[
   level,
   enchants,
   placedYear: 1,
-  permanent: {},
+  permanent: {}, ageBonus: 0, counters: {}, movedYear: null,
 });
 
 /** A busy year-12 board mixing pulses, splash, chains, shields, taunt and death spawns. */

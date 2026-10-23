@@ -20,6 +20,7 @@ import {
 } from '../ui/battle/battleReadout';
 import { InfoPanel } from '../ui/info/InfoPanel';
 import { entityAt, entityInfoLines } from '../ui/info/infoLines';
+import { bossReadout, type BossReadout } from '../ui/battle/battleReadout';
 import { DRAG_SLOP, GAP, MARGIN, textContent, type Point, type Rect } from '../ui/hud/layout';
 import { RESULT_BUTTON, centredPanel, resultLayout } from '../ui/modals/modalLayout';
 import { createOverlay, fitOverlay } from '../ui/modals/overlay';
@@ -117,6 +118,11 @@ export class BattleHudScene extends Phaser.Scene {
   private clockText!: Phaser.GameObjects.Text;
   private hpBar!: UiBox;
   private hpFill!: Phaser.GameObjects.Graphics;
+  /** The boss bar under the clock: shown while a boss is alive. */
+  private bossBar!: UiBox;
+  private bossFill!: Phaser.GameObjects.Graphics;
+  private bossText!: Phaser.GameObjects.Text;
+  private bossShown = false;
   private foesBox!: UiBox;
   private foesText!: Phaser.GameObjects.Text;
   private dots!: Phaser.GameObjects.Graphics;
@@ -203,6 +209,14 @@ export class BattleHudScene extends Phaser.Scene {
     this.clockText = addUiText(this, 0, 0, tickClock(0), 20).setOrigin(0, 0.5).setFontStyle('bold');
     this.hpBar = createPanel(this, 'bar', 100, BAR_H);
     this.hpFill = this.add.graphics();
+    this.bossBar = createPanel(this, 'bar', 100, BAR_H);
+    this.bossFill = this.add.graphics();
+    this.bossText = addUiText(this, 0, 0, '', 12, UI_PALETTE.creamLight)
+      .setOrigin(0.5, 0)
+      .setFontStyle('bold')
+      .setShadow(1, 1, toCss(UI_PALETTE.outline), 0, false, true);
+    this.bossShown = false;
+    this.drawBoss(null);
 
     // Top right: enemies left + wave dots.
     this.foesBox = createPanel(this, 'panel', this.lay.foes.w, this.lay.foes.h);
@@ -299,11 +313,44 @@ export class BattleHudScene extends Phaser.Scene {
     const world = this.world;
     if (!world) return;
     this.drawHp(throneHpFraction(world));
+    this.drawBoss(bossReadout(world));
     this.foesText.setText(`Địch còn: ${foesRemaining(world)}`);
     this.drawDots(world.setup.waves.length, world.spawnedWaves);
     this.drawCooldown();
     this.drawRing();
     this.refreshInfo(world);
+  }
+
+  /** The boss bar: name · phase above, HP fill below; hidden while there is no live boss. */
+  private drawBoss(boss: BossReadout | null): void {
+    const g = this.bossFill;
+    g.clear();
+    this.bossBar.image.setVisible(boss !== null);
+    this.bossText.setVisible(boss !== null);
+    if (boss === null) {
+      if (this.bossShown) {
+        this.bossShown = false;
+        this.placeToasts();
+      }
+      return;
+    }
+    if (!this.bossShown) {
+      this.bossShown = true;
+      this.placeToasts();
+    }
+    this.bossText.setText(`${boss.nameVi} · ${boss.phase}  ${boss.hp}/${boss.maxHp}`);
+    const bar = this.bossBar.image;
+    const b = frameBorder(this, 'bar');
+    const innerW = this.bossBar.width - 2 * b;
+    const fraction = boss.maxHp > 0 ? Math.min(1, boss.hp / boss.maxHp) : 0;
+    g.fillStyle(UI_PALETTE.bad, 1);
+    g.fillRect(bar.x + b, bar.y + b, Math.max(1, Math.round(innerW * fraction)), BAR_H - 2 * b);
+  }
+
+  private placeToasts(): void {
+    const c = this.lay.clock;
+    const below = c.y + c.h + GAP * 2 + (this.bossShown ? BAR_H + 18 : 0);
+    this.toasts.setAnchor(this.scale.width / 2, below, this.scale.width - 2 * MARGIN);
   }
 
   private drawHp(fraction: number): void {
@@ -623,7 +670,7 @@ export class BattleHudScene extends Phaser.Scene {
       lives: state.lives,
       time: tickClock(result.ticks),
       goldGain: Math.max(0, state.gold - this.goldAtStart),
-      conquered: state.pendingConquest === null ? null : CONTENT.king(state.pendingConquest).nameVi,
+      conquered: state.pendingConquest === null ? null : CONTENT.enemyKing(state.pendingConquest).nameVi,
     }).map((line) => addUiText(this, 0, 0, line, 18).setOrigin(0.5).setDepth(MODAL_DEPTH));
     const next = createButton(this, 0, 0, 'Tiếp tục', {
       width: RESULT_BUTTON.w,
@@ -697,7 +744,10 @@ export class BattleHudScene extends Phaser.Scene {
     this.layoutScout();
     this.info.layout(this.screen());
 
-    this.toasts.setAnchor(this.scale.width / 2, c.y + c.h + GAP * 2, this.scale.width - 2 * MARGIN);
+    this.bossBar.resize(c.w, BAR_H);
+    this.bossBar.image.setPosition(c.x, c.y + c.h + GAP + 14);
+    this.bossText.setPosition(c.x + c.w / 2, c.y + c.h + GAP);
+    this.placeToasts();
     this.tooltip.refresh();
     this.layoutBanner();
     this.layoutSummary();

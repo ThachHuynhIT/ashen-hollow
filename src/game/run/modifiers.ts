@@ -19,6 +19,7 @@ import { CUSTOM_STAT_HANDLERS } from '../cards/custom';
 import type { StatCtx, StatHandler } from '../cards/custom/types';
 import type { Content } from '../cards/registry';
 import { THRONE_PLOT, neighbours } from './board';
+import { decree } from './decrees';
 import type { BuildingState, RunState } from './state';
 
 export interface StatCell {
@@ -41,6 +42,9 @@ const STAT_KEYS: readonly StatKey[] = [
   'knockback',
   'burnDps',
   'gold',
+  'prewind',
+  'rampAs',
+  'rampAsCap',
 ];
 
 export const emptySheet = (): StatSheet =>
@@ -141,7 +145,9 @@ export function collectStatSheet(
     if (card.kind !== 'enchantment') continue;
     for (const e of card.perStack) {
       if (e.type === 'stat' && matches(e.filter, targetCard, unit)) {
-        add(sheet, e.stat, e.mode, resolve(e.value, 1) * entry.stacks);
+        // Bùa Gió Thảo Nguyên: nhân lên nếu công trình vừa được dời trong năm nay.
+        const mult = card.movedYearMult !== undefined && target.movedYear === state.year ? card.movedYearMult : 1;
+        add(sheet, e.stat, e.mode, resolve(e.value, 1) * entry.stacks * mult);
       }
     }
   }
@@ -151,8 +157,18 @@ export function collectStatSheet(
     if (src === null || srcPlot === plot) continue;
     applySource(srcPlot, src);
   }
+  for (const id of state.decrees) {
+    // Sắc lệnh: sau công trình và Ngai, trước `permanent` (§5.3); mỗi sắc lệnh là một nguồn.
+    for (const e of decree(id).effects) {
+      if (e.type === 'stat' && matches(e.filter, targetCard, unit)) {
+        add(sheet, e.stat, e.mode, resolve(e.value, 1));
+      }
+    }
+  }
   for (const [stat, value] of Object.entries(target.permanent) as [StatKey, number][]) {
     add(sheet, stat, 'pct', value); // (g)
   }
+  // Tua Ngược: số giây lên dây trước vĩnh viễn nằm trong `counters.prewind` của công trình.
+  if ((target.counters.prewind ?? 0) > 0) add(sheet, 'prewind', 'flat', target.counters.prewind!);
   return sheet;
 }

@@ -12,6 +12,12 @@ export const RUN = {
   conquestGold: 5,
   maxLevel: 5,
   maxEnchantStacks: 4,
+  councilYears: [5, 10, 15, 20, 25], // năm có hội đồng (§3.1)
+  questYears: [3, 7, 12, 17, 22, 27], // năm có thể đề nghị nhiệm vụ
+  bossYears: [10, 20, 30],
+  maxActiveQuests: 2,
+  bossGoldMult: 2, // vàng thắng trận boss nhân đôi
+  difficultyBudgetStep: 0.1, // ngân sách/HP boss × (1 + step × gai)
 } as const;
 
 /** Vàng khi thắng trận năm y (trước nhân boss). */

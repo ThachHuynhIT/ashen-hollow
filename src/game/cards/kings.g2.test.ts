@@ -98,7 +98,9 @@ describe('G2 content integrity', () => {
       }
     }
     for (const u of units) {
-      for (const b of u.behaviours ?? []) expect(ids.has(b.unit), `${u.id} → ${b.unit}`).toBe(true);
+      for (const b of u.behaviours ?? []) {
+        if (b.type === 'deathSpawn') expect(ids.has(b.unit), `${u.id} → ${b.unit}`).toBe(true);
+      }
     }
   });
 
@@ -132,7 +134,8 @@ describe('G2 content integrity', () => {
   });
 
   it('puts every non-meta neutral and king card into the content, and no card of an unknown owner', () => {
-    const owners = new Set<string>(['neutral', ...KINGS_G2.map((k) => k.id)]);
+    // Conquest-only cards of the other kings are in the content too (spec 3.7).
+    const owners = new Set<string>(['neutral', ...CONTENT.enemyKings().map((k) => k.id)]);
     for (const c of cards) expect(owners.has(c.owner), c.id).toBe(true);
     expect(CONTENT.kings().map((k) => k.id)).toEqual(['wheat', 'stone', 'arcane']);
   });

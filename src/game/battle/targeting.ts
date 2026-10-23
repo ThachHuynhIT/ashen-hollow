@@ -20,8 +20,18 @@ export const edgeDistance = (world: BattleWorld, a: number, b: number): number =
   return Math.sqrt(dx * dx + dy * dy) - world.radius[a]! - world.radius[b]!;
 };
 
-/** `minRange ≤ edgeDistance ≤ range` của người đánh. */
+/**
+ * Đơn vị bay chỉ bị đòn của lính có tầm ≥ `flyingHitMinRange`; công trình, Ngai, xung vòng tròn
+ * và can thiệp luôn đánh được (§8.4).
+ */
+export const canHit = (world: BattleWorld, attacker: number, victim: number): boolean =>
+  world.flying[victim] === 0 ||
+  world.kind[attacker] !== KIND_UNIT ||
+  world.range[attacker]! >= BATTLE.flyingHitMinRange;
+
+/** `minRange ≤ edgeDistance ≤ range` của người đánh, và người đánh đánh được nạn nhân. */
 export const inRange = (world: BattleWorld, attacker: number, victim: number): boolean => {
+  if (!canHit(world, attacker, victim)) return false;
   const d = edgeDistance(world, attacker, victim);
   return d <= world.range[attacker]! && d >= world.minRange[attacker]!;
 };
@@ -36,7 +46,7 @@ const nearestFoe = (w: BattleWorld, self: number): number => {
   let best = -1;
   let bestD = 0;
   for (let j = 0; j < w.count; j++) {
-    if (w.alive[j] === 0 || w.team[j] !== TEAM_FOE) continue;
+    if (w.alive[j] === 0 || w.team[j] !== TEAM_FOE || !canHit(w, self, j)) continue;
     const dx = w.x[j]! - sx;
     const dy = w.y[j]! - sy;
     const d = dx * dx + dy * dy;
@@ -122,6 +132,23 @@ export const retarget = (world: BattleWorld): void => {
     if (!periodic && t >= 0 && world.alive[t] === 1) continue;
     world.target[i] = foe ? foeTarget(world, i) : nearestFoe(world, i);
   }
+};
+
+/**
+ * Tối đa `n` mục tiêu KHÁC NHAU trong tầm của `shooter`, gần nhất trước (hoà → id nhỏ): xúc tu
+ * của Vực Kraken chọn bốn mục tiêu riêng.
+ */
+export const pickShotTargets = (world: BattleWorld, shooter: number, n: number): number[] => {
+  const team = world.team[shooter]!;
+  const found: { id: number; d2: number }[] = [];
+  for (let j = 0; j < world.count; j++) {
+    if (world.alive[j] === 0 || world.team[j] === team || !inRange(world, shooter, j)) continue;
+    const dx = world.x[j]! - world.x[shooter]!;
+    const dy = world.y[j]! - world.y[shooter]!;
+    found.push({ id: j, d2: dx * dx + dy * dy });
+  }
+  found.sort((a, b) => a.d2 - b.d2 || a.id - b.id);
+  return found.slice(0, n).map((f) => f.id);
 };
 
 /**
