@@ -133,6 +133,7 @@ export class BattleHudScene extends Phaser.Scene {
   /** Info box of a tapped building or unit (§10.7), and the entity it describes. */
   private info!: InspectionView;
   private inspected: number | null = null;
+  private hoveredId: number | null = null;
   private autoBtn!: Button;
   private wavesBtn!: Button;
   private scoutModal: {
@@ -180,12 +181,14 @@ export class BattleHudScene extends Phaser.Scene {
     this.goldAtStart = this.controller.state.gold;
     this.scoutModal = null;
     this.inspected = null;
+    this.hoveredId = null;
     this.lay = this.currentLayout();
 
     this.tooltip = new Tooltip(this);
     this.toasts = new ToastStack(this, TOAST_DEPTH);
     this.info = new InspectionView(this, MODAL_DEPTH - 50, () => {
       this.inspected = null;
+      this.bus.emit('ui:range-selection', { target: null, mode: 'selected' });
     });
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
@@ -441,6 +444,7 @@ export class BattleHudScene extends Phaser.Scene {
       return;
     }
     this.inspected = id;
+    this.bus.emit('ui:range-selection', { target: { kind: 'entity', id }, mode: 'selected' });
     this.showInfo(world, id, p);
   }
 
@@ -471,6 +475,7 @@ export class BattleHudScene extends Phaser.Scene {
 
   private hideInfo(): void {
     this.inspected = null;
+    this.bus.emit('ui:range-selection', { target: null, mode: 'selected' });
     this.info.hide();
   }
 
@@ -541,6 +546,10 @@ export class BattleHudScene extends Phaser.Scene {
 
   private setAiming(on: boolean): void {
     this.aiming = on;
+    if (on) {
+      this.hoveredId = null;
+      this.bus.emit('ui:range-selection', { target: null, mode: 'hover' });
+    }
     if (on && !this.aimAt) {
       const p = this.input.activePointer;
       this.aimAt = { x: p.x, y: p.y };
@@ -575,6 +584,24 @@ export class BattleHudScene extends Phaser.Scene {
     }
     this.aimAt = p;
     if (this.aiming) this.drawRing();
+    this.hoverRange(pointer);
+  }
+
+  /** Mouse over a live entity shows its rings (not while aiming the boulder or on a touch screen). */
+  private hoverRange(pointer: Phaser.Input.Pointer): void {
+    const world = this.world;
+    let id: number | null = null;
+    if (world && !this.aiming && !pointer.wasTouch) {
+      const { zoom, scroll } = battleCamera(this.screen());
+      const at = screenToWorld({ x: pointer.x, y: pointer.y }, scroll, this.screen(), zoom);
+      id = entityAt(world, at.x, at.y);
+    }
+    if (id === this.hoveredId) return;
+    this.hoveredId = id;
+    this.bus.emit('ui:range-selection', {
+      target: id === null ? null : { kind: 'entity', id },
+      mode: 'hover',
+    });
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {

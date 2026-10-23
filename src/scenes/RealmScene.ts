@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { EventBus } from '../core/events';
 import { PALETTE } from '../data/palette';
 import type { Edge } from '../game/battle/types';
-import { drainEvents } from '../game/battle/world';
+import { drainEvents, plotCenter } from '../game/battle/world';
 import { CONTENT } from '../game/cards/registry';
 import { createGameBus, type GameEvents } from '../game/events';
 import { RunController } from '../game/run/RunController';
@@ -14,11 +14,13 @@ import { newRun } from '../game/run/yearFlow';
 import { BoardRenderer } from '../render/BoardRenderer';
 import { FieldRenderer } from '../render/FieldRenderer';
 import { FxRenderer } from '../render/FxRenderer';
+import { RangeRenderer } from '../render/RangeRenderer';
 import { UnitRenderer } from '../render/UnitRenderer';
 import { buildSpritesTexture } from '../render/atlas';
 import { DRAG_SLOP, type Size } from '../ui/hud/layout';
 import { lockedPlotTap, plotHighlights, plotIllegalReason } from '../ui/planning/targetHints';
 import { lockedPlotPrice } from '../ui/realm/calendarModel';
+import { buildingRanges, entityRanges } from '../ui/info/rangeModel';
 import { realmCamera, realmCameraMix } from '../ui/realm/realmLayout';
 import { SCENES } from './keys';
 import { STORAGE_WARNING_KEY, WARNING_EVENT, getSession } from './sessionRegistry';
@@ -28,6 +30,8 @@ import type { RunEndData } from './RunEndScene';
  * Launch data of the realm: a new run (seed + chosen king, from the king-select scene) or a
  * saved run to resume exactly as written (`resume`, from the menu's "Tiếp tục").
  */
+type RangeTarget = GameEvents['ui:range-selection']['target'];
+
 export type RealmData = { seed: number; kingId: KingId } | { resume: RunState };
 
 /** Launch data of the HUD scenes layered over the realm. */
@@ -75,6 +79,10 @@ export class RealmScene extends Phaser.Scene {
   private readonly onResize = (): void => this.placeCamera();
   /** The running planning ↔ battle camera ease, if any. */
   private cameraEase: Phaser.Tweens.Tween | null = null;
+  /** One renderer for every range ring; the chosen and the hovered thing it may follow. */
+  private range: RangeRenderer | null = null;
+  private rangeSelected: RangeTarget = null;
+  private rangeHover: RangeTarget = null;
   /** The press that may become a board click (only that pointer's release counts). */
   private down: { id: number; x: number; y: number } | null = null;
 
@@ -92,6 +100,9 @@ export class RealmScene extends Phaser.Scene {
     this.awaitingAdvance = false;
     this.battleHudUp = false;
     this.cameraEase = null;
+    this.range = null;
+    this.rangeSelected = null;
+    this.rangeHover = null;
     this.down = null;
     const resume = data !== undefined && 'resume' in data ? data.resume : null;
     const fresh = data !== undefined && 'seed' in data ? data : { seed: 1, kingId: 'wheat' as KingId };
@@ -107,6 +118,7 @@ export class RealmScene extends Phaser.Scene {
     this.board = new BoardRenderer(this, CONTENT);
     this.units = new UnitRenderer(this);
     this.fx = new FxRenderer(this);
+    this.range = new RangeRenderer(this);
 
     const bus = this.bus;
     bus.on('run:state', ({ state }) => this.onState(state));
@@ -119,6 +131,10 @@ export class RealmScene extends Phaser.Scene {
     bus.on('ui:drop-card', ({ handIndex, plot }) => this.drop(handIndex, plot));
     bus.on('ui:confirm-play', () => this.confirm());
     bus.on('ui:continue', () => this.onContinue());
+    bus.on('ui:range-selection', ({ target, mode }) => {
+      if (mode === 'hover') this.rangeHover = target;
+      else this.rangeSelected = target;
+    });
 
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
     this.input.on(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
@@ -157,6 +173,24 @@ export class RealmScene extends Phaser.Scene {
       this.fx.sync(runner.world, events, alpha);
       if (events.some((e) => e.type === 'rage')) this.bus.emit('log', { text: RAGE_TEXT });
     }
+    this.syncRange();
+  }
+
+  /** Show the rings of the hovered (else chosen) thing, at its current place; hide when it is gone. */
+  private syncRange(): void {
+    const range = this.range;
+    if (!range) return;
+    const target = this.rangeHover ?? this.rangeSelected;
+    if (target === null) return range.hide();
+    const state = this.controller.state;
+    if (target.kind === 'plot') {
+      const specs = buildingRanges(state, target.plot, CONTENT);
+      return specs.length === 0 ? range.hide() : range.show(plotCenter(target.plot), specs);
+    }
+    const world = this.controller.runner?.world;
+    const specs = world ? entityRanges(world, target.id) : [];
+    if (!world || specs.length === 0) return range.hide();
+    range.show({ x: world.x[target.id]!, y: world.y[target.id]! }, specs);
   }
 
   // ---- run flow --------------------------------------------------------------------------
@@ -178,10 +212,17 @@ export class RealmScene extends Phaser.Scene {
     }
   }
 
+  /** A new phase has other entities and its own HUD: forget the old selection and hover. */
+  private clearRange(): void {
+    this.rangeSelected = null;
+    this.rangeHover = null;
+  }
+
   private showPlanning(state: RunState): void {
     if (this.inBattle) {
       // Back from a battle: drop its sprites, show the buildings again.
       this.inBattle = false;
+      this.clearRange();
       this.units?.destroy();
       this.fx?.destroy();
       this.units = new UnitRenderer(this);
@@ -198,6 +239,7 @@ export class RealmScene extends Phaser.Scene {
   }
 
   private onBattleStarted(): void {
+    this.clearRange();
     this.battleHudUp = true;
     this.inBattle = true;
     this.setPending(null);
@@ -421,6 +463,8 @@ export class RealmScene extends Phaser.Scene {
   private teardown(): void {
     this.cameraEase?.stop();
     this.cameraEase = null;
+    this.range?.destroy();
+    this.range = null;
     this.game.events.off(WARNING_EVENT, this.onStorageWarning, this);
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);

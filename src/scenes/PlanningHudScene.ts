@@ -110,6 +110,7 @@ export class PlanningHudScene extends Phaser.Scene {
   /** Info box of a tapped building (§10.7), and the plot it describes. */
   private info!: InspectionView;
   private inspected: number | null = null;
+  private hoveredPlot: number | null = null;
   private fight!: Button;
   private confirmBtn!: Button;
   private cancelBtn!: Button;
@@ -152,12 +153,14 @@ export class PlanningHudScene extends Phaser.Scene {
     this.illegal = null;
     this.illegalTimer = null;
     this.plotTimer = null;
+    this.hoveredPlot = null;
     this.lay = this.currentLayout();
 
     this.tooltip = new Tooltip(this);
     this.toasts = new ToastStack(this, MODAL_DEPTH + 50);
     this.info = new InspectionView(this, MODAL_DEPTH - 50, () => {
       this.inspected = null;
+      this.bus.emit('ui:range-selection', { target: null, mode: 'selected' });
     });
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
@@ -578,6 +581,21 @@ export class PlanningHudScene extends Phaser.Scene {
     const hit = this.plotReason(pointer.x, pointer.y);
     if (hit) this.tooltip.showAtPointer({ title: illegalText(hit.reason), lines: [] }, PLOT_TIP);
     else this.tooltip.hide(PLOT_TIP);
+    this.hoverRange(pointer);
+  }
+
+  /** Mouse over a built plot shows its rings (desktop); leaving, a modal or a chosen card clears them. */
+  private hoverRange(pointer: Phaser.Input.Pointer): void {
+    const state = this.controller.state;
+    const plot =
+      this.modalOpen() || state.phase !== 'planning' ? null : plotAtScreen(this.lay, { x: pointer.x, y: pointer.y });
+    const built = plot !== null && state.plots[plot]?.building ? plot : null;
+    if (built === this.hoveredPlot) return;
+    this.hoveredPlot = built;
+    this.bus.emit('ui:range-selection', {
+      target: built === null ? null : { kind: 'plot', plot: built },
+      mode: 'hover',
+    });
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
@@ -611,9 +629,11 @@ export class PlanningHudScene extends Phaser.Scene {
     if (plot === null || model === null) {
       this.inspected = null;
       this.info.hide();
+      this.bus.emit('ui:range-selection', { target: null, mode: 'selected' });
       return;
     }
     this.inspected = plot;
+    this.bus.emit('ui:range-selection', { target: { kind: 'plot', plot }, mode: 'selected' });
     this.info.showBuilding(
       model,
       anchor,

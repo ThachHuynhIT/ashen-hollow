@@ -29,6 +29,14 @@ export interface GameEvents {
   'ui:continue': Record<string, never>;
   /** A tap on the realm: the plot with a building under it (null = none), at screen (x, y). */
   'ui:inspect': { plot: number | null; x: number; y: number };
+  /**
+   * What the range rings should follow: a plot with a building or a live battle entity, as the chosen
+   * thing or just hovered (hover wins while it lasts); null clears that mode.
+   */
+  'ui:range-selection': {
+    target: { kind: 'plot'; plot: number } | { kind: 'entity'; id: number } | null;
+    mode: 'selected' | 'hover';
+  };
   'ui:open-modal': { modal: 'scout' | 'calendar' | 'deck' };
   'ui:close-modal': Record<string, never>;
 }
