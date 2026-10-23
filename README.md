@@ -43,6 +43,73 @@ Phím tắt:
 - **Lập kế hoạch:** bấm vào nhà trên bàn (khi không đang chọn thẻ) để xem thông tin.
 - **Kết thúc ván:** `Enter` ván mới · `Esc` về menu (tóm tắt: năm hoàn thành, vua đã chinh phục, boss đã hạ).
 
+## Phím tắt
+
+<!-- shortcuts:start -->
+
+### Menu
+
+| Phím | Hành động |
+| --- | --- |
+| F1 / H | Mở / đóng Trợ giúp |
+
+### Chọn vua
+
+| Phím | Hành động |
+| --- | --- |
+| F1 / H | Mở / đóng Trợ giúp |
+| 1 | Chọn vua 1 |
+| 2 | Chọn vua 2 |
+| 3 | Chọn vua 3 |
+| Enter | Bắt đầu ván |
+| Esc | Về menu |
+
+### Lên kế hoạch
+
+| Phím | Hành động |
+| --- | --- |
+| F1 / H | Mở / đóng Trợ giúp |
+| 1 | Chọn thẻ 1 |
+| 2 | Chọn thẻ 2 |
+| 3 | Chọn thẻ 3 |
+| 4 | Chọn thẻ 4 |
+| R | Đổi bài |
+| S | Bán bài |
+| D | Xem bộ bài |
+| L | Xem lịch |
+| Enter | Xác nhận / ra trận |
+| Esc | Huỷ chọn / đóng bảng |
+
+### Trong trận
+
+| Phím | Hành động |
+| --- | --- |
+| F1 / H | Mở / đóng Trợ giúp |
+| P | Tạm dừng |
+| 1 | Tốc độ ×1 |
+| 2 | Tốc độ ×2 |
+| 3 | Tốc độ ×3 |
+| Space / B | Can thiệp (ngắm tảng đá) |
+| Esc | Thôi ngắm / đóng bảng |
+| Enter / Space | Tiếp tục sau trận (khi bảng tóm tắt trận mở) |
+
+### Kết thúc ván
+
+| Phím | Hành động |
+| --- | --- |
+| F1 / H | Mở / đóng Trợ giúp |
+| Enter | Ván mới |
+| Esc | Về menu |
+
+### Trợ giúp
+
+| Phím | Hành động |
+| --- | --- |
+| F1 / H | Mở / đóng Trợ giúp |
+| Esc | Đóng Trợ giúp |
+
+<!-- shortcuts:end -->
+
 ## Kiến trúc
 
 ```

@@ -1,6 +1,7 @@
 /** Bản đồ sự kiện giữa logic game và UI/scene (spec §12.5). Bus chung nằm ở `core/events`. */
 import { EventBus } from '../core/events';
 import type { GameSpeed } from '../core/SimClock';
+import type { HelpTab } from '../data/help';
 import type { BattleResult, BattleSetup } from './battle/types';
 import type { IllegalReason, RunCommand, RunState } from './run/state';
 
@@ -37,6 +38,8 @@ export interface GameEvents {
     target: { kind: 'plot'; plot: number } | { kind: 'entity'; id: number } | null;
     mode: 'selected' | 'hover';
   };
+  /** Ask the Help view to open (or close); handled by the Help scene wiring (G3e E4d). */
+  'ui:help': { open: boolean; tab?: HelpTab };
   'ui:open-modal': { modal: 'scout' | 'calendar' | 'deck' };
   'ui:close-modal': Record<string, never>;
 }

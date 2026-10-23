@@ -28,6 +28,7 @@ import { handLimit } from '../game/run/decrees';
 import { InspectionView } from '../ui/info/InspectionView';
 import { buildingInfoModel } from '../ui/info/inspectionModel';
 import { planningControls } from '../ui/info/inspectionReserved';
+import { resolveShortcut, shortcutFlags } from '../ui/input/shortcuts';
 import { cardBadge, willLevelUpTo } from '../ui/cards/cardText';
 import { CalendarStrip } from '../ui/planning/CalendarStrip';
 import { HandView } from '../ui/planning/HandView';
@@ -508,51 +509,61 @@ export class PlanningHudScene extends Phaser.Scene {
   }
 
   private onKey(event: KeyboardEvent): void {
-    if (event.repeat) return; // a held key acts once
+    const action = resolveShortcut(
+      event.key,
+      'planning',
+      shortcutFlags(event, {
+        mandatoryOpen: this.reward !== null || this.council !== null || this.quest !== null,
+        sideModalOpen:
+          this.decreePanel.isOpen || this.scoutModal !== null || this.calendarModal !== null || this.deckModal !== null,
+      }),
+    );
+    if (action === null) return;
+    if (action === 'help.toggle') {
+      event.preventDefault();
+      this.bus.emit('ui:help', { open: true });
+      return;
+    }
     if (this.reward) {
-      if (event.key === 'Enter') this.reward.confirm();
+      if (action === 'confirm') this.reward.confirm();
       return;
     }
     if (this.council || this.quest) return; // mandatory decisions: Esc does not skip them
     if (this.decreePanel.isOpen) {
-      if (event.key === 'Escape') this.decreePanel.closeView();
+      if (action === 'cancel') this.decreePanel.closeView();
       return;
     }
     if (this.scoutModal || this.calendarModal || this.deckModal) {
-      if (event.key === 'Escape') this.bus.emit('ui:close-modal', {});
+      if (action === 'cancel') this.bus.emit('ui:close-modal', {});
       return;
     }
     const state = this.controller.state;
     if (state.phase !== 'planning') return;
-    switch (event.key) {
-      case 'r':
-      case 'R':
+    switch (action) {
+      case 'reroll':
         this.reroll();
         break;
-      case 'd':
-      case 'D':
+      case 'deck':
         this.bus.emit('ui:open-modal', { modal: 'deck' });
         break;
-      case 'l':
-      case 'L':
+      case 'calendar':
         this.bus.emit('ui:open-modal', { modal: 'calendar' });
         break;
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-        this.selectCard(Number(event.key) - 1);
+      case 'select.1':
+      case 'select.2':
+      case 'select.3':
+      case 'select.4':
+        this.selectCard(Number(action.slice(-1)) - 1);
         break;
-      case 's':
-      case 'S':
+      case 'sell':
         if (!state.played) this.sell();
         break;
-      case 'Enter':
+      case 'confirm':
         if (this.buy && state.gold < this.buy.price) this.flashIllegal('notEnoughGold');
         else if (this.pending.ready || this.buy) this.bus.emit('ui:confirm-play', {});
         else if (canFight(state)) this.command('startBattle');
         break;
-      case 'Escape':
+      case 'cancel':
         if (this.pending.handIndex !== null || this.buy) this.bus.emit('ui:cancel-play', {});
         break;
     }

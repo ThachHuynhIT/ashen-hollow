@@ -22,6 +22,7 @@ import { InspectionView } from '../ui/info/InspectionView';
 import { entityAt } from '../ui/info/infoLines';
 import { buildingInfoModel, plotOfEntity, unitInfoModel } from '../ui/info/inspectionModel';
 import { battleControls } from '../ui/info/inspectionReserved';
+import { resolveShortcut, shortcutFlags } from '../ui/input/shortcuts';
 import { bossReadout, type BossReadout } from '../ui/battle/battleReadout';
 import { DRAG_SLOP, GAP, MARGIN, textContent, type Point, type Rect } from '../ui/hud/layout';
 import { RESULT_BUTTON, centredPanel, resultLayout } from '../ui/modals/modalLayout';
@@ -634,31 +635,41 @@ export class BattleHudScene extends Phaser.Scene {
   }
 
   private onKey(event: KeyboardEvent): void {
-    if (event.repeat) return; // a held key acts once
+    const action = resolveShortcut(
+      event.key,
+      'battle',
+      shortcutFlags(event, {
+        sideModalOpen: this.scoutModal !== null,
+        summaryOpen: this.ended && this.summary !== null,
+      }),
+    );
+    if (action === null) return;
+    if (action === 'help.toggle') {
+      event.preventDefault();
+      this.bus.emit('ui:help', { open: true });
+      return;
+    }
     if (this.scoutModal) {
-      if (event.key === 'Escape') this.closeScout();
+      if (action === 'cancel') this.closeScout();
       return;
     }
     if (this.ended) {
-      if (this.summary && (event.key === 'Enter' || event.key === ' ')) this.continueRun();
+      if (this.summary && action === 'confirm') this.continueRun();
       return;
     }
-    switch (event.key) {
-      case 'p':
-      case 'P':
+    switch (action) {
+      case 'pause':
         this.bus.emit('ui:toggle-pause', {});
         break;
-      case '1':
-      case '2':
-      case '3':
-        this.bus.emit('ui:set-speed', { speed: Number(event.key) as GameSpeed });
+      case 'speed.1':
+      case 'speed.2':
+      case 'speed.3':
+        this.bus.emit('ui:set-speed', { speed: Number(action.slice(-1)) as GameSpeed });
         break;
-      case ' ':
-      case 'b':
-      case 'B':
+      case 'intervene':
         this.toggleAim();
         break;
-      case 'Escape':
+      case 'cancel':
         if (this.aiming) this.setAiming(false);
         break;
     }

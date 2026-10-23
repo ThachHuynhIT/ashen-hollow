@@ -18,6 +18,7 @@ import {
   type Button,
   type UiBox,
 } from '../ui/theme';
+import { resolveShortcut, shortcutFlags } from '../ui/input/shortcuts';
 import { SCENES } from './keys';
 import { newRunSeed } from './MainMenuScene';
 import type { RealmData } from './RealmScene';
@@ -262,17 +263,20 @@ export class KingSelectScene extends Phaser.Scene {
   }
 
   private onKey(event: KeyboardEvent): void {
-    if (event.repeat) return;
-    switch (event.key) {
-      case '1':
-      case '2':
-      case '3':
-        this.select(Number(event.key) - 1);
+    const action = resolveShortcut(event.key, 'kingSelect', shortcutFlags(event));
+    switch (action) {
+      case 'help.toggle':
+        event.preventDefault(); // F1 must not open the browser's help; the Help view is wired in G3e E4d
         break;
-      case 'Enter':
+      case 'select.1':
+      case 'select.2':
+      case 'select.3':
+        this.select(Number(action.slice(-1)) - 1);
+        break;
+      case 'confirm':
         this.begin();
         break;
-      case 'Escape':
+      case 'back':
         this.scene.start(SCENES.mainMenu);
         break;
     }
