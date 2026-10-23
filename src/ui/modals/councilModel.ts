@@ -3,8 +3,8 @@
  * needs, what the chosen decree still has to pick, how a click changes the selection and which
  * command the UI sends. No Phaser, so every rule here is tested.
  */
-import { DECREES } from '../../data/decrees';
-import { QUESTS, QUEST_RULES } from '../../data/quests';
+import { DECREES, decreeText } from '../../data/decrees';
+import { QUESTS, QUEST_RULES, questRewardText, questText } from '../../data/quests';
 import { RUN } from '../../data/run';
 import type { CardId } from '../../data/types';
 import type { Content } from '../../game/cards/registry';
@@ -144,8 +144,8 @@ export const questOfferView = (state: RunState): QuestOfferView | null => {
   if (def === undefined) return null;
   return {
     nameVi: def.nameVi,
-    textVi: def.textVi,
-    rewardTextVi: def.rewardTextVi,
+    textVi: questText(def),
+    rewardTextVi: questRewardText(def),
     duration: def.duration,
     deadlineYear: state.year + def.duration - 1,
     fee: def.acceptGold,
@@ -218,7 +218,7 @@ export const decreeQuestLines = (state: RunState): string[] => {
     lines.push(`Sắc lệnh (${state.decrees.length})`);
     for (const id of state.decrees) {
       const def = DECREES.find((d) => d.id === id);
-      if (def) lines.push(`• ${def.nameVi}: ${def.textVi}`);
+      if (def) lines.push(`• ${def.nameVi}: ${decreeText(def)}`);
     }
   }
   const active = state.quests.filter((q) => q.status === 'active');
@@ -228,10 +228,10 @@ export const decreeQuestLines = (state: RunState): string[] => {
     for (const q of active) {
       const def = QUESTS.find((d) => d.id === q.id);
       if (!def) continue;
-      lines.push(`• ${def.nameVi} — hạn hết năm ${q.deadlineYear}`, `  ${def.textVi}`);
+      lines.push(`• ${def.nameVi} — hạn hết năm ${q.deadlineYear}`, `  ${questText(def)}`);
       const progress = questProgressText(q);
       if (progress) lines.push(`  ${progress}`);
-      lines.push(`  Thưởng: ${def.rewardTextVi}`);
+      lines.push(`  Thưởng: ${questRewardText(def)}`);
     }
   }
   return lines;

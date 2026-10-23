@@ -1,11 +1,14 @@
+import { fillTemplate } from './template';
 import type { QuestId } from './types';
 
 /** Nhiệm vụ (spec §7.2). `duration`: hạn N năm = phải xong trước khi hết năm `offeredYear + N − 1`. */
 export interface QuestDef {
   readonly id: QuestId;
   readonly nameVi: string;
+  /** Mẫu chữ có `{khoá}` lấy từ `QUEST_RULES`; đọc qua `questText`. */
   readonly textVi: string;
   readonly duration: number;
+  /** Mẫu chữ phần thưởng (cùng cách điền); đọc qua `questRewardText`. */
   readonly rewardTextVi: string;
   /** Vàng phải trả ngay khi nhận (chỉ Đặt Cược). */
   readonly acceptGold: number;
@@ -43,15 +46,15 @@ export const QUESTS: readonly QuestDef[] = [
     nameVi: 'Ngai Vô Sự',
     textVi: 'Thắng một trận mà Ngai không mất máu.',
     duration: 1,
-    rewardTextVi: '+6 vàng',
+    rewardTextVi: '+{untouchedGold} vàng',
     acceptGold: 0,
   },
   {
     id: 'quest_three_barracks',
     nameVi: 'Ba Doanh Trại',
-    textVi: 'Có ít nhất 3 công trình lính cùng lúc.',
+    textVi: 'Có ít nhất {barracks} công trình lính cùng lúc.',
     duration: 3,
-    rewardTextVi: 'Chọn 1 trong 3 thẻ hiếm',
+    rewardTextVi: 'Chọn 1 trong {rareChoices} thẻ hiếm',
     acceptGold: 0,
   },
   {
@@ -59,13 +62,13 @@ export const QUESTS: readonly QuestDef[] = [
     nameVi: 'Tiết Kiệm',
     textVi: 'Không đổi bài lần nào trong suốt hạn.',
     duration: 3,
-    rewardTextVi: '+8 vàng',
+    rewardTextVi: '+{noRerollGold} vàng',
     acceptGold: 0,
   },
   {
     id: 'quest_slaughter',
     nameVi: 'Đại Thắng',
-    textVi: 'Hạ ít nhất 100 địch trong một trận.',
+    textVi: 'Hạ ít nhất {kills} địch trong một trận.',
     duration: 3,
     rewardTextVi: '+1 thẻ Thăng Cấp vào bộ bài',
     acceptGold: 0,
@@ -73,23 +76,23 @@ export const QUESTS: readonly QuestDef[] = [
   {
     id: 'quest_double_rune',
     nameVi: 'Bùa Chồng Bùa',
-    textVi: 'Một công trình có tổng ít nhất 2 stack Bùa.',
+    textVi: 'Một công trình có tổng ít nhất {stacks} stack Bùa.',
     duration: 2,
-    rewardTextVi: 'Công trình đó +1 stack Bùa gắn đầu tiên (hết chỗ thì +4 vàng)',
+    rewardTextVi: 'Công trình đó +1 stack Bùa gắn đầu tiên (hết chỗ thì +{doubleRuneFullGold} vàng)',
     acceptGold: 0,
   },
   {
     id: 'quest_land_grab',
     nameVi: 'Khai Phá',
-    textVi: 'Mở thêm 2 ô (bằng mọi cách) trong hạn.',
+    textVi: 'Mở thêm {opened} ô (bằng mọi cách) trong hạn.',
     duration: 3,
-    rewardTextVi: '+10 vàng',
+    rewardTextVi: '+{landGrabGold} vàng',
     acceptGold: 0,
   },
   {
     id: 'quest_master_builder',
     nameVi: 'Thợ Cả',
-    textVi: 'Có công trình cấp 4 trở lên.',
+    textVi: 'Có công trình cấp {level} trở lên.',
     duration: 4,
     rewardTextVi: '+1 cấp cho công trình cấp thấp nhất (không phải Ngai)',
     acceptGold: 0,
@@ -97,17 +100,17 @@ export const QUESTS: readonly QuestDef[] = [
   {
     id: 'quest_blitz',
     nameVi: 'Chớp Nhoáng',
-    textVi: 'Thắng một trận trong không quá 300 tick.',
+    textVi: 'Thắng một trận trong không quá {blitzTicks} tick.',
     duration: 2,
-    rewardTextVi: '+5 vàng',
+    rewardTextVi: '+{blitzGold} vàng',
     acceptGold: 0,
   },
   {
     id: 'quest_hoard',
     nameVi: 'Kho Đầy',
-    textVi: 'Kết thúc một năm với ít nhất 20 vàng.',
+    textVi: 'Kết thúc một năm với ít nhất {hoardGold} vàng.',
     duration: 3,
-    rewardTextVi: '+5 vàng',
+    rewardTextVi: '+{hoardReward} vàng',
     acceptGold: 0,
   },
   {
@@ -115,7 +118,7 @@ export const QUESTS: readonly QuestDef[] = [
     nameVi: 'Tự Lực',
     textVi: 'Thắng một trận mà không dùng Can Thiệp.',
     duration: 2,
-    rewardTextVi: 'Can Thiệp +20% sát thương vĩnh viễn',
+    rewardTextVi: 'Can Thiệp +{noHelpDmgPct}% sát thương vĩnh viễn',
     acceptGold: 0,
   },
   {
@@ -123,7 +126,7 @@ export const QUESTS: readonly QuestDef[] = [
     nameVi: 'Lễ Vật',
     textVi: 'Chơi một thẻ hiến tế.',
     duration: 3,
-    rewardTextVi: '+4 vàng, thêm +1 vàng mỗi cấp của công trình bị hiến',
+    rewardTextVi: '+{offeringBase} vàng, thêm +1 vàng mỗi cấp của công trình bị hiến',
     acceptGold: 0,
   },
   {
@@ -131,15 +134,23 @@ export const QUESTS: readonly QuestDef[] = [
     nameVi: 'Trăm Nghề',
     textVi: 'Có cùng lúc đủ 4 loại công trình: lính, tháp, kinh tế, hỗ trợ.',
     duration: 3,
-    rewardTextVi: '+1 mạng (đủ mạng thì +8 vàng)',
+    rewardTextVi: '+1 mạng (đủ mạng thì +{diversityGold} vàng)',
     acceptGold: 0,
   },
   {
     id: 'quest_wager',
     nameVi: 'Đặt Cược',
-    textVi: 'Trả 5 vàng khi nhận; thắng 2 trận liên tiếp ngay sau đó.',
+    textVi: 'Trả {wagerFee} vàng khi nhận; thắng {wagerWins} trận liên tiếp ngay sau đó.',
     duration: 2,
-    rewardTextVi: '+15 vàng',
-    acceptGold: 5,
+    rewardTextVi: '+{wagerGold} vàng',
+    acceptGold: QUEST_RULES.wagerFee,
   },
 ];
+
+/** Chữ người chơi của một nhiệm vụ (điều kiện), số lấy từ `QUEST_RULES`. */
+export const questText = (def: QuestDef, rules: Readonly<Record<string, unknown>> = QUEST_RULES): string =>
+  fillTemplate(def.textVi, rules);
+
+/** Chữ phần thưởng của một nhiệm vụ, số lấy từ `QUEST_RULES`. */
+export const questRewardText = (def: QuestDef, rules: Readonly<Record<string, unknown>> = QUEST_RULES): string =>
+  fillTemplate(def.rewardTextVi, rules);

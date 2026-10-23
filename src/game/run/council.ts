@@ -4,7 +4,7 @@
  * áp một lần ở `enactDecree`. Thuần, không sửa đầu vào.
  */
 import { Rng } from '../../core/random';
-import { DECREES } from '../../data/decrees';
+import { DECREES, DECREE_RULES } from '../../data/decrees';
 import { RUN } from '../../data/run';
 import type { CardId } from '../../data/types';
 import type { Content } from '../cards/registry';
@@ -16,11 +16,12 @@ import type { CouncilSelection, IllegalReason, OfferState, PlotState, RunState }
 type CouncilOffer = Extract<OfferState, { kind: 'council' }>;
 
 const PLOTS = 25;
-const PICKS = 3;
-const MAX_EXPAND = 2;
-export const MAX_PURGE = 2;
-const TREASURY_GOLD = 15;
-const AMNESTY_GOLD = 10;
+const PICKS = DECREE_RULES.choices;
+const MAX_EXPAND = DECREE_RULES.expand;
+/** Giữ tên cũ cho các nơi đã import. */
+export const MAX_PURGE = DECREE_RULES.purge;
+const TREASURY_GOLD = DECREE_RULES.treasuryGold;
+const AMNESTY_GOLD = DECREE_RULES.amnestyGold;
 
 const emptySelection = (): CouncilSelection => ({ plots: [], cardId: null, deckIndices: [] });
 

@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import type { EventBus } from '../../core/events';
-import { DECREES } from '../../data/decrees';
+import { DECREES, decreeText } from '../../data/decrees';
 import { UI_PALETTE } from '../../data/uiPalette';
 import { CONTENT } from '../../game/cards/registry';
 import type { GameEvents } from '../../game/events';
@@ -127,7 +127,7 @@ export class CouncilModal {
       const textX = r.x + 10 + 32 + 8;
       const wrap = Math.max(40, r.w - (textX - r.x) - 10);
       view.name.setText(def?.nameVi ?? id).setPosition(textX, r.y + 8).setWordWrapWidth(wrap);
-      view.text.setText(def?.textVi ?? '').setPosition(textX, r.y + 8 + view.name.height + 2).setWordWrapWidth(wrap);
+      view.text.setText(def ? decreeText(def) : '').setPosition(textX, r.y + 8 + view.name.height + 2).setWordWrapWidth(wrap);
     });
     this.enact.container.setPosition(l.enact.x + l.enact.w / 2, l.enact.y + l.enact.h / 2);
     this.enact.setEnabled(canEnact(this.state, CONTENT));
@@ -191,7 +191,7 @@ export class CouncilModal {
     }
     const def = DECREES.find((d) => d.id === offer.selected);
     if (sub === null) {
-      this.header(a, def ? `${def.nameVi}: ${def.textVi}` : '');
+      this.header(a, def ? `${def.nameVi}: ${decreeText(def)}` : '');
       return;
     }
     const body = { x: a.x, y: a.y + HEADER_H + 4, w: a.w, h: a.h - HEADER_H - 4 };
