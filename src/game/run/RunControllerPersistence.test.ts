@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RULES_G1 } from '../../data/rules';
 import type { BattleSetup } from '../battle/types';
 import { CONTENT } from '../cards/registry';
@@ -203,5 +203,25 @@ describe('RunController without persistence', () => {
     bus.emit('ui:command', { command: { type: 'discard', handIndex: 0 } });
     expect(controller.state.phase).toBe('battle');
     expect(controller.runner).not.toBeNull();
+  });
+});
+
+describe('a throwing listener', () => {
+  it('does not stop later commands from being applied and saved', async () => {
+    const p = new FakePersistence();
+    const { bus, controller } = setup(manual(), p);
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const off = bus.on('run:state', () => {
+      throw new Error('hud blew up');
+    });
+    cmd(bus, { type: 'discard', handIndex: 0 });
+    await controller.whenIdle();
+    off();
+    cmd(bus, { type: 'setAutoFire', on: true });
+    await controller.whenIdle();
+    expect(controller.state.autoFire).toBe(true);
+    expect(p.writes.at(-1)!.autoFire).toBe(true);
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 });

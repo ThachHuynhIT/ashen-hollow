@@ -25,6 +25,7 @@ const PAD_DESKTOP = 12;
 const PAD_MOBILE = 4;
 const HEADER_H = 24;
 const CELL = 44;
+const MIN_CELL = 36;
 const CELL_GAP = 2;
 const CHIP_H = 44;
 const CHIP_GAP = 4;
@@ -205,10 +206,11 @@ export class CouncilModal {
       return;
     }
     this.header(a, `Chọn ${sub.limit} ô khoá để mở (${sub.picked.length}/${sub.limit})`);
-    const side = 5 * CELL + 4 * CELL_GAP;
+    const side0 = Math.max(MIN_CELL, Math.min(CELL, Math.floor((body.h - 4 * CELL_GAP) / 5)));
+    const side = 5 * side0 + 4 * CELL_GAP;
     const x0 = Math.round(body.x + (body.w - side) / 2);
     for (let plot = 0; plot < 25; plot++) {
-      const r = { x: x0 + (plot % 5) * (CELL + CELL_GAP), y: body.y + Math.floor(plot / 5) * (CELL + CELL_GAP), w: CELL, h: CELL };
+      const r = { x: x0 + (plot % 5) * (side0 + CELL_GAP), y: body.y + Math.floor(plot / 5) * (side0 + CELL_GAP), w: side0, h: side0 };
       const state = this.state.plots[plot]!;
       const picked = sub.picked.includes(plot);
       const eligible = sub.eligible.includes(plot);

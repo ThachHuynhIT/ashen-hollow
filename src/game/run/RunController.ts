@@ -96,7 +96,10 @@ export class RunController {
       this.process(command);
       return;
     }
-    this.queue = this.queue.then(() => this.process(command));
+    // A handler that throws must not poison the queue: log it and carry on with the next command.
+    this.queue = this.queue.then(() => this.process(command)).catch((e: unknown) => {
+      console.error('RunController: command failed', command.type, e);
+    });
   }
 
   /** Áp dụng một lệnh; có `persistence` thì lưu xong mới phát `run:state` / bắt đầu trận. */

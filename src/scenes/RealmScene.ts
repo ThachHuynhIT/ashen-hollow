@@ -70,6 +70,8 @@ export class RealmScene extends Phaser.Scene {
   private resumedAtYearEnd = false;
   /** "advance" was sent and its answer (the next year's first step) is still to come. */
   private awaitingAdvance = false;
+  /** The battle HUD (and its summary with Tiếp tục) is the screen in charge until the planning HUD comes back. */
+  private battleHudUp = false;
   private readonly onResize = (): void => this.placeCamera();
   /** The running planning ↔ battle camera ease, if any. */
   private cameraEase: Phaser.Tweens.Tween | null = null;
@@ -88,6 +90,7 @@ export class RealmScene extends Phaser.Scene {
     this.kicked = false;
     this.resumedAtYearEnd = false;
     this.awaitingAdvance = false;
+    this.battleHudUp = false;
     this.cameraEase = null;
     this.down = null;
     const resume = data !== undefined && 'resume' in data ? data.resume : null;
@@ -128,10 +131,10 @@ export class RealmScene extends Phaser.Scene {
     // Only a new run replaces the saved one; resuming never rewrites it.
     if (resume === null) void this.controller.checkpointInitial();
     // A save that fails mid-run is told once, through the toast stack of whichever HUD is up.
-    this.registry.events.on(WARNING_EVENT, this.onStorageWarning, this);
+    this.game.events.on(WARNING_EVENT, this.onStorageWarning, this);
   }
 
-  private readonly onStorageWarning = (_parent: unknown, text: unknown): void => {
+  private readonly onStorageWarning = (text: unknown): void => {
     if (typeof text !== 'string') return;
     this.registry.remove(STORAGE_WARNING_KEY);
     this.bus.emit('log', { text });
@@ -165,6 +168,13 @@ export class RealmScene extends Phaser.Scene {
     if (this.awaitingAdvance && state.phase !== 'yearEnd') {
       this.awaitingAdvance = false;
       this.continueFlow();
+      return;
+    }
+    // A year ended or the run finished while a card / decree / quest modal was closing (no battle summary
+    // is waiting for its Tiếp tục): go on by ourselves.
+    if (!this.battleHudUp) {
+      if (state.phase === 'yearEnd') this.bus.emit('ui:command', { command: { type: 'advance' } });
+      else if (state.phase === 'ended') this.continueFlow();
     }
   }
 
@@ -188,6 +198,7 @@ export class RealmScene extends Phaser.Scene {
   }
 
   private onBattleStarted(): void {
+    this.battleHudUp = true;
     this.inBattle = true;
     this.setPending(null);
     this.setPendingBuy(null);
@@ -218,6 +229,7 @@ export class RealmScene extends Phaser.Scene {
   }
 
   private relaunchPlanningHud(): void {
+    this.battleHudUp = false;
     this.scene.stop(SCENES.battleHud);
     const hud: RealmHudData = { bus: this.bus, controller: this.controller };
     this.scene.launch(SCENES.planningHud, hud);
@@ -409,7 +421,7 @@ export class RealmScene extends Phaser.Scene {
   private teardown(): void {
     this.cameraEase?.stop();
     this.cameraEase = null;
-    this.registry.events.off(WARNING_EVENT, this.onStorageWarning, this);
+    this.game.events.off(WARNING_EVENT, this.onStorageWarning, this);
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);

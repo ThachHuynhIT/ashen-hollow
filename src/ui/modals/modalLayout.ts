@@ -91,9 +91,19 @@ export const councilLayout = (screen: Size, inset: number): CouncilLayout => {
   const desktop = isDesktop(screen.w);
   const spec = desktop ? COUNCIL_DESK : COUNCIL_PHONE;
   const inner = desktop ? 3 * spec.choice.w + 2 * spec.gap : spec.choice.w;
-  const stack = desktop ? spec.choice.h : 3 * spec.choice.h + 2 * spec.gap;
   const w = inner + 2 * inset;
-  const h = inset + COUNCIL_TITLE_H + GAP_ABOVE_CARDS + stack + GAP_ABOVE_CARDS + spec.area + GAP_ABOVE_CARDS + COUNCIL_BUTTON.h + inset;
+  const fixed = 2 * inset + COUNCIL_TITLE_H + 3 * GAP_ABOVE_CARDS + COUNCIL_BUTTON.h;
+  const room = screen.h - 2 * MARGIN - fixed; // what the choices and the detail area may share
+  // A short screen first squeezes the phone's stacked decree cards (down to 64), then the detail area.
+  let choiceH: number = spec.choice.h;
+  let areaH: number = spec.area;
+  const stackOf = (ch: number): number => (desktop ? ch : 3 * ch + 2 * spec.gap);
+  if (stackOf(choiceH) + areaH > room) {
+    if (!desktop) choiceH = Math.max(64, Math.min(choiceH, Math.floor((room - areaH - 2 * spec.gap) / 3)));
+    if (stackOf(choiceH) + areaH > room) areaH = Math.max(200, room - stackOf(choiceH));
+  }
+  const stack = stackOf(choiceH);
+  const h = fixed + stack + areaH;
   const panel = centredPanel(screen, w, h);
   const innerW = panel.w - 2 * inset;
   const title = { x: panel.x + inset, y: panel.y + inset, w: innerW, h: COUNCIL_TITLE_H };
@@ -105,15 +115,15 @@ export const councilLayout = (screen: Size, inset: number): CouncilLayout => {
   const x0 = Math.round(panel.x + (panel.w - used) / 2);
   const choices = Array.from({ length: 3 }, (_, i) => ({
     x: desktop ? x0 + i * (choiceW + spec.gap) : x0,
-    y: desktop ? y0 : y0 + i * (spec.choice.h + spec.gap),
+    y: desktop ? y0 : y0 + i * (choiceH + spec.gap),
     w: choiceW,
-    h: spec.choice.h,
+    h: choiceH,
   }));
   const areaY = y0 + stack + GAP_ABOVE_CARDS;
-  const area = { x: panel.x + inset, y: areaY, w: innerW, h: spec.area };
+  const area = { x: panel.x + inset, y: areaY, w: innerW, h: areaH };
   const enact = {
     x: Math.round(panel.x + (panel.w - COUNCIL_BUTTON.w) / 2),
-    y: areaY + spec.area + GAP_ABOVE_CARDS,
+    y: areaY + areaH + GAP_ABOVE_CARDS,
     w: COUNCIL_BUTTON.w,
     h: COUNCIL_BUTTON.h,
   };

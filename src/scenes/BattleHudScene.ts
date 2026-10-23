@@ -670,7 +670,7 @@ export class BattleHudScene extends Phaser.Scene {
       lives: state.lives,
       time: tickClock(result.ticks),
       goldGain: Math.max(0, state.gold - this.goldAtStart),
-      conquered: state.pendingConquest === null ? null : CONTENT.king(state.pendingConquest).nameVi,
+      conquered: state.pendingConquest === null ? null : CONTENT.enemyKing(state.pendingConquest).nameVi,
     }).map((line) => addUiText(this, 0, 0, line, 18).setOrigin(0.5).setDepth(MODAL_DEPTH));
     const next = createButton(this, 0, 0, 'Tiếp tục', {
       width: RESULT_BUTTON.w,

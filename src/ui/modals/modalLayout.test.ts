@@ -303,3 +303,18 @@ describe('calendarModalLayout for 30 years', () => {
     });
   }
 });
+
+describe('councilLayout on short phones', () => {
+  for (const screen of [{ w: 375, h: 667 }, { w: 390, h: 664 }, { w: 375, h: 635 }] as Size[]) {
+    it(`keeps Ban hành and the detail area on screen (${screen.w}×${screen.h})`, () => {
+      const inset = 9;
+      const l = councilLayout(screen, inset);
+      for (const r of [l.panel, l.area, l.enact, ...l.choices]) expect(inside(screen, r), JSON.stringify(r)).toBe(true);
+      expect(contains(l.panel, l.enact)).toBe(true);
+      const parts = [l.title, ...l.choices, l.area, l.enact];
+      for (let i = 0; i < parts.length; i++)
+        for (let j = i + 1; j < parts.length; j++) expect(overlaps(parts[i]!, parts[j]!), `${i}/${j}`).toBe(false);
+      for (const c of l.choices) expect(c.h).toBeGreaterThanOrEqual(60);
+    });
+  }
+});

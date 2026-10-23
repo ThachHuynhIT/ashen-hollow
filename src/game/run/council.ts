@@ -199,9 +199,10 @@ export function enactDecree(state: RunState, content: Content): RunState | Illeg
   if (offer === null) return 'wrongPhase';
   if (offer.selected === null) return 'badTarget';
   const def = decree(offer.selected);
-  if (!councilComplete(state, def.action, offer.selection, content)) return 'badTarget';
+  const clean = validate(state, def.action, offer.selection, content);
+  if (clean === null || !councilComplete(state, def.action, clean, content)) return 'badTarget';
   const next = structuredClone(state);
-  apply(next, def.action, offer.selection);
+  apply(next, def.action, clean);
   next.decrees.push(def.id);
   return closeOffer(next);
 }
