@@ -41,4 +41,5 @@ const game = new Phaser.Game({
 
 if (import.meta.env.DEV) {
   (window as unknown as { game: Phaser.Game }).game = game;
+  void import('./dev/registerPreview').then((m) => m.registerPreview(game));
 }

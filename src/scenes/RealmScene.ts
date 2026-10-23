@@ -7,6 +7,7 @@ import { CONTENT } from '../game/cards/registry';
 import { createGameBus, type GameEvents } from '../game/events';
 import { RunController } from '../game/run/RunController';
 import { checkTargetStep, targetCount } from '../game/run/board';
+import type { SessionPersistence } from '../game/save/types';
 import type { PlayTarget, RunState } from '../game/run/state';
 import { RULES_FULL } from '../data/rules';
 import type { KingId } from '../data/types';
@@ -32,7 +33,11 @@ import type { RunEndData } from './RunEndScene';
  */
 type RangeTarget = GameEvents['ui:range-selection']['target'];
 
-export type RealmData = { seed: number; kingId: KingId } | { resume: RunState };
+export type RealmData =
+  | { seed: number; kingId: KingId }
+  | { resume: RunState }
+  /** DEV sample run (`src/dev`): its own state and in-memory persistence; ignored in production builds. */
+  | { preview: { state: RunState; persistence: SessionPersistence } };
 
 /** Launch data of the HUD scenes layered over the realm. */
 export interface RealmHudData {
@@ -104,15 +109,21 @@ export class RealmScene extends Phaser.Scene {
     this.rangeSelected = null;
     this.rangeHover = null;
     this.down = null;
+    const preview = import.meta.env.DEV && data !== undefined && 'preview' in data ? data.preview : null;
     const resume = data !== undefined && 'resume' in data ? data.resume : null;
     const fresh = data !== undefined && 'seed' in data ? data : { seed: 1, kingId: 'wheat' as KingId };
-    const initial = resume ?? newRun(fresh.seed, fresh.kingId, CONTENT, RULES_FULL);
+    const initial = preview?.state ?? resume ?? newRun(fresh.seed, fresh.kingId, CONTENT, RULES_FULL);
     const seed = initial.seed;
     this.resumedAtYearEnd = resume?.phase === 'yearEnd';
 
     buildSpritesTexture(this.textures, CONTENT); // no-op once PreloadScene built it
     this.bus = createGameBus();
-    this.controller = new RunController(this.bus, CONTENT, initial, getSession(this)?.persistence);
+    this.controller = new RunController(
+      this.bus,
+      CONTENT,
+      initial,
+      preview ? preview.persistence : getSession(this)?.persistence,
+    );
     this.cameras.main.setBackgroundColor(PALETTE.grass);
     this.field = new FieldRenderer(this, seed);
     this.board = new BoardRenderer(this, CONTENT);
