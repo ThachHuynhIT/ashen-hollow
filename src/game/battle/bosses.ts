@@ -3,7 +3,7 @@
  * địch (cờ `boss` miễn đẩy/kéo, không tính vào trần địch). Kỹ năng chạy theo TUỔI boss `tick − bossSpawnTick`
  * (nên Ném Bùn đầu tiên ở tick 200, Đàn Ong ở 170…), nguồn theo id tăng dần, không dùng Rng.
  */
-import { BATTLE } from '../../data/battle';
+import { BATTLE, STATUS } from '../../data/battle';
 import { BOSS_RULES } from '../../data/bosses';
 import {
   DMG_PHYSICAL,
@@ -106,6 +106,54 @@ function updateLanding(world: BattleWorld, boss: number, age: number): void {
   world.flying[boss] = landed ? 0 : 1;
 }
 
+/**
+ * Pha của Vua Không Ngai theo HP (so sánh số nguyên `hp × 100` với `maxHp × %`, không làm tròn %):
+ * `mirror` khi HP > 66%, `shield` từ 33% tới 66% (kể cả đúng 66% và đúng 33%), `rage` dưới 33%.
+ * `null` nếu không phải boss 3 hoặc boss chưa xuất hiện / đã chết.
+ */
+export function bossPhase(world: BattleWorld): 'mirror' | 'shield' | 'rage' | null {
+  const id = world.bossId;
+  if (world.setup.boss?.ordinal !== 3 || id < 0 || world.alive[id] === 0) return null;
+  const hp100 = world.hp[id]! * 100;
+  const max = world.maxHp[id]!;
+  const rules = BOSS_RULES.crownless;
+  if (hp100 > rules.mirrorAbovePct * max) return 'mirror';
+  if (hp100 >= rules.shieldAbovePct * max) return 'shield';
+  return 'rage';
+}
+
+/** Vua Không Ngai: Bóng Gương, Khiên Ngai Vỡ và Cuồng Vương theo pha HP. */
+function crownless(world: BattleWorld, boss: number, age: number): void {
+  const rules = BOSS_RULES.crownless;
+  const setup = world.setup.boss!;
+  const phase = bossPhase(world);
+  if (phase === 'mirror' && age > 0 && age % rules.mirrorEveryTicks === 0 && setup.mirror !== null) {
+    spawnBossSummons(world, setup.mirror.stats, setup.mirror.count);
+  }
+  if (phase === 'shield') {
+    if (!world.bossShieldGranted) {
+      // Khiên nhận một lần khi vào pha giữa.
+      world.bossShieldGranted = true;
+      world.shield[boss] = rules.shield;
+      world.bossShieldDeadline = world.tick + rules.shieldWindowTicks;
+    } else if (!world.bossShieldBroken) {
+      if (world.shield[boss]! <= 0) world.bossShieldBroken = true; // phá hết trước hạn: không hồi nữa
+      else if (world.tick >= world.bossShieldDeadline) {
+        world.shield[boss] = rules.shield; // không phá được trong 100 tick: hồi đầy, lặp lại
+        world.bossShieldDeadline = world.tick + rules.shieldWindowTicks;
+      }
+    }
+  } else if (world.bossShieldGranted && world.shield[boss]! > 0) {
+    world.shield[boss] = 0; // rời pha giữa: khiên của pha cũ bị xoá, không hồi
+  }
+  // Cuồng Vương: tính lại từ chỉ số gốc mỗi tick nên không nhân chồng.
+  const rage = phase === 'rage';
+  world.speed[boss] = world.baseSpeed[boss]! * (rage ? 1 + rules.rageSpeedPct / 100 : 1);
+  world.interval[boss] = rage
+    ? Math.max(world.baseInterval[boss]! / (1 + rules.rageAttackSpeedPct / 100), world.baseInterval[boss]! * STATUS.minIntervalFactor)
+    : world.baseInterval[boss]!;
+}
+
 /** Bước 3 (hook `onBattleTick`): kỹ năng của boss đã xuất hiện, theo tuổi boss. */
 export function tickBosses(world: BattleWorld): void {
   const boss = world.bossId;
@@ -115,6 +163,8 @@ export function tickBosses(world: BattleWorld): void {
   afterBossDamage(world, boss);
   if (setup.ordinal === 1) {
     if (age > 0 && age % BOSS_RULES.bog.mudEveryTicks === 0) mudThrow(world, boss);
+  } else if (setup.ordinal === 3) {
+    crownless(world, boss, age);
   } else if (setup.ordinal === 2) {
     updateLanding(world, boss, age);
     if (age > 0 && age % BOSS_RULES.hornet.swarmEveryTicks === 0) {

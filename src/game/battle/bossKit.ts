@@ -28,6 +28,7 @@ export const bossWorld = (
   structures: readonly StructureSetup[] = [],
   at: { x: number; y: number } = { x: 100, y: 192 },
   boss: BossSetup = realBoss(ordinal),
+  over: Partial<BattleSetup> = {},
 ): BattleWorld => {
   const w = createBattle(
     battleSetup({
@@ -35,6 +36,7 @@ export const bossWorld = (
       structures,
       boss,
       waves: [{ spawnTick: 0, spawns: [] }],
+      ...over,
     }),
   );
   w.tick = boss.spawnTick;

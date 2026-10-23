@@ -185,6 +185,8 @@ export const hashWorld = (world: BattleWorld): number => {
   h = mixNum(h, world.bossSummonSeq);
   h = mixWord(h, (world.bossFrogsCalled ? 1 : 0) | (world.bossLanded ? 2 : 0));
   h = mixNum(h, world.bossLandEnd);
+  h = mixWord(h, (world.bossShieldGranted ? 1 : 0) | (world.bossShieldBroken ? 2 : 0));
+  h = mixNum(h, world.bossShieldDeadline);
   h = mixNum(h, world.undyingLeft);
   h = mixNum(h, world.regenPct);
   h = mixNum(h, world.bannerRampPps);

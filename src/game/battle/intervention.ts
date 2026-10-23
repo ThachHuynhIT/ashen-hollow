@@ -5,6 +5,7 @@
  * mình. Không dùng Rng; địch duyệt theo id tăng dần, tảng đá theo thứ tự thả.
  */
 import { BATTLE, INTERVENTION } from '../../data/battle';
+import { BOSS_RULES } from '../../data/bosses';
 import { queueDamage } from './combat';
 import type { AutoFireInput, BattleInput } from './types';
 import { DMG_MAGIC, KIND_UNIT, TEAM_FOE, type BattleWorld, type Boulder } from './world';
@@ -102,7 +103,7 @@ export const autoFirePhase = (world: BattleWorld): void => {
 
 const impact = (world: BattleWorld, bx: number, by: number): void => {
   world.events.push({ type: 'boulder', phase: 'impact', x: bx, y: by });
-  const dmg = (boulderDamage(world.setup.year) * (100 + world.boulderDmgPct)) / 100;
+  const base = (boulderDamage(world.setup.year) * (100 + world.boulderDmgPct)) / 100;
   const r2 = world.boulderRadius * world.boulderRadius;
   const perTick = INTERVENTION.knockback / BATTLE.knockbackTicks;
   for (let i = 0; i < world.count; i++) {
@@ -119,7 +120,10 @@ const impact = (world: BattleWorld, bx: number, by: number): void => {
       dx /= d;
       dy /= d;
     }
+    // Vua Không Ngai nhận ×3 (chỉ nó, không nhân cả vùng nổ); mọi boss miễn đẩy lùi.
+    const dmg = world.setup.boss?.ordinal === 3 && i === world.bossId ? base * BOSS_RULES.crownless.boulderMult : base;
     queueDamage(world, i, dmg, DMG_MAGIC, BOULDER_SOURCE, undefined, BOULDER_SOURCE);
+    if (world.boss[i] === 1) continue;
     world.kbX[i] = dx * perTick;
     world.kbY[i] = dy * perTick;
     world.kbTicks[i] = BATTLE.knockbackTicks;

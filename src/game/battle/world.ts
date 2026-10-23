@@ -238,6 +238,10 @@ export class BattleWorld {
   bossSummonsAlive = 0;
   bossSummonSeq = 0;
   /** Gọi Ếch đã dùng chưa; Hạ Cánh đang diễn ra và tick kết thúc. */
+  /** Khiên Ngai Vỡ: đã cấp chưa, đã bị phá hết chưa, tick kiểm tra hồi đầy kế tiếp. */
+  bossShieldGranted = false;
+  bossShieldBroken = false;
+  bossShieldDeadline = -1;
   bossFrogsCalled = false;
   bossLanded = false;
   bossLandEnd = -1;
