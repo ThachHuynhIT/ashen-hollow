@@ -2,6 +2,7 @@
 import type { BannerDef, CardDef, CardId, KingDef, KingId, UnitDef } from '../../data/types';
 import { enemyFromKing } from '../../data/kings';
 import { CONTENT, type Content } from '../cards/registry';
+import { RULES_FULL } from '../../data/rules';
 import { newRun } from '../run/yearFlow';
 import type { RunState } from '../run/state';
 import type { AttackStats, BattleSetup, StructureSetup, UnitStats } from '../battle/types';
@@ -230,3 +231,6 @@ export const withBuilding = (
       : p,
   ),
 });
+
+/** Test only: a fresh full-rules run (30 years, 30-year calendar, council, quests, bosses). */
+export const fullRunFixture = (seed: number, kingId: KingId): RunState => newRun(seed, kingId, CONTENT, RULES_FULL);
