@@ -205,20 +205,19 @@ export interface CalendarModalLayout {
   panel: Rect;
   title: Rect;
   close: Rect;
-  /** The 15 years, row-major in 5 columns. */
+  /** Every year, row-major (5 columns up to 15 years, 6 beyond). */
   cells: readonly Rect[];
 }
 
-const CAL_COLS = 5;
-const CAL_ROWS = 3;
-
-/** Whole-run calendar (§10.4 "L"): 15 years in a 5×3 grid under a title with a ✕. */
-export const calendarModalLayout = (screen: Size, inset: number): CalendarModalLayout => {
+/** Whole-run calendar (§10.4 "L"): one cell per year, 5 columns for up to 15 years, 6 beyond. */
+export const calendarModalLayout = (screen: Size, inset: number, years = 15): CalendarModalLayout => {
   const desktop = isDesktop(screen.w);
-  const cell = desktop ? 72 : 56;
-  const gap = desktop ? 8 : 6;
-  const gridW = CAL_COLS * cell + (CAL_COLS - 1) * gap;
-  const gridH = CAL_ROWS * cell + (CAL_ROWS - 1) * gap;
+  const cols = years > 15 ? 6 : 5;
+  const rows = Math.ceil(years / cols);
+  const cell = desktop ? 72 : years > 15 ? 48 : 56;
+  const gap = desktop ? 8 : 4;
+  const gridW = cols * cell + (cols - 1) * gap;
+  const gridH = rows * cell + (rows - 1) * gap;
   const w = gridW + 2 * inset;
   const h = inset + CLOSE_BUTTON + GAP_ABOVE_CARDS + gridH + inset;
   const panel = centredPanel(screen, w, h);
@@ -233,9 +232,9 @@ export const calendarModalLayout = (screen: Size, inset: number): CalendarModalL
   };
   const y0 = panel.y + inset + CLOSE_BUTTON + GAP_ABOVE_CARDS;
   const x0 = Math.round(panel.x + (panel.w - gridW) / 2);
-  const cells = Array.from({ length: CAL_COLS * CAL_ROWS }, (_, i) => ({
-    x: x0 + (i % CAL_COLS) * (cell + gap),
-    y: y0 + Math.floor(i / CAL_COLS) * (cell + gap),
+  const cells = Array.from({ length: years }, (_, i) => ({
+    x: x0 + (i % cols) * (cell + gap),
+    y: y0 + Math.floor(i / cols) * (cell + gap),
     w: cell,
     h: cell,
   }));

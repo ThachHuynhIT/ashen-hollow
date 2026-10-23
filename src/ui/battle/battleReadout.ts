@@ -1,4 +1,6 @@
 import { INTERVENTION } from '../../data/battle';
+import { BOSSES } from '../../data/bosses';
+import { bossPhase } from '../../game/battle/bosses';
 import { TICKS_PER_SECOND } from '../../core/SimClock';
 import { KIND_UNIT, TEAM_FOE, type BattleWorld } from '../../game/battle/world';
 
@@ -69,3 +71,38 @@ export const summaryLines = (s: SummaryInput): string[] => [
   ...(s.goldGain > 0 ? [`Vàng nhận: +${s.goldGain}`] : []),
   ...(s.conquered !== null ? [`Đã chinh phục ${s.conquered}!`] : []),
 ];
+
+export interface BossReadout {
+  nameVi: string;
+  hp: number;
+  maxHp: number;
+  /** The skill phase now, in Vietnamese (e.g. "Cuồng Vương"). */
+  phase: string;
+}
+
+/**
+ * The boss bar of the battle HUD: name, current / max HP and which skill phase it is in. `null`
+ * until the boss has appeared and again once it is dead.
+ */
+export const bossReadout = (world: BattleWorld): BossReadout | null => {
+  const setup = world.setup.boss;
+  const id = world.bossId;
+  if (setup === undefined || id < 0 || world.alive[id] === 0) return null;
+  const def = BOSSES.find((b) => b.id === setup.id);
+  const phase =
+    setup.ordinal === 1
+      ? world.bossFrogsCalled
+        ? 'Ếch tràn ra'
+        : 'Ném Bùn'
+      : setup.ordinal === 2
+        ? world.bossLanded
+          ? 'Hạ Cánh'
+          : 'Đàn Ong'
+        : { mirror: 'Bóng Gương', shield: 'Khiên Ngai Vỡ', rage: 'Cuồng Vương', none: 'Vua Không Ngai' }[bossPhase(world) ?? 'none'];
+  return {
+    nameVi: def?.unit.nameVi ?? 'Boss',
+    hp: Math.max(0, Math.ceil(world.hp[id]!)),
+    maxHp: Math.round(world.maxHp[id]!),
+    phase,
+  };
+};

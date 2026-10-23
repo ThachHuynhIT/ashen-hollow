@@ -11,7 +11,7 @@ import {
   type Button,
   type UiBox,
 } from '../ui/theme';
-import { runEndLines } from '../ui/runEndLines';
+import { runSummary } from '../ui/info/infoLines';
 import { SCENES } from './keys';
 
 export interface RunEndData {
@@ -23,8 +23,8 @@ const PAD = 16;
 
 /**
  * End of a run (§10.8, G1 subset): a big panel with the outcome, the year reached, battles
- * won/lost and enemies defeated, then **Về menu** and **Ván mới** (a fresh seed). Crown
- * points, conquered kings and unlocks arrive with G3/G4.
+ * won/lost, enemies, conquered kings and bosses defeated, then **Về menu** and **Ván mới**
+ * (a fresh seed). Crown points and unlocks arrive with G4.
  */
 export class RunEndScene extends Phaser.Scene {
   private state: RunState | null = null;
@@ -50,7 +50,7 @@ export class RunEndScene extends Phaser.Scene {
     this.title = addUiText(this, 0, 0, won ? 'Chiến thắng!' : 'Vương quốc sụp đổ', 30, won ? UI_PALETTE.text : UI_PALETTE.bad)
       .setOrigin(0.5)
       .setFontStyle('bold');
-    this.lines = (state ? runEndLines(state) : []).map((line) =>
+    this.lines = (state ? runSummary(state) : []).map((line) =>
       addUiText(this, 0, 0, line, 18).setOrigin(0.5),
     );
     this.buttons = [

@@ -1,22 +1,43 @@
 import type Phaser from 'phaser';
 import { TICKS_PER_SECOND } from '../../core/SimClock';
+import { WAVES } from '../../data/battle';
+import { bossEdge } from '../../game/run/battleSetup';
 import type { UnitId } from '../../data/types';
 import { UI_PALETTE } from '../../data/uiPalette';
 import type { ArmyPlan, ArmyWave, Edge } from '../../game/battle/types';
 import type { Content } from '../../game/cards/registry';
 import { SPRITES_KEY, unitFrame } from '../../render/atlas';
 import type { Rect } from '../hud/layout';
+import { bossName } from './CalendarStrip';
 import { addUiText, bindPress, createPanel, frameBorder, type UiBox } from '../theme';
 
 /** Display name of each attacker (§10.4 Trinh sát: "tên … của kẻ tấn công"). */
-const attackerName = (plan: ArmyPlan, content: Content): string =>
-  plan.attacker === 'raiders'
-    ? 'Thổ Phỉ'
-    : plan.attacker === 'boss'
-      ? 'Boss'
-      : plan.attacker === 'coalition'
-        ? 'Liên Quân'
-        : content.enemyKing(plan.attacker).nameVi;
+export const attackerName = (plan: ArmyPlan, content: Content): string => {
+  switch (plan.attacker) {
+    case 'raiders':
+      return 'Thổ Phỉ';
+    case 'boss':
+      return `Boss ${bossName(plan.boss)}`;
+    case 'coalition':
+      return `Liên Quân ${(plan.kings ?? []).map((k) => content.enemyKing(k).nameVi).join(' + ')}`;
+    default:
+      return content.enemyKing(plan.attacker).nameVi;
+  }
+};
+
+/** The banner line of the attacking king; raiders, coalitions and bosses carry none (never a made-up one). */
+export const attackerBanner = (plan: ArmyPlan, content: Content): string | null => {
+  if (plan.attacker === 'raiders' || plan.attacker === 'boss' || plan.attacker === 'coalition') return null;
+  const banner = content.enemyKing(plan.attacker).banner;
+  return `Cờ hiệu ${banner.nameVi}: ${banner.textVi}`;
+};
+
+/** "Boss …: xuất hiện 0:12 · ← Đông" on a boss year (it joins at the second wave's tick and edge); null otherwise. */
+export const bossLine = (plan: ArmyPlan): string | null => {
+  if (plan.attacker !== 'boss') return null;
+  const tick = WAVES.spawnTick[1];
+  return `${bossName(plan.boss)}: xuất hiện ${tickClock(tick)} · ${EDGE_TEXT[bossEdge(plan)]}`;
+};
 
 /** Edge name and an arrow pointing into the field from that edge. */
 const EDGE_TEXT: Record<Edge, string> = { N: '↓ Bắc', E: '← Đông', S: '↑ Nam', W: '→ Tây' };
@@ -38,7 +59,7 @@ export const tickClock = (tick: number): string => {
 };
 
 /** Unit counts of a wave, sorted by unit id (stable, never Map-order dependent). */
-const waveGroups = (wave: ArmyWave): { unit: UnitId; count: number }[] => {
+export const waveGroups = (wave: ArmyWave): { unit: UnitId; count: number }[] => {
   const counts: Record<string, number> = {};
   for (const s of wave.units) counts[s.unit] = (counts[s.unit] ?? 0) + 1;
   return Object.keys(counts)
@@ -46,7 +67,7 @@ const waveGroups = (wave: ArmyWave): { unit: UnitId; count: number }[] => {
     .map((unit) => ({ unit: unit as UnitId, count: counts[unit]! }));
 };
 
-const waveEdges = (wave: ArmyWave): Edge[] =>
+export const waveEdges = (wave: ArmyWave): Edge[] =>
   EDGE_ORDER.filter((e) => wave.units.some((u) => u.edge === e));
 
 /**
@@ -112,9 +133,15 @@ export class ScoutPanel {
       cy += this.text(inset, cy, 'Trinh sát', 16, true).height + LINE_GAP;
       if (plan) {
         cy += this.text(inset, cy, `${name} · Cấp ${plan.level}`, 13).height + LINE_GAP;
-        if (plan.attacker !== 'raiders' && plan.attacker !== 'boss' && plan.attacker !== 'coalition') {
-          const banner = this.content.enemyKing(plan.attacker).banner;
-          const line = this.text(inset, cy, `Cờ hiệu ${banner.nameVi}: ${banner.textVi}`, 12, false, UI_PALETTE.woodDark);
+        const boss = bossLine(plan);
+        if (boss !== null) {
+          const line = this.text(inset, cy, boss, 12, true, UI_PALETTE.bad);
+          line.setWordWrapWidth(w - 2 * inset);
+          cy += line.height + LINE_GAP;
+        }
+        const bannerText = attackerBanner(plan, this.content);
+        if (bannerText !== null) {
+          const line = this.text(inset, cy, bannerText, 12, false, UI_PALETTE.woodDark);
           line.setWordWrapWidth(w - 2 * inset);
           cy += line.height + LINE_GAP;
         }

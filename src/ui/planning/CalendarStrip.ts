@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { BOSSES } from '../../data/bosses';
 import { PALETTE } from '../../data/palette';
 import { UI_PALETTE } from '../../data/uiPalette';
 import type { Content } from '../../game/cards/registry';
@@ -14,16 +15,28 @@ import {
   type UiBox,
 } from '../theme';
 
-/** "Năm 3 — Vua Đá Núi tấn công (lần 1/3)" / "Năm 5 — Thổ Phỉ". */
+/** Display name of a boss id. */
+export const bossName = (id: string | undefined): string =>
+  BOSSES.find((b) => b.id === id)?.unit.nameVi ?? 'Boss';
+
+/**
+ * "Năm 3 — Vua Đá Núi tấn công (lần 1/3)", "Năm 5 — Thổ Phỉ", "Năm 10 — Boss Ông Kẹ Đầm Lầy"
+ * or "Năm 23 — Liên Quân A + B", then a line for the council and the quest of that year.
+ */
 export const calendarCellText = (cell: CalendarCell, content: Content): string[] => {
-  if (cell.attacker === 'raiders') return [`Năm ${cell.year}`, 'Thổ Phỉ tấn công.'];
-  if (cell.attacker === 'boss') return [`Năm ${cell.year}`, 'Boss tấn công.'];
-  if (cell.attacker === 'coalition') {
+  const head = `Năm ${cell.year}`;
+  const lines: string[] = [];
+  if (cell.attacker === 'raiders') lines.push('Thổ Phỉ tấn công.');
+  else if (cell.attacker === 'boss') lines.push(`Boss ${bossName(cell.boss)} tấn công.`);
+  else if (cell.attacker === 'coalition') {
     const names = (cell.kings ?? []).map((k) => content.enemyKing(k).nameVi).join(' + ');
-    return [`Năm ${cell.year}`, `Liên Quân ${names} tấn công.`];
+    lines.push(`Liên Quân ${names} tấn công.`);
+  } else {
+    lines.push(`${content.enemyKing(cell.attacker).nameVi} tấn công (lần ${cell.attack}/3).`);
   }
-  const name = content.enemyKing(cell.attacker).nameVi;
-  return [`Năm ${cell.year}`, `${name} tấn công (lần ${cell.attack}/3).`];
+  if (cell.council) lines.push('Sau trận: Hội Đồng Hoàng Gia.');
+  if (cell.quest) lines.push('Đầu năm: có thể có nhiệm vụ.');
+  return [head, ...lines];
 };
 
 const DOT = 4;
@@ -100,15 +113,32 @@ export class CalendarCellView {
 
     const cx = w / 2;
     const cy = h / 2 + 3;
-    if (cell.attacker === 'raiders' || cell.attacker === 'boss' || cell.attacker === 'coalition') {
+    const skull = (): void => {
       const tex = this.scene.textures;
       if (tex.exists(SPRITES_KEY) && tex.get(SPRITES_KEY).has(iconFrame('skull'))) {
         this.add(this.scene.add.image(cx, cy, SPRITES_KEY, iconFrame('skull')).setOrigin(0.5));
       }
+    };
+    this.markers(cell, w);
+    if (cell.attacker === 'raiders' || cell.attacker === 'boss') {
+      skull();
+      return;
+    }
+    const side = Math.max(14, Math.round(w * 0.3));
+    if (cell.attacker === 'coalition') {
+      // Two kings fight together: two badges side by side, each in its king's colour.
+      const kings = cell.kings ?? [];
+      const small = Math.max(10, Math.round(w * 0.22));
+      kings.forEach((id, i) => {
+        const dx = cx + (i - (kings.length - 1) / 2) * (small + 3);
+        const badge = this.scene.add
+          .rectangle(dx, cy, small, small, PALETTE[this.content.enemyKing(id).color])
+          .setStrokeStyle(2, UI_PALETTE.outline);
+        this.add(badge);
+      });
       return;
     }
     const king = this.content.enemyKing(cell.attacker);
-    const side = Math.max(14, Math.round(w * 0.3));
     const badge = this.scene.add
       .rectangle(cx, cy, side, side, PALETTE[king.color])
       .setStrokeStyle(2, UI_PALETTE.outline);
@@ -117,6 +147,22 @@ export class CalendarCellView {
     for (let i = 0; i < dots; i++) {
       const dx = cx + (i - (dots - 1) / 2) * (DOT + 3);
       this.add(this.scene.add.rectangle(dx, h - 7, DOT, DOT, UI_PALETTE.select).setStrokeStyle(1, UI_PALETTE.outline));
+    }
+  }
+
+  /** Council (crown) and quest (tome) markers in the top-right corner. */
+  private markers(cell: CalendarCell, w: number): void {
+    const tex = this.scene.textures;
+    if (!tex.exists(SPRITES_KEY)) return;
+    const atlas = tex.get(SPRITES_KEY);
+    let x = w - 3;
+    for (const [on, icon] of [
+      [cell.council, 'crown'],
+      [cell.quest, 'tome'],
+    ] as const) {
+      if (!on || !atlas.has(iconFrame(icon))) continue;
+      this.add(this.scene.add.image(x, 3, SPRITES_KEY, iconFrame(icon)).setOrigin(1, 0).setScale(0.75));
+      x -= 13;
     }
   }
 

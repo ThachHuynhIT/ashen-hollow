@@ -56,7 +56,7 @@ export class FxRenderer {
       if (e.type === 'hit') this.spark(world, e.id);
       else if (e.type === 'boulder' && e.phase === 'impact')
         this.rings.push({ x: e.x, y: e.y, start: now, radius: INTERVENTION.radius, color: PALETTE.cream });
-      else if (e.type === 'pulse') this.pulse(world, e.id, now);
+      else if (e.type === 'pulse' || e.type === 'revive') this.pulse(world, e.id, now);
       else if (e.type === 'shield') this.bubble(world, e.id);
     }
     this.syncProjectiles(world, a);

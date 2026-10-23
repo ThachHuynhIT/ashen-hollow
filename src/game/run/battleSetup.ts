@@ -350,7 +350,7 @@ const structureFor = (state: RunState, plot: number, content: Content): Structur
 };
 
 /** Mép đầu tiên của đợt 2 (nơi boss xuất hiện); nếu đợt 2 trống thì mép đầu tiên có quân, rồi `N`. */
-const bossEdge = (army: NonNullable<RunState['army']>): Edge => {
+export const bossEdge = (army: NonNullable<RunState['army']>): Edge => {
   const second = army.waves[1]?.units[0]?.edge;
   if (second !== undefined) return second;
   for (const wave of army.waves) if (wave.units[0] !== undefined) return wave.units[0].edge;

@@ -275,3 +275,31 @@ describe('questLayout', () => {
     });
   }
 });
+
+describe('calendarModalLayout for 30 years', () => {
+  for (const [name, screen, inset] of [
+    ['desktop', DESKTOP, 24],
+    ['mobile', MOBILE, 10],
+    ['900×600', TABLET, 24],
+  ] as const) {
+    it(`is a 6×5 grid whose cells stay inside the panel, apart, ≥44 px (${name})`, () => {
+      const l = calendarModalLayout(screen, inset, 30);
+      expect(contains({ x: 0, y: 0, ...screen }, l.panel)).toBe(true);
+      expect(l.cells).toHaveLength(30);
+      expect(new Set(l.cells.map((c) => c.x)).size).toBe(6);
+      expect(new Set(l.cells.map((c) => c.y)).size).toBe(5);
+      const inner = { x: l.panel.x + inset, y: l.panel.y + inset, w: l.panel.w - 2 * inset, h: l.panel.h - 2 * inset };
+      for (const r of [l.title, ...l.cells, l.close]) expect(contains(inner, r), JSON.stringify(r)).toBe(true);
+      for (const c of l.cells) {
+        expect(c.w).toBeGreaterThanOrEqual(44);
+        expect(c.h).toBeGreaterThanOrEqual(44);
+      }
+      const parts = [l.title, ...l.cells, l.close];
+      for (let i = 0; i < parts.length; i++)
+        for (let j = i + 1; j < parts.length; j++) expect(overlaps(parts[i]!, parts[j]!), `${i}/${j}`).toBe(false);
+      // Row-major: years 1..6 on the first row, year 7 starts the second.
+      expect(l.cells[0]!.y).toBe(l.cells[5]!.y);
+      expect(l.cells[6]!.y).toBeGreaterThan(l.cells[0]!.y);
+    });
+  }
+});

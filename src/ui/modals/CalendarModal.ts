@@ -75,7 +75,7 @@ export class CalendarModal {
   layout(): void {
     const { width, height } = this.scene.scale;
     const inset = frameBorder(this.scene, 'panel') + (width >= 768 ? PAD_DESKTOP : PAD_MOBILE);
-    const l = calendarModalLayout({ w: width, h: height }, inset);
+    const l = calendarModalLayout({ w: width, h: height }, inset, this.cells.length);
     fitOverlay(this.scene, this.overlay);
     this.box.resize(l.panel.w, l.panel.h);
     this.box.image.setPosition(l.panel.x, l.panel.y);
