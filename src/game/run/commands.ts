@@ -5,6 +5,7 @@ import type { CardDef, CardId, KingId } from '../../data/types';
 import { CUSTOM_TOME_HANDLERS, runAfterMove, runAfterPlay, runBattleEnd } from '../cards/custom';
 import type { Content } from '../cards/registry';
 import {
+  THRONE_PLOT,
   adjacentToUnlocked,
   attachEnchant,
   checkPlay,
@@ -211,7 +212,8 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
       state.gold = Math.max(0, state.gold + (result.goldDelta ?? 0));
       if (result.won) {
         state.stats.battlesWon += 1;
-        const prize = battleGold(state.year);
+        // Năm boss: vàng thắng trận nhân đôi (§3.3).
+        const prize = battleGold(state.year) * (state.army?.boss !== undefined ? RUN.bossGoldMult : 1);
         state.gold += prize;
         state.stats.goldEarned += prize;
       } else {
@@ -241,7 +243,18 @@ function applyBase(input: RunState, cmd: RunCommand, content: Content): CommandR
       }
 
       // Nhiệm vụ (theo thứ tự nhận); thưởng chọn thẻ đã nằm trong hàng đợi.
+      // Chỉ boss thật sự bị hạ mới tính vào thống kê (hết giờ khi boss còn sống thì không).
+      if (result.bossDefeated !== undefined) {
+        state.stats.bossesWon += 1;
+        if (!state.stats.bossesDefeated.includes(result.bossDefeated)) state.stats.bossesDefeated.push(result.bossDefeated);
+      }
       let s = settleQuests(runBattleEnd(state, result, content), result, 'afterBattle', content);
+      // §4.2, §5.5 bước 9 (sau khi kiểm nhiệm vụ): thắng boss 1 hoặc boss 2 thì Ngai +1 cấp (tối đa 5).
+      const ordinal = state.army?.bossOrdinal;
+      if (result.won && (ordinal === 1 || ordinal === 2)) {
+        s.throneLevel = Math.min(RUN.maxLevel, s.throneLevel + 1) as RunState['throneLevel'];
+        s.plots[THRONE_PLOT]!.building!.level = s.throneLevel;
+      }
       const finalYear = s.year >= s.rules.years;
       if (s.lives <= 0 || (finalYear && !full)) {
         // §3.10: hết mạng thì thua ngay; sau trận năm cuối còn mạng thì thắng ván (luật G1/G2: không thưởng).

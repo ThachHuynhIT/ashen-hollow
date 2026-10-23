@@ -72,6 +72,8 @@ export interface BattleResult {
   inputs: BattleCommand[];
   /** Vàng thu/chi trong trận (cướp biển, hiến vàng…); mặc định 0, áp trước vàng thắng trận (§5.5). */
   goldDelta?: number;
+  /** Boss đã chết thật trong trận (kể cả khi Ngai gục cùng lúc); vắng khi không có boss hoặc boss còn sống. */
+  bossDefeated?: BossId;
 }
 
 /** Chỉ số đòn đánh đã giải (cấp, bùa…) dùng trong trận. */

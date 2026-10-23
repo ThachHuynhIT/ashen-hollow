@@ -99,6 +99,9 @@ export const battleResult = (world: BattleWorld): BattleResult | null => {
     capped: world.capped,
     inputs: world.inputs.map((i) => ({ ...i })),
     ...(world.goldDelta !== 0 ? { goldDelta: world.goldDelta } : {}),
+    ...(world.setup.boss !== undefined && world.bossSpawned && world.alive[world.bossId] === 0
+      ? { bossDefeated: world.setup.boss.id }
+      : {}),
   };
 };
 

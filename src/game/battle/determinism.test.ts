@@ -1,7 +1,11 @@
 /** Deterministic (spec §13.2): băm từng tick, đổi lệnh can thiệp, đổi thứ tự công trình. */
 import { describe, expect, it } from 'vitest';
 import { BATTLE } from '../../data/battle';
-import { attackStats, battleSetup, structure, unitStats } from '../testing/fixtures';
+import { RULES_FULL } from '../../data/rules';
+import { CONTENT } from '../cards/registry';
+import { buildBattleSetup } from '../run/battleSetup';
+import { newRun, startYear } from '../run/yearFlow';
+import { attackStats, battleSetup, structure, unitStats, withBuilding } from '../testing/fixtures';
 import { hashWorld } from './hash';
 import { battleResult, simulateBattle, stepBattle } from './step';
 import type {
@@ -227,5 +231,36 @@ describe('G3 behaviours stay deterministic', () => {
     const a = trace();
     expect(a.length).toBeGreaterThan(100);
     expect(trace()).toEqual(a);
+  });
+});
+
+describe('full_hash_determinism: bosses and the six king rosters', () => {
+  const real = (year: number): BattleSetup => {
+    const base = newRun(5, 'wheat', CONTENT, RULES_FULL);
+    let s = startYear({ ...base, year: year - 1 }, CONTENT);
+    s = withBuilding(withBuilding(withBuilding(s, 6, 'wheat_militia', 3), 7, 'neutral_archer_tower', 2), 8, 'neutral_barracks', 2);
+    return buildBattleSetup({ ...s, phase: 'battle' }, CONTENT);
+  };
+  const trace = (setup: BattleSetup, ticks: number): number[] => {
+    const w = createBattle(setup);
+    const out: number[] = [];
+    for (let i = 0; i < ticks && battleResult(w) === null; i++) {
+      stepBattle(w, []);
+      drainEvents(w);
+      out.push(hashWorld(w));
+    }
+    return out;
+  };
+
+  it.each([10, 20, 30])('boss year %i: two worlds hash alike on every tick', (year) => {
+    const a = trace(real(year), 420);
+    expect(a.length).toBeGreaterThan(50);
+    expect(trace(real(year), 420)).toEqual(a);
+  });
+
+  it.each([3, 4, 7, 12, 15, 18])('year %i (first attack of one of the six kings): identical on every tick', (year) => {
+    const a = trace(real(year), 300);
+    expect(a.length).toBeGreaterThan(50);
+    expect(trace(real(year), 300)).toEqual(a);
   });
 });
