@@ -19,7 +19,12 @@ import { DeckModal } from '../ui/modals/DeckModal';
 import { CLOSE_BUTTON, centredPanel } from '../ui/modals/modalLayout';
 import { createOverlay, fitOverlay } from '../ui/modals/overlay';
 import { offerTitle } from '../ui/modals/offerModel';
+import { CouncilModal } from '../ui/modals/CouncilModal';
+import { QuestModal } from '../ui/modals/QuestModal';
 import { RewardModal } from '../ui/modals/RewardModal';
+import { modalKind } from '../ui/modals/councilModel';
+import { DecreeQuestPanel } from '../ui/planning/DecreeQuestPanel';
+import { handLimit } from '../game/run/decrees';
 import { InfoPanel } from '../ui/info/InfoPanel';
 import { buildingInfoLines } from '../ui/info/infoLines';
 import { cardBadge, willLevelUpTo } from '../ui/cards/cardText';
@@ -109,6 +114,9 @@ export class PlanningHudScene extends Phaser.Scene {
   private cancelBtn!: Button;
   private hint!: ContentBox;
   private reward: RewardModal | null = null;
+  private council: CouncilModal | null = null;
+  private quest: QuestModal | null = null;
+  private decreePanel!: DecreeQuestPanel;
   /** Which offer the open RewardModal shows (kind + cards). */
   private rewardKey: string | null = null;
   private scoutModal: ScoutModal | null = null;
@@ -130,6 +138,8 @@ export class PlanningHudScene extends Phaser.Scene {
     this.controller = data.controller;
     this.offs = [];
     this.reward = null;
+    this.council = null;
+    this.quest = null;
     this.rewardKey = null;
     this.scoutModal = null;
     this.calendarModal = null;
@@ -173,7 +183,8 @@ export class PlanningHudScene extends Phaser.Scene {
     this.scout = new ScoutPanel(this, CONTENT, () =>
       this.bus.emit('ui:open-modal', { modal: 'scout' }),
     );
-    this.hand = new HandView(this, CONTENT, this.tooltip);
+    this.hand = new HandView(this, CONTENT, this.tooltip, 4);
+    this.decreePanel = new DecreeQuestPanel(this, this.bus, this.controller.state);
     this.hand.onSelect((i) => this.selectCard(i));
     this.hand.onDrop((i, x, y) => this.dropCard(i, x, y));
 
@@ -243,6 +254,9 @@ export class PlanningHudScene extends Phaser.Scene {
   // ---- state → widgets ---------------------------------------------------------------------
 
   private refresh(state: RunState): void {
+    if (this.lay.hand.length !== handLimit(state)) this.layout(); // a decree changed the hand size
+    this.decreePanel.setState(state);
+    this.refreshModals(state);
     this.livesText.setText(`× ${state.lives}`);
     this.goldText.setText(`${state.gold}`);
     this.yearText.setText(`Năm ${state.year} / ${state.rules.years}`);
@@ -293,6 +307,25 @@ export class PlanningHudScene extends Phaser.Scene {
     if (!choosing && this.pending.handIndex !== null) this.pending = NO_PENDING;
     if (!planning) this.buy = null;
     this.refreshPending();
+  }
+
+  /** Council and quest modals follow the open offer: made when it opens, kept in sync, dropped when it closes. */
+  private refreshModals(state: RunState): void {
+    const kind = modalKind(state);
+    if (kind === 'council') {
+      if (this.council) this.council.setState(state);
+      else this.council = new CouncilModal(this, this.bus, state, this.tooltip).setDepth(MODAL_DEPTH);
+    } else if (this.council) {
+      this.council.destroy();
+      this.council = null;
+    }
+    if (kind === 'quest') {
+      if (this.quest) this.quest.setState(state);
+      else this.quest = new QuestModal(this, this.bus, state).setDepth(MODAL_DEPTH);
+    } else if (this.quest) {
+      this.quest.destroy();
+      this.quest = null;
+    }
   }
 
   private rerollPrice(state: RunState): number {
@@ -463,13 +496,20 @@ export class PlanningHudScene extends Phaser.Scene {
   }
 
   private modalOpen(): boolean {
-    return Boolean(this.reward || this.scoutModal || this.calendarModal || this.deckModal);
+    return Boolean(
+      this.reward || this.council || this.quest || this.scoutModal || this.calendarModal || this.deckModal || this.decreePanel.isOpen,
+    );
   }
 
   private onKey(event: KeyboardEvent): void {
     if (event.repeat) return; // a held key acts once
     if (this.reward) {
       if (event.key === 'Enter') this.reward.confirm();
+      return;
+    }
+    if (this.council || this.quest) return; // mandatory decisions: Esc does not skip them
+    if (this.decreePanel.isOpen) {
+      if (event.key === 'Escape') this.decreePanel.closeView();
       return;
     }
     if (this.scoutModal || this.calendarModal || this.deckModal) {
@@ -494,6 +534,7 @@ export class PlanningHudScene extends Phaser.Scene {
       case '1':
       case '2':
       case '3':
+      case '4':
         this.selectCard(Number(event.key) - 1);
         break;
       case 's':
@@ -680,7 +721,7 @@ export class PlanningHudScene extends Phaser.Scene {
   }
 
   private currentLayout(): PlanningLayout {
-    return planningLayout({ w: this.scale.width, h: this.scale.height });
+    return planningLayout({ w: this.scale.width, h: this.scale.height }, handLimit(this.controller.state));
   }
 
   private layout(): void {
@@ -724,6 +765,9 @@ export class PlanningHudScene extends Phaser.Scene {
     this.hint.refresh();
     this.tooltip.refresh();
     this.reward?.layout();
+    this.council?.layout();
+    this.quest?.layout();
+    this.decreePanel.layout(l);
     this.layoutScout();
     this.calendarModal?.layout();
     this.deckModal?.layout();
@@ -746,6 +790,11 @@ export class PlanningHudScene extends Phaser.Scene {
     this.info.destroy();
     this.reward?.destroy();
     this.reward = null;
+    this.council?.destroy();
+    this.council = null;
+    this.quest?.destroy();
+    this.quest = null;
+    this.decreePanel.destroy();
     this.hand.destroy();
     this.scout.destroy();
     this.hint.destroy();

@@ -68,6 +68,8 @@ export class RealmScene extends Phaser.Scene {
   private kicked = false;
   /** A resumed run saved at the year's end goes on to the next year (its summary is not stored). */
   private resumedAtYearEnd = false;
+  /** "advance" was sent and its answer (the next year's first step) is still to come. */
+  private awaitingAdvance = false;
   private readonly onResize = (): void => this.placeCamera();
   /** The running planning ↔ battle camera ease, if any. */
   private cameraEase: Phaser.Tweens.Tween | null = null;
@@ -85,6 +87,7 @@ export class RealmScene extends Phaser.Scene {
     this.inBattle = false;
     this.kicked = false;
     this.resumedAtYearEnd = false;
+    this.awaitingAdvance = false;
     this.cameraEase = null;
     this.down = null;
     const resume = data !== undefined && 'resume' in data ? data.resume : null;
@@ -157,6 +160,12 @@ export class RealmScene extends Phaser.Scene {
 
   private onState(state: RunState): void {
     if (state.phase === 'planning') this.showPlanning(state);
+    // After "advance" the next year may open straight into a council, a quest or planning; a battle
+    // starting at once keeps the battle HUD (onBattleStarted).
+    if (this.awaitingAdvance && state.phase !== 'yearEnd') {
+      this.awaitingAdvance = false;
+      this.continueFlow();
+    }
   }
 
   private showPlanning(state: RunState): void {
@@ -190,18 +199,21 @@ export class RealmScene extends Phaser.Scene {
     this.scene.launch(SCENES.battleHud, hud);
   }
 
-  /** "Tiếp tục" after the battle summary (BattleHudScene). */
+  /** A resumed or finished battle's summary asked to go on: wait for the pending save, then follow the phase. */
   private onContinue(): void {
+    void this.controller.whenIdle().then(() => this.continueFlow());
+  }
+
+  private continueFlow(): void {
     const state = this.controller.state;
-    if (state.phase === 'reward' || state.phase === 'conquest') {
-      this.relaunchPlanningHud(); // shows the RewardModal
-    } else if (state.phase === 'yearEnd') {
+    if (state.phase === 'yearEnd') {
+      this.awaitingAdvance = true;
       this.bus.emit('ui:command', { command: { type: 'advance' } });
-      // advancing may start the next battle at once (nothing playable): keep the battle HUD
-      if (this.controller.state.phase === 'planning') this.relaunchPlanningHud();
     } else if (state.phase === 'ended') {
       const data: RunEndData = { state };
       this.scene.start(SCENES.runEnd, data);
+    } else if (state.phase !== 'battle') {
+      this.relaunchPlanningHud(); // reward, conquest, council, quest or planning: the planning HUD shows it
     }
   }
 

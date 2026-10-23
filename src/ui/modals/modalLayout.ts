@@ -39,28 +39,111 @@ export const REWARD_BUTTON = { w: 150, h: 48 } as const;
 const REWARD_DESK = { card: { w: 150, h: 210, gap: 16 }, button: REWARD_BUTTON } as const;
 const REWARD_PHONE = { card: { w: 108, h: 152, gap: 5 }, button: REWARD_BUTTON } as const;
 
-/** §10.6 reward picker: title, `count` cards in a row, then "Nhận". */
+/**
+ * §10.6 reward picker: title, `count` cards, then "Nhận". Cards share one row, except on a
+ * phone with 4 or more cards, which wrap into rows of two so the panel stays inside the screen.
+ */
 export const rewardLayout = (screen: Size, inset: number, count = 3): RewardLayout => {
-  const spec = isDesktop(screen.w) ? REWARD_DESK : REWARD_PHONE;
+  const desktop = isDesktop(screen.w);
+  const spec = desktop ? REWARD_DESK : REWARD_PHONE;
   const { card, button } = spec;
   const n = Math.max(1, count);
-  const row = n * card.w + (n - 1) * card.gap;
+  const cols = !desktop && n >= 4 ? 2 : n;
+  const rows = Math.ceil(n / cols);
+  const row = cols * card.w + (cols - 1) * card.gap;
+  const grid = rows * card.h + (rows - 1) * card.gap;
   const w = Math.max(row, button.w) + 2 * inset;
-  const h =
-    inset + TITLE_H + GAP_ABOVE_CARDS + CARD_LIFT + card.h + GAP_BELOW_CARDS + button.h + inset;
+  const h = inset + TITLE_H + GAP_ABOVE_CARDS + CARD_LIFT + grid + GAP_BELOW_CARDS + button.h + inset;
   const panel = centredPanel(screen, w, h);
   const title = { x: panel.x + inset, y: panel.y + inset, w: panel.w - 2 * inset, h: TITLE_H };
   const cardY = title.y + TITLE_H + GAP_ABOVE_CARDS + CARD_LIFT;
   const x0 = Math.round(panel.x + (panel.w - row) / 2);
   const cards = Array.from({ length: n }, (_, i) => ({
-    x: x0 + i * (card.w + card.gap),
-    y: cardY,
+    x: x0 + (i % cols) * (card.w + card.gap),
+    y: cardY + Math.floor(i / cols) * (card.h + card.gap),
     w: card.w,
     h: card.h,
   }));
-  const by = cardY + card.h + GAP_BELOW_CARDS;
+  const by = cardY + grid + GAP_BELOW_CARDS;
   const bx = Math.round(panel.x + (panel.w - button.w) / 2);
   return { panel, title, cards, take: { x: bx, y: by, w: button.w, h: button.h } };
+};
+
+export interface CouncilLayout {
+  panel: Rect;
+  title: Rect;
+  /** The three decree cards: a row on desktop, a column on phones. */
+  choices: readonly Rect[];
+  /** Detail of the chosen decree and its extra step (plots, cards, deck). */
+  area: Rect;
+  /** "Ban hành". */
+  enact: Rect;
+}
+
+const COUNCIL_DESK = { choice: { w: 300, h: 120 }, gap: 12, area: 260 } as const;
+const COUNCIL_PHONE = { choice: { w: 355, h: 110 }, gap: 6, area: 260 } as const;
+const COUNCIL_TITLE_H = 36;
+/** "Ban hành", "Nhận" and "Từ chối". */
+export const COUNCIL_BUTTON = { w: 150, h: 48 } as const;
+
+/** §3.9 royal council: title, three decrees, the chosen decree's detail area, then "Ban hành". */
+export const councilLayout = (screen: Size, inset: number): CouncilLayout => {
+  const desktop = isDesktop(screen.w);
+  const spec = desktop ? COUNCIL_DESK : COUNCIL_PHONE;
+  const inner = desktop ? 3 * spec.choice.w + 2 * spec.gap : spec.choice.w;
+  const stack = desktop ? spec.choice.h : 3 * spec.choice.h + 2 * spec.gap;
+  const w = inner + 2 * inset;
+  const h = inset + COUNCIL_TITLE_H + GAP_ABOVE_CARDS + stack + GAP_ABOVE_CARDS + spec.area + GAP_ABOVE_CARDS + COUNCIL_BUTTON.h + inset;
+  const panel = centredPanel(screen, w, h);
+  const innerW = panel.w - 2 * inset;
+  const title = { x: panel.x + inset, y: panel.y + inset, w: innerW, h: COUNCIL_TITLE_H };
+  const y0 = title.y + COUNCIL_TITLE_H + GAP_ABOVE_CARDS;
+  const choiceW = desktop
+    ? Math.min(spec.choice.w, Math.floor((innerW - 2 * spec.gap) / 3))
+    : Math.min(spec.choice.w, innerW);
+  const used = desktop ? 3 * choiceW + 2 * spec.gap : choiceW;
+  const x0 = Math.round(panel.x + (panel.w - used) / 2);
+  const choices = Array.from({ length: 3 }, (_, i) => ({
+    x: desktop ? x0 + i * (choiceW + spec.gap) : x0,
+    y: desktop ? y0 : y0 + i * (spec.choice.h + spec.gap),
+    w: choiceW,
+    h: spec.choice.h,
+  }));
+  const areaY = y0 + stack + GAP_ABOVE_CARDS;
+  const area = { x: panel.x + inset, y: areaY, w: innerW, h: spec.area };
+  const enact = {
+    x: Math.round(panel.x + (panel.w - COUNCIL_BUTTON.w) / 2),
+    y: areaY + spec.area + GAP_ABOVE_CARDS,
+    w: COUNCIL_BUTTON.w,
+    h: COUNCIL_BUTTON.h,
+  };
+  return { panel, title, choices, area, enact };
+};
+
+export interface QuestLayout {
+  panel: Rect;
+  title: Rect;
+  body: Rect;
+  accept: Rect;
+  decline: Rect;
+}
+
+const QUEST = { w: 440, body: 170, titleH: 36 } as const;
+
+/** §3.10 quest offer: a title, the condition / deadline / reward text, then "Nhận" and "Từ chối". */
+export const questLayout = (screen: Size, inset: number): QuestLayout => {
+  const row = 2 * COUNCIL_BUTTON.w + BUTTON_GAP;
+  const w = Math.max(QUEST.w, row + 2 * inset);
+  const h = inset + QUEST.titleH + GAP_ABOVE_CARDS + QUEST.body + GAP_ABOVE_CARDS + COUNCIL_BUTTON.h + inset;
+  const panel = centredPanel(screen, w, h);
+  const innerW = panel.w - 2 * inset;
+  const title = { x: panel.x + inset, y: panel.y + inset, w: innerW, h: QUEST.titleH };
+  const body = { x: title.x, y: title.y + QUEST.titleH + GAP_ABOVE_CARDS, w: innerW, h: QUEST.body };
+  const by = body.y + QUEST.body + GAP_ABOVE_CARDS;
+  const bx = Math.round(panel.x + (panel.w - row) / 2);
+  const accept = { x: bx, y: by, w: COUNCIL_BUTTON.w, h: COUNCIL_BUTTON.h };
+  const decline = { x: bx + COUNCIL_BUTTON.w + BUTTON_GAP, y: by, w: COUNCIL_BUTTON.w, h: COUNCIL_BUTTON.h };
+  return { panel, title, body, accept, decline };
 };
 
 export interface ResultLayout {

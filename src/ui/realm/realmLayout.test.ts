@@ -480,3 +480,73 @@ describe('battleCamera / battleWorldAt', () => {
     expect(battleWorldAt({ x: 187.5 - 193, y: 406 }, MOBILE)).toBeNull();
   });
 });
+
+describe('hand of four (Bàn Tay Thứ Tư)', () => {
+  it('keeps the three-card row unchanged', () => {
+    for (const screen of [DESKTOP, MOBILE]) {
+      const three = planningLayout(screen).hand;
+      expect(three).toHaveLength(3);
+      expect(planningLayout(screen, 3).hand).toEqual(three);
+    }
+  });
+
+  for (const [name, screen] of [
+    ['desktop', DESKTOP],
+    ['mobile', MOBILE],
+    ['900×600', { w: 900, h: 600 }],
+  ] as const) {
+    it(`lays four cards side by side inside the screen, apart, ≥44 px wide (${name})`, () => {
+      const l = planningLayout(screen, 4);
+      expect(l.hand).toHaveLength(4);
+      for (const r of l.hand) {
+        expect(inside(r, screen), JSON.stringify(r)).toBe(true);
+        expect(r.w).toBeGreaterThanOrEqual(44);
+      }
+      for (let i = 1; i < 4; i++) expect(l.hand[i]!.x).toBeGreaterThanOrEqual(l.hand[i - 1]!.x + l.hand[i - 1]!.w);
+      expect(new Set(l.hand.map((r) => r.y)).size).toBe(1);
+    });
+  }
+
+  it('shrinks the cards on mobile only as far as needed and keeps their proportions', () => {
+    const [a] = planningLayout(MOBILE, 4).hand;
+    expect(a!.w).toBeLessThan(108);
+    expect(a!.w / a!.h).toBeCloseTo(108 / 152, 1);
+  });
+
+  it('centerHand centres a short hand on the four-slot row', () => {
+    const slots = planningLayout(DESKTOP, 4).hand;
+    const used = centerHand(slots, 3);
+    const mid = (slots[0]!.x + slots[3]!.x + slots[3]!.w) / 2;
+    expect((used[0]!.x + used[2]!.x + used[2]!.w) / 2).toBeCloseTo(mid, 0);
+  });
+});
+
+describe('decree and quest panel', () => {
+  it('wide desktop docks a 260 px column on the left, clear of the board, scout and top bar', () => {
+    const l = planningLayout(DESKTOP);
+    expect(l.decreeButton).toBeNull();
+    const p = l.decreePanel!;
+    expect(p.w).toBe(260);
+    expect(p.y).toBeGreaterThanOrEqual(72);
+    expect(p.y + p.h).toBeLessThanOrEqual(520);
+    expect(inside(p, DESKTOP)).toBe(true);
+    for (const other of [l.board, l.scout!, l.lives, l.gold, l.year, l.reroll, l.sell, ...l.hand]) {
+      expect(overlaps(p, other), JSON.stringify(other)).toBe(false);
+    }
+  });
+
+  it('mobile and narrow desktop use a ≥44 px button that overlaps nothing', () => {
+    for (const screen of [MOBILE, { w: 900, h: 600 }]) {
+      const l = planningLayout(screen);
+      expect(l.decreePanel).toBeNull();
+      const b = l.decreeButton!;
+      expect(b.w).toBeGreaterThanOrEqual(44);
+      expect(b.h).toBeGreaterThanOrEqual(44);
+      expect(inside(b, screen)).toBe(true);
+      const others: Rect[] = [l.board, l.lives, l.gold, l.year, l.reroll, l.sell, l.deck, ...l.calendar, ...l.hand];
+      if (l.scoutButton) others.push(l.scoutButton);
+      if (l.scout) others.push(l.scout);
+      for (const other of others) expect(overlaps(b, other), JSON.stringify(other)).toBe(false);
+    }
+  });
+});

@@ -3,7 +3,9 @@ import type { Rect, Size } from '../hud/layout';
 import {
   calendarModalLayout,
   centredPanel,
+  councilLayout,
   deckModalLayout,
+  questLayout,
   resultLayout,
   rewardLayout,
 } from './modalLayout';
@@ -182,4 +184,94 @@ describe('deckModalLayout', () => {
     expect(l.cards).toEqual([]);
     expect(l.maxScroll).toBe(0);
   });
+});
+
+const TABLET: Size = { w: 900, h: 600 };
+const SCREENS: readonly [string, Size, number][] = [
+  ['desktop', DESKTOP, 24],
+  ['mobile', MOBILE, 10],
+  ['900x600', TABLET, 24],
+];
+const inside = (screen: Size, r: Rect): boolean => contains({ x: 0, y: 0, ...screen }, r);
+
+describe('rewardLayout with 4 cards', () => {
+  it('is one row of 150×210 cards on desktop', () => {
+    const l = rewardLayout(DESKTOP, 24, 4);
+    expect(l.cards).toHaveLength(4);
+    expect(new Set(l.cards.map((c) => c.y)).size).toBe(1);
+    expect(l.cards.every((c) => c.w === 150 && c.h === 210)).toBe(true);
+    expect(inside(DESKTOP, l.panel)).toBe(true);
+  });
+
+  it('is a 2×2 grid of 108×152 cards on mobile, all inside the panel and the screen, none overlapping', () => {
+    const inset = 10;
+    const l = rewardLayout(MOBILE, inset, 4);
+    expect(new Set(l.cards.map((c) => c.x)).size).toBe(2);
+    expect(new Set(l.cards.map((c) => c.y)).size).toBe(2);
+    expect(l.cards.every((c) => c.w === 108 && c.h === 152)).toBe(true);
+    expect(inside(MOBILE, l.panel)).toBe(true);
+    const inner = { x: l.panel.x + inset, y: l.panel.y + inset, w: l.panel.w - 2 * inset, h: l.panel.h - 2 * inset };
+    for (const r of [l.title, ...l.cards, l.take]) expect(contains(inner, r), JSON.stringify(r)).toBe(true);
+    for (let i = 0; i < l.cards.length; i++) {
+      for (let j = i + 1; j < l.cards.length; j++) expect(overlaps(l.cards[i]!, l.cards[j]!)).toBe(false);
+      expect(overlaps(l.cards[i]!, l.take)).toBe(false);
+      // a selected card lifts 12 px and must stay under the title
+      expect(l.cards[i]!.y - 12).toBeGreaterThanOrEqual(l.title.y + l.title.h);
+    }
+  });
+
+  it('3 cards keep the old single row on mobile', () => {
+    const l = rewardLayout(MOBILE, 10, 3);
+    expect(new Set(l.cards.map((c) => c.y)).size).toBe(1);
+  });
+});
+
+describe('councilLayout', () => {
+  it('desktop: three decree cards side by side, 300×120', () => {
+    const l = councilLayout(DESKTOP, 24);
+    expect(l.choices.every((c) => c.w === 300 && c.h === 120)).toBe(true);
+    expect(new Set(l.choices.map((c) => c.y)).size).toBe(1);
+  });
+
+  it('mobile: three decree cards stacked, 110 high, as wide as the panel allows (355 minus the inset)', () => {
+    const inset = 10;
+    const l = councilLayout(MOBILE, inset);
+    expect(l.choices.every((c) => c.h === 110 && c.w === 355 - 2 * inset)).toBe(true);
+    expect(new Set(l.choices.map((c) => c.x)).size).toBe(1);
+    expect(l.choices[1]!.y).toBeGreaterThan(l.choices[0]!.y + 109);
+  });
+
+  for (const [name, screen, inset] of SCREENS) {
+    it(`keeps title, choices, area and Ban hành inside the panel, apart, with ≥44 touch targets (${name})`, () => {
+      const l = councilLayout(screen, inset);
+      expect(inside(screen, l.panel), 'panel').toBe(true);
+      const inner = { x: l.panel.x + inset, y: l.panel.y + inset, w: l.panel.w - 2 * inset, h: l.panel.h - 2 * inset };
+      const parts = [l.title, ...l.choices, l.area, l.enact];
+      for (const r of parts) expect(contains(inner, r), JSON.stringify(r)).toBe(true);
+      for (let i = 0; i < parts.length; i++) {
+        for (let j = i + 1; j < parts.length; j++) expect(overlaps(parts[i]!, parts[j]!), `${i}/${j}`).toBe(false);
+      }
+      for (const r of [...l.choices, l.enact]) {
+        expect(r.w).toBeGreaterThanOrEqual(44);
+        expect(r.h).toBeGreaterThanOrEqual(44);
+      }
+    });
+  }
+});
+
+describe('questLayout', () => {
+  for (const [name, screen, inset] of SCREENS) {
+    it(`fits body and both buttons inside the panel, apart (${name})`, () => {
+      const l = questLayout(screen, inset);
+      expect(inside(screen, l.panel)).toBe(true);
+      const inner = { x: l.panel.x + inset, y: l.panel.y + inset, w: l.panel.w - 2 * inset, h: l.panel.h - 2 * inset };
+      for (const r of [l.title, l.body, l.accept, l.decline]) expect(contains(inner, r), JSON.stringify(r)).toBe(true);
+      expect(overlaps(l.accept, l.decline)).toBe(false);
+      expect(overlaps(l.body, l.accept)).toBe(false);
+      for (const b of [l.accept, l.decline]) {
+        expect(b.w).toBeGreaterThanOrEqual(44);
+        expect(b.h).toBeGreaterThanOrEqual(44);
+      }
+    });
+  }
 });

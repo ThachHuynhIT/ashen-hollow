@@ -18,7 +18,7 @@ type CouncilOffer = Extract<OfferState, { kind: 'council' }>;
 const PLOTS = 25;
 const PICKS = 3;
 const MAX_EXPAND = 2;
-const MAX_PURGE = 2;
+export const MAX_PURGE = 2;
 const TREASURY_GOLD = 15;
 const AMNESTY_GOLD = 10;
 
@@ -59,14 +59,14 @@ export function selectDecree(state: RunState, index: number): RunState | Illegal
 }
 
 /** Thẻ hiếm của vua người chơi (Học Viện Hoàng Gia). */
-const rarePool = (state: RunState, content: Content): CardId[] =>
+export const rarePool = (state: RunState, content: Content): CardId[] =>
   content
     .king(state.kingId)
     .cards.filter((c) => c.rarity === 'rare')
     .map((c) => c.id);
 
 /** Số ô phải mở: 2, hoặc ít hơn nếu bàn cờ còn ít ô khoá (đầy thì 0). */
-const expandTarget = (state: RunState): number =>
+export const expandTarget = (state: RunState): number =>
   Math.min(MAX_EXPAND, state.plots.filter((p) => !p.unlocked).length);
 
 /** Chuẩn hoá và kiểm một phần chọn phụ; `null` nếu có bất kỳ phần nào sai. */
@@ -129,7 +129,7 @@ export function setCouncilSelection(
 }
 
 /** Đủ bước chọn phụ để ban hành? Không có đích hợp lệ nào thì coi như đủ (xác nhận không-op). */
-const complete = (state: RunState, action: string, sel: CouncilSelection, content: Content): boolean => {
+export const councilComplete = (state: RunState, action: string, sel: CouncilSelection, content: Content): boolean => {
   if (action === 'expand') return sel.plots.length === expandTarget(state);
   if (action === 'academy') return sel.cardId !== null || rarePool(state, content).length === 0;
   return true;
@@ -199,7 +199,7 @@ export function enactDecree(state: RunState, content: Content): RunState | Illeg
   if (offer === null) return 'wrongPhase';
   if (offer.selected === null) return 'badTarget';
   const def = decree(offer.selected);
-  if (!complete(state, def.action, offer.selection, content)) return 'badTarget';
+  if (!councilComplete(state, def.action, offer.selection, content)) return 'badTarget';
   const next = structuredClone(state);
   apply(next, def.action, offer.selection);
   next.decrees.push(def.id);
