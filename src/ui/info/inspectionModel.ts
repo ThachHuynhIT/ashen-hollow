@@ -4,7 +4,7 @@
  */
 import { TICKS_PER_SECOND } from '../../core/SimClock';
 import type { CardDef, Level, UnitDef } from '../../data/types';
-import { KIND_UNIT, type BattleWorld } from '../../game/battle/world';
+import { KIND_THRONE, KIND_UNIT, type BattleWorld } from '../../game/battle/world';
 import type { UnitStats } from '../../game/battle/types';
 import { describeCard } from '../../game/cards/describe';
 import { ageOf } from '../../game/cards/custom/grove';
@@ -37,6 +37,7 @@ export interface UnitInfoModel {
   readonly range: number;
   readonly attacksPerSecond: number;
   readonly armorPct: number;
+  readonly shield: number;
   /** px mỗi giây. */
   readonly speed: number;
   readonly tags: readonly string[];
@@ -50,6 +51,8 @@ export interface BuildingInfoModel {
   readonly title: string;
   readonly stars: LevelStars;
   readonly hp: number;
+  /** Máu đang có trong trận (chỉ khi mở từ trận). */
+  readonly liveHp: { readonly hp: number; readonly maxHp: number } | null;
   readonly description: readonly string[];
   readonly next: readonly string[] | null;
   readonly enchants: readonly string[];
@@ -85,13 +88,26 @@ export const unitPreviewModel = (stats: UnitStats, def: UnitDef, sourceLevel: Le
   range: stats.range,
   attacksPerSecond: perSecond(stats.interval),
   armorPct: Math.round(stats.armor * 100),
+  shield: Math.ceil(stats.shield),
   speed: stats.speed * TICKS_PER_SECOND,
   tags: (def.tags ?? []).map(unitTagLabel),
   behaviours: (def.behaviours ?? []).map(behaviourLabel),
   statuses: [],
 });
 
-export const buildingInfoModel = (state: RunState, plot: number, content: Content): BuildingInfoModel | null => {
+/** Ô của công trình/Ngai ứng với thực thể trong trận; null nếu không phải công trình của ván. */
+export const plotOfEntity = (world: BattleWorld, id: number, state: RunState): number | null => {
+  if (world.kind[id] === KIND_THRONE) return THRONE_PLOT;
+  const plot = state.plots.findIndex((p) => p.building?.uid === world.sourceUid[id]);
+  return plot >= 0 && world.team[id] === 0 ? plot : null;
+};
+
+export const buildingInfoModel = (
+  state: RunState,
+  plot: number,
+  content: Content,
+  live?: { hp: number; maxHp: number },
+): BuildingInfoModel | null => {
   const b = state.plots[plot]?.building;
   if (!b) return null;
   const card = content.card(b.cardId);
@@ -126,6 +142,7 @@ export const buildingInfoModel = (state: RunState, plot: number, content: Conten
     title: card.nameVi,
     stars: levelStars(level),
     hp: setup.hp,
+    liveHp: live ? { hp: Math.ceil(Math.max(live.hp, 0)), maxHp: Math.round(live.maxHp) } : null,
     description: describeCard(card, level).lines,
     next,
     enchants: b.enchants.map((e) => `${content.card(e.cardId).nameVi} ×${e.stacks}`),
@@ -159,6 +176,7 @@ export const unitInfoModel = (
     range: world.range[id]!,
     attacksPerSecond: perSecond(world.interval[id]!),
     armorPct: Math.round(world.armor[id]! * 100),
+    shield: Math.ceil(world.shield[id]!),
     speed: world.speed[id]! * TICKS_PER_SECOND,
     tags: (def.tags ?? []).map(unitTagLabel),
     behaviours: (def.behaviours ?? []).map(behaviourLabel),

@@ -1,11 +1,7 @@
 /** Nội dung bảng thông tin nhà / lính (spec §10.7) và chỗ đặt bảng; thuần, không Phaser. */
 import { TICKS_PER_SECOND } from '../../core/SimClock';
-import { STRUCT_HP } from '../../data/scaling';
-import type { CardDef } from '../../data/types';
-import { KIND_UNIT, type BattleWorld } from '../../game/battle/world';
-import { describeCard } from '../../game/cards/describe';
-import type { Content } from '../../game/cards/registry';
-import type { BuildingState, RunState } from '../../game/run/state';
+import type { BattleWorld } from '../../game/battle/world';
+import type { RunState } from '../../game/run/state';
 import { UI_PALETTE } from '../../data/uiPalette';
 import type { Point, Size, TooltipContent } from '../hud/layout';
 import type { BuildingInfoModel, UnitInfoModel } from './inspectionModel';
@@ -15,47 +11,6 @@ const HIT_SLOP = 4;
 /** Khoảng cách từ điểm bấm tới bảng. */
 const ANCHOR_GAP = 12;
 const SCREEN_MARGIN = 4;
-
-const DMG_TEXT = ['vật lý', 'lửa', 'phép'] as const;
-const DMG_INDEX = { physical: 0, fire: 1, magic: 2 } as const;
-
-/** Máu công trình của một thẻ ở cấp `level` (Ngai: máu Ngai). */
-const structureHp = (card: CardDef, level: BuildingState['level']): number | null => {
-  if (card.kind === 'throne') return card.hp;
-  if (card.kind === 'troop' || card.kind === 'tower') {
-    return card.structureHp ? card.structureHp[level - 1]! : STRUCT_HP[card.kind];
-  }
-  return null;
-};
-
-/** Tên, cấp, máu công trình và mô tả thẻ (cùng `describeCard` với tooltip). */
-export const buildingInfoLines = (building: BuildingState, content: Content): string[] => {
-  const card = content.card(building.cardId);
-  const lines = [card.nameVi, `Cấp ${building.level}`];
-  const hp = structureHp(card, building.level);
-  if (hp !== null) lines.push(`Máu: ${hp}`);
-  lines.push(...describeCard(card, building.level).lines);
-  for (const e of building.enchants) lines.push(`Bùa: ${content.card(e.cardId).nameVi} ×${e.stacks}`);
-  lines.push(...spawnedUnitLines(card, building.level, content));
-  return lines;
-};
-
-/** Mỗi hiệu ứng `spawn`: "Lính: tên ×số lượng" và một dòng chỉ số gốc của lính (chưa tính Bùa/cộng thêm). */
-const spawnedUnitLines = (card: CardDef, level: BuildingState['level'], content: Content): string[] => {
-  if (!('effects' in card)) return [];
-  const out: string[] = [];
-  for (const e of card.effects) {
-    if (e.type !== 'spawn') continue;
-    const unit = content.unit(e.unit);
-    const count = typeof e.count === 'number' ? e.count : e.count[level - 1]!;
-    out.push(`Lính: ${unit.nameVi} ×${count}`);
-    const a = unit.attack;
-    out.push(
-      `Máu lính ${unit.hp} · Sát thương ${a.dmg} (${DMG_TEXT[DMG_INDEX[a.type]] ?? 'vật lý'}) · Tầm ${a.range} · Giáp ${Math.round(unit.armor * 100)}%`,
-    );
-  }
-  return out;
-};
 
 const tintOf = (line: string): number | undefined => {
   if (line.startsWith('Lính:') || line.startsWith('Máu lính')) return UI_PALETTE.woodDark;
@@ -91,33 +46,6 @@ export const entityAt = (world: BattleWorld, wx: number, wy: number): number | n
     }
   }
   return best;
-};
-
-const nameOf = (world: BattleWorld, id: number, content: Content): string => {
-  const label = world.label[id]!;
-  try {
-    return world.kind[id] === KIND_UNIT
-      ? content.unit(label).nameVi
-      : content.card(label as CardDef['id']).nameVi;
-  } catch {
-    return label;
-  }
-};
-
-/** Tên, máu hiện tại / tối đa, sát thương, tầm đánh và giáp của một thực thể trong trận. */
-export const entityInfoLines = (world: BattleWorld, id: number, content: Content): string[] => {
-  const lines = [nameOf(world, id, content)];
-  lines.push(`Máu: ${Math.ceil(Math.max(world.hp[id]!, 0))} / ${Math.round(world.maxHp[id]!)}`);
-  if (world.interval[id]! > 0) {
-    lines.push(`Sát thương: ${world.dmg[id]!} (${DMG_TEXT[world.dmgType[id]!] ?? 'vật lý'})`);
-    lines.push(`Tầm đánh: ${world.range[id]!}`);
-  } else {
-    lines.push('Không tấn công');
-  }
-  lines.push(`Giáp: ${Math.round(world.armor[id]! * 100)}%`);
-  if (world.shield[id]! > 0) lines.push(`Khiên: ${Math.ceil(world.shield[id]!)}`);
-  lines.push(...statusLines(world, id));
-  return lines;
 };
 
 const seconds = (ticks: number): number => Math.ceil(ticks / TICKS_PER_SECOND);
@@ -182,7 +110,7 @@ const num = (n: number): string => String(Math.round(n * 100) / 100);
 export const buildingModelLines = (m: BuildingInfoModel): readonly string[] => [
   m.title,
   m.stars.label,
-  `Máu: ${num(m.hp)}`,
+  m.liveHp ? `Máu: ${m.liveHp.hp} / ${m.liveHp.maxHp}` : `Máu: ${num(m.hp)}`,
   ...m.description,
   ...(m.age ? [`Tuổi: ${m.age.years} năm${m.age.bonus > 0 ? ` (thêm ${m.age.bonus})` : ''}`] : []),
   ...m.enchants.map((e) => `Bùa: ${e}`),
@@ -199,6 +127,7 @@ export const unitModelLines = (m: UnitInfoModel): readonly string[] => [
     : 'Không tấn công',
   `Tầm đánh: ${num(m.range)} · Tốc độ: ${num(m.speed)}`,
   `Giáp: ${m.armorPct}%`,
+  ...(m.shield > 0 ? [`Khiên: ${m.shield}`] : []),
   ...(m.tags.length > 0 ? [`Loại: ${m.tags.join(', ')}`] : []),
   ...m.behaviours,
   ...m.statuses,

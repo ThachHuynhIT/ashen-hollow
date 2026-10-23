@@ -1,22 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../../game/cards/registry';
-import { describeCard } from '../../game/cards/describe';
 import { createBattle, spawnWave, type BattleWorld } from '../../game/battle/world';
-import type { BuildingState, RunState } from '../../game/run/state';
+import type { RunState } from '../../game/run/state';
 import { battleSetup, structure, unitStats } from '../../game/testing/fixtures';
 import { UI_PALETTE } from '../../data/uiPalette';
 import { RULES_FULL } from '../../data/rules';
 import { bossWorld } from '../../game/battle/bossKit';
 import { addDot } from '../../game/battle/statuses';
-import { runState } from '../../game/testing/fixtures';
-import { buildingModelLines, unitModelLines, buildingInfoLines, entityAt, entityInfoLines, infoContent, placeInfoBox, runSummary, statusLines } from './infoLines';
-
-const building = (cardId: BuildingState['cardId'], level: BuildingState['level'] = 1): BuildingState => ({
-  uid: 1,
-  cardId,
-  level,
-  enchants: [], placedYear: 1, permanent: {}, ageBonus: 0, counters: {}, movedYear: null
-});
+import { runState, withBuilding } from '../../game/testing/fixtures';
+import { buildingInfoModel, unitInfoModel } from './inspectionModel';
+import { buildingModelLines, unitModelLines, entityAt, infoContent, placeInfoBox, runSummary, statusLines } from './infoLines';
 
 describe('infoContent', () => {
   it('titles the first line and tints level, HP and spawned-unit lines from UI_PALETTE', () => {
@@ -31,56 +24,20 @@ describe('infoContent', () => {
   });
 });
 
-describe('buildingInfoLines', () => {
-  it('shows name, level, structure HP and the describeCard line', () => {
-    const lines = buildingInfoLines(building('wheat_militia', 3), CONTENT);
-    expect(lines[0]).toBe('Dân Quân');
-    expect(lines).toContain('Cấp 3');
-    expect(lines).toContain('Máu: 150');
-    expect(lines).toContain(describeCard(CONTENT.card('wheat_militia'), 3).lines[0]);
-  });
-
-  it('lists the units a troop building spawns, with count at its level and their stats', () => {
-    const unit = CONTENT.unit('militia');
-    const lines = buildingInfoLines(building('wheat_militia', 3), CONTENT);
-    expect(lines).toContain(`Lính: ${unit.nameVi} ×${8}`);
-    const stats = lines.find((l) => l.startsWith('Máu lính'))!;
-    expect(stats).toContain(`Máu lính ${unit.hp}`);
-    expect(stats).toContain(`Sát thương ${unit.attack.dmg}`);
-    expect(stats).toContain(`Giáp ${Math.round(unit.armor * 100)}%`);
-  });
-
-  it('shows no unit section for a building that spawns nothing', () => {
-    const lines = buildingInfoLines(building('wheat_throne'), CONTENT);
-    expect(lines.some((l) => l.startsWith('Lính:'))).toBe(false);
-  });
-
-  it('lists each enchantment with its stack count', () => {
-    const b = { ...building('wheat_militia', 2), enchants: [
-      { cardId: 'neutral_sharpen' as const, stacks: 2 },
-      { cardId: 'neutral_fortify' as const, stacks: 1 },
-    ] };
-    const lines = buildingInfoLines(b, CONTENT);
-    expect(lines).toContain(`Bùa: ${CONTENT.card('neutral_sharpen').nameVi} ×2`);
-    expect(lines).toContain(`Bùa: ${CONTENT.card('neutral_fortify').nameVi} ×1`);
-    expect(buildingInfoLines(building('wheat_militia'), CONTENT).some((l) => l.startsWith('Bùa:'))).toBe(false);
-  });
-
-  it('uses the throne HP for the throne', () => {
-    const lines = buildingInfoLines(building('wheat_throne'), CONTENT);
-    expect(lines).toContain('Máu: 300');
-    expect(lines[0]).toBe(CONTENT.card('wheat_throne').nameVi);
-  });
-
+describe('building model lines', () => {
   it('works for every building card and throne in the content', () => {
     for (const card of CONTENT.allCards()) {
-      if (card.kind === 'tome') continue;
-      const lines = buildingInfoLines(building(card.id), CONTENT);
-      expect(lines.length).toBeGreaterThanOrEqual(3);
-      for (const l of lines) expect(l.trim().length).toBeGreaterThan(0);
+      if (card.kind === 'tome' || card.kind === 'enchantment') continue;
+      const m = buildingInfoModel(withBuilding(runState(), card.kind === 'throne' ? 12 : 6, card.id, 1), card.kind === 'throne' ? 12 : 6, CONTENT);
+      const lines = buildingModelLines(m!);
+      expect(lines.length, card.id).toBeGreaterThanOrEqual(3);
+      for (const l of lines) expect(l.trim().length, card.id).toBeGreaterThan(0);
     }
   });
 });
+
+const entityLines = (w: BattleWorld, id: number): readonly string[] =>
+  unitModelLines(unitInfoModel(w, id, runState(), CONTENT)!);
 
 const militia = unitStats({ unit: 'militia', hp: 32, dmg: 5, range: 2, armor: 0.25, radius: 4 });
 const bandit = unitStats({ unit: 'bandit', hp: 30, dmg: 5, radius: 4, speed: 0 });
@@ -133,41 +90,33 @@ describe('entityInfoLines', () => {
     const w = world();
     const id = w.count - 1; // a foe bandit
     w.hp[id] = 12.2;
-    const lines = entityInfoLines(w, id, CONTENT);
+    const lines = entityLines(w, id);
     expect(lines[0]).toBe('Thổ Phỉ');
     expect(lines).toContain('Máu: 13 / 30');
-    expect(lines).toContain('Sát thương: 5 (vật lý)');
-    expect(lines).toContain('Tầm đánh: 2');
+    expect(lines.some((l) => l.startsWith('Sát thương: 5 (vật lý)'))).toBe(true);
+    expect(lines.some((l) => l.startsWith('Tầm đánh: 2'))).toBe(true);
     expect(lines).toContain('Giáp: 0%');
   });
 
   it('shows armor as a percentage and the damage type', () => {
     const w = world();
-    const lines = entityInfoLines(w, 2, CONTENT); // first spawned militia
+    const lines = entityLines(w, 2); // first spawned militia
     expect(lines[0]).toBe('Dân Quân');
     expect(lines).toContain('Giáp: 25%');
     w.dmgType[2] = 2;
-    expect(entityInfoLines(w, 2, CONTENT)).toContain('Sát thương: 5 (phép)');
+    expect(entityLines(w, 2).some((l) => l.startsWith('Sát thương: 5 (phép)'))).toBe(true);
   });
 
   it('shows the shield while it lasts and says when a unit is stunned', () => {
     const w = world();
     const id = 2;
-    expect(entityInfoLines(w, id, CONTENT).some((l) => l.startsWith('Khiên'))).toBe(false);
-    expect(entityInfoLines(w, id, CONTENT)).not.toContain('Đang choáng');
+    expect(entityLines(w, id).some((l) => l.startsWith('Khiên'))).toBe(false);
+    expect(entityLines(w, id)).not.toContain('Đang choáng');
     w.shield[id] = 14.2;
     w.stunTicks[id] = 6;
-    const lines = entityInfoLines(w, id, CONTENT);
+    const lines = entityLines(w, id);
     expect(lines).toContain('Khiên: 15');
     expect(lines).toContain('Đang choáng');
-  });
-
-  it('says a building that cannot attack does not attack', () => {
-    const w = world();
-    const lines = entityInfoLines(w, 1, CONTENT);
-    expect(lines[0]).toBe('Dân Quân');
-    expect(lines).toContain('Không tấn công');
-    expect(lines.some((l) => l.startsWith('Sát thương'))).toBe(false);
   });
 });
 
@@ -203,7 +152,7 @@ describe('statusLines', () => {
     const lines = statusLines(w, id);
     expect(lines).toContain('Đang bỏng: 4/s (còn 3s)');
     expect(lines).toContain('Nhiễm độc: 4/s (còn 5s)');
-    expect(entityInfoLines(w, id, CONTENT)).toEqual(expect.arrayContaining(lines));
+    expect(entityLines(w, id)).toEqual(expect.arrayContaining(lines));
   });
 
   it('says slowed, disabled, enraged and revived', () => {
@@ -227,7 +176,7 @@ describe('statusLines', () => {
 
   it('names a boss and shows its landing', () => {
     const w = bossWorld(2);
-    expect(entityInfoLines(w, w.bossId, CONTENT)[0]).toBe('Nữ Hoàng Ong Bắp Cày');
+    expect(entityLines(w, w.bossId)[0]).toBe('Nữ Hoàng Ong Bắp Cày');
     expect(statusLines(w, w.bossId)).not.toContain('Đang hạ cánh: nhận thêm sát thương');
     w.bossLanded = true;
     expect(statusLines(w, w.bossId)).toContain('Đang hạ cánh: nhận thêm sát thương');
@@ -262,7 +211,7 @@ describe('runSummary', () => {
 describe('model lines', () => {
   const unit = {
     title: 'Dân Quân', sourceLevel: null, hp: 10, maxHp: 20, dmg: 5, damageType: 'vật lý', range: 8,
-    attacksPerSecond: 0, armorPct: 25, speed: 20, tags: ['cận chiến'], behaviours: [], statuses: ['Đang choáng'],
+    attacksPerSecond: 0, armorPct: 25, shield: 0, speed: 20, tags: ['cận chiến'], behaviours: [], statuses: ['Đang choáng'],
   } as const;
 
   it('formats a unit with unknown origin, no attack and statuses', () => {
@@ -275,7 +224,7 @@ describe('model lines', () => {
 
   it('formats a building with stars, age, enchants and the next level', () => {
     const lines = buildingModelLines({
-      plot: 6, uid: 1, title: 'Dân Quân', stars: { filled: 3, total: 5, label: 'Cấp 3/5' }, hp: 225,
+      plot: 6, uid: 1, title: 'Dân Quân', stars: { filled: 3, total: 5, label: 'Cấp 3/5' }, hp: 225, liveHp: null,
       description: ['Sinh lính.'], next: ['Máu: 225 → 262.5'], enchants: ['Mài ×2'], age: { years: 7, bonus: 2 }, spawn: null,
     });
     expect(lines.slice(0, 3)).toEqual(['Dân Quân', 'Cấp 3/5', 'Máu: 225']);

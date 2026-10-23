@@ -5,7 +5,7 @@ import { INTERVENTION } from '../data/battle';
 import { toCss } from '../data/palette';
 import { UI_PALETTE } from '../data/uiPalette';
 import type { BattleResult } from '../game/battle/types';
-import type { BattleWorld } from '../game/battle/world';
+import { KIND_UNIT, type BattleWorld } from '../game/battle/world';
 import { CONTENT } from '../game/cards/registry';
 import type { GameEvents } from '../game/events';
 import type { RunController } from '../game/run/RunController';
@@ -18,8 +18,10 @@ import {
   summaryLines,
   throneHpFraction,
 } from '../ui/battle/battleReadout';
-import { InfoPanel } from '../ui/info/InfoPanel';
-import { entityAt, entityInfoLines } from '../ui/info/infoLines';
+import { InspectionView } from '../ui/info/InspectionView';
+import { entityAt } from '../ui/info/infoLines';
+import { buildingInfoModel, plotOfEntity, unitInfoModel } from '../ui/info/inspectionModel';
+import { battleControls } from '../ui/info/inspectionReserved';
 import { bossReadout, type BossReadout } from '../ui/battle/battleReadout';
 import { DRAG_SLOP, GAP, MARGIN, textContent, type Point, type Rect } from '../ui/hud/layout';
 import { RESULT_BUTTON, centredPanel, resultLayout } from '../ui/modals/modalLayout';
@@ -129,7 +131,7 @@ export class BattleHudScene extends Phaser.Scene {
   private speedButtons: Button[] = [];
   private intervene!: Button;
   /** Info box of a tapped building or unit (§10.7), and the entity it describes. */
-  private info!: InfoPanel;
+  private info!: InspectionView;
   private inspected: number | null = null;
   private autoBtn!: Button;
   private wavesBtn!: Button;
@@ -182,7 +184,9 @@ export class BattleHudScene extends Phaser.Scene {
 
     this.tooltip = new Tooltip(this);
     this.toasts = new ToastStack(this, TOAST_DEPTH);
-    this.info = new InfoPanel(this, MODAL_DEPTH - 50);
+    this.info = new InspectionView(this, MODAL_DEPTH - 50, () => {
+      this.inspected = null;
+    });
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
       content: () => textContent(lines),
@@ -437,7 +441,32 @@ export class BattleHudScene extends Phaser.Scene {
       return;
     }
     this.inspected = id;
-    this.info.show(entityInfoLines(world, id, CONTENT), p, this.screen());
+    this.showInfo(world, id, p);
+  }
+
+  private showInfo(world: BattleWorld, id: number, anchor: Point): void {
+    const state = this.controller.state;
+    const reserved = battleControls(battleLayout(this.screen()));
+    if (world.kind[id] === KIND_UNIT) {
+      const unit = unitInfoModel(world, id, state, CONTENT);
+      if (unit) this.info.showUnit(unit, anchor, this.screen(), reserved);
+      return;
+    }
+    const plot = plotOfEntity(world, id, state);
+    const model = plot === null ? null : buildingInfoModel(state, plot, CONTENT, { hp: world.hp[id]!, maxHp: world.maxHp[id]! });
+    if (model) this.info.showBuilding(model, anchor, this.screen(), reserved);
+  }
+
+  private updateInfo(world: BattleWorld, id: number): void {
+    const state = this.controller.state;
+    if (world.kind[id] === KIND_UNIT) {
+      const unit = unitInfoModel(world, id, state, CONTENT);
+      if (unit) this.info.setUnit(unit);
+      return;
+    }
+    const plot = plotOfEntity(world, id, state);
+    const model = plot === null ? null : buildingInfoModel(state, plot, CONTENT, { hp: world.hp[id]!, maxHp: world.maxHp[id]! });
+    if (model) this.info.setBuilding(model);
   }
 
   private hideInfo(): void {
@@ -450,7 +479,7 @@ export class BattleHudScene extends Phaser.Scene {
     const id = this.inspected;
     if (id === null) return;
     if (world.alive[id] !== 1) this.hideInfo();
-    else this.info.setLines(entityInfoLines(world, id, CONTENT));
+    else this.updateInfo(world, id);
   }
 
   // ---- Tự bắn / các đợt địch -----------------------------------------------------------------
@@ -742,7 +771,7 @@ export class BattleHudScene extends Phaser.Scene {
     const wv = l.waves;
     this.wavesBtn.container.setPosition(wv.x + wv.w / 2, wv.y + wv.h / 2);
     this.layoutScout();
-    this.info.layout(this.screen());
+    this.info.layout(this.screen(), battleControls(l));
 
     this.bossBar.resize(c.w, BAR_H);
     this.bossBar.image.setPosition(c.x, c.y + c.h + GAP + 14);

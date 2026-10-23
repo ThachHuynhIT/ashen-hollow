@@ -25,8 +25,9 @@ import { RewardModal } from '../ui/modals/RewardModal';
 import { modalKind } from '../ui/modals/councilModel';
 import { DecreeQuestPanel } from '../ui/planning/DecreeQuestPanel';
 import { handLimit } from '../game/run/decrees';
-import { InfoPanel } from '../ui/info/InfoPanel';
-import { buildingInfoLines } from '../ui/info/infoLines';
+import { InspectionView } from '../ui/info/InspectionView';
+import { buildingInfoModel } from '../ui/info/inspectionModel';
+import { planningControls } from '../ui/info/inspectionReserved';
 import { cardBadge, willLevelUpTo } from '../ui/cards/cardText';
 import { CalendarStrip } from '../ui/planning/CalendarStrip';
 import { HandView } from '../ui/planning/HandView';
@@ -107,7 +108,7 @@ export class PlanningHudScene extends Phaser.Scene {
   /** Cards currently in hand (1–3 after a play): the row is centred on this many. */
   private handCount = 0;
   /** Info box of a tapped building (§10.7), and the plot it describes. */
-  private info!: InfoPanel;
+  private info!: InspectionView;
   private inspected: number | null = null;
   private fight!: Button;
   private confirmBtn!: Button;
@@ -155,7 +156,9 @@ export class PlanningHudScene extends Phaser.Scene {
 
     this.tooltip = new Tooltip(this);
     this.toasts = new ToastStack(this, MODAL_DEPTH + 50);
-    this.info = new InfoPanel(this, MODAL_DEPTH - 50);
+    this.info = new InspectionView(this, MODAL_DEPTH - 50, () => {
+      this.inspected = null;
+    });
     const tip = (lines: string[]): TooltipSource => ({
       host: this.tooltip,
       content: () => textContent(lines),
@@ -263,9 +266,9 @@ export class PlanningHudScene extends Phaser.Scene {
     this.calendar.setCells(calendarCells(state, 5));
     this.scout.setPlan(state.army);
     if (this.inspected !== null) {
-      const building = state.plots[this.inspected]?.building ?? null;
-      if (building === null || state.phase !== 'planning') this.inspect(null, { x: 0, y: 0 });
-      else this.info.setLines(buildingInfoLines(building, CONTENT));
+      const model = buildingInfoModel(state, this.inspected, CONTENT);
+      if (model === null || state.phase !== 'planning') this.inspect(null, { x: 0, y: 0 });
+      else this.info.setBuilding(model);
     }
 
     const planning = state.phase === 'planning';
@@ -603,20 +606,20 @@ export class PlanningHudScene extends Phaser.Scene {
   // ---- building info (§10.7) ---------------------------------------------------------------
 
   private inspect(plot: number | null, anchor: { x: number; y: number }): void {
-    const building =
-      plot === null || this.modalOpen()
-        ? null
-        : this.controller.state.plots[plot]?.building ?? null;
-    if (plot === null || building === null) {
+    const model =
+      plot === null || this.modalOpen() ? null : buildingInfoModel(this.controller.state, plot, CONTENT);
+    if (plot === null || model === null) {
       this.inspected = null;
       this.info.hide();
       return;
     }
     this.inspected = plot;
-    this.info.show(buildingInfoLines(building, CONTENT), anchor, {
-      w: this.scale.width,
-      h: this.scale.height,
-    });
+    this.info.showBuilding(
+      model,
+      anchor,
+      { w: this.scale.width, h: this.scale.height },
+      planningControls(this.lay),
+    );
   }
 
   // ---- modals ------------------------------------------------------------------------------
@@ -771,7 +774,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.layoutScout();
     this.calendarModal?.layout();
     this.deckModal?.layout();
-    this.info.layout({ w: this.scale.width, h: this.scale.height });
+    this.info.layout({ w: this.scale.width, h: this.scale.height }, planningControls(l));
     this.refreshPending();
   }
 
