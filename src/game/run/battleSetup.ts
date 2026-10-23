@@ -35,7 +35,7 @@ const clamp = (value: number, min: number, max: number): number => Math.min(Math
  * Chỉ số đòn đánh từ `a` sau cấp và modifier. `dmgMult`/`rangeBonus` là hồ sơ cấp (§5.2);
  * `sheet` là modifier §5.3: sát thương, tầm, nhịp (không dưới 50% nhịp gốc).
  */
-const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatSheet): AttackStats => {
+export const attackStats = (a: AttackSpec, dmgMult = 1, rangeBonus = 0, sheet?: StatSheet): AttackStats => {
   const slow = a.onHit?.find((h) => h.type === 'slow');
   const stun = a.onHit?.find((h) => h.type === 'stun');
   const ramp = a.onHit?.find((h) => h.type === 'rampSameTarget');
@@ -199,7 +199,8 @@ const throneMercenaries = (
   return { spawnAtThrone: { stats: spawnedStats(unit, state.throneLevel, sheet, content), count } };
 };
 
-const structureFor = (state: RunState, plot: number, content: Content): StructureSetup => {
+/** Công trình/Ngai ở `plot` đúng như vào trận (range/radius theo px thế giới, interval theo tick); UI dùng lại, không tính lại. */
+export const structureFor = (state: RunState, plot: number, content: Content): StructureSetup => {
   const b = state.plots[plot]!.building!;
   const card = content.card(b.cardId);
   const base = { plot, uid: b.uid, cardId: b.cardId } as const;
