@@ -9,7 +9,7 @@ import { RULES_FULL } from '../../data/rules';
 import { bossWorld } from '../../game/battle/bossKit';
 import { addDot } from '../../game/battle/statuses';
 import { runState } from '../../game/testing/fixtures';
-import { buildingInfoLines, entityAt, entityInfoLines, infoContent, placeInfoBox, runSummary, statusLines } from './infoLines';
+import { buildingModelLines, unitModelLines, buildingInfoLines, entityAt, entityInfoLines, infoContent, placeInfoBox, runSummary, statusLines } from './infoLines';
 
 const building = (cardId: BuildingState['cardId'], level: BuildingState['level'] = 1): BuildingState => ({
   uid: 1,
@@ -256,5 +256,31 @@ describe('runSummary', () => {
 
   it('has no boss line in the short rules', () => {
     expect(runSummary(runState()).join('|')).not.toContain('Boss đã hạ');
+  });
+});
+
+describe('model lines', () => {
+  const unit = {
+    title: 'Dân Quân', sourceLevel: null, hp: 10, maxHp: 20, dmg: 5, damageType: 'vật lý', range: 8,
+    attacksPerSecond: 0, armorPct: 25, speed: 20, tags: ['cận chiến'], behaviours: [], statuses: ['Đang choáng'],
+  } as const;
+
+  it('formats a unit with unknown origin, no attack and statuses', () => {
+    const lines = unitModelLines(unit);
+    expect(lines).toContain('Không từ công trình của bạn');
+    expect(lines).toContain('Không tấn công');
+    expect(lines).toContain('Máu: 10 / 20');
+    expect(lines).toContain('Đang choáng');
+  });
+
+  it('formats a building with stars, age, enchants and the next level', () => {
+    const lines = buildingModelLines({
+      plot: 6, uid: 1, title: 'Dân Quân', stars: { filled: 3, total: 5, label: 'Cấp 3/5' }, hp: 225,
+      description: ['Sinh lính.'], next: ['Máu: 225 → 262.5'], enchants: ['Mài ×2'], age: { years: 7, bonus: 2 }, spawn: null,
+    });
+    expect(lines.slice(0, 3)).toEqual(['Dân Quân', 'Cấp 3/5', 'Máu: 225']);
+    expect(lines).toContain('Tuổi: 7 năm (thêm 2)');
+    expect(lines).toContain('Bùa: Mài ×2');
+    expect(lines).toContain('Máu: 225 → 262.5');
   });
 });

@@ -8,6 +8,7 @@ import type { Content } from '../../game/cards/registry';
 import type { BuildingState, RunState } from '../../game/run/state';
 import { UI_PALETTE } from '../../data/uiPalette';
 import type { Point, Size, TooltipContent } from '../hud/layout';
+import type { BuildingInfoModel, UnitInfoModel } from './inspectionModel';
 
 /** Bấm trượt tối đa chừng này px ngoài vòng va chạm vẫn tính là trúng. */
 const HIT_SLOP = 4;
@@ -174,3 +175,31 @@ export const runSummary = (state: RunState): string[] => {
   if (s.bossesDefeated.includes('boss_crownless_king')) lines.push('Vương Miện Vàng: đã hạ Vua Không Ngai!');
   return lines;
 };
+
+const num = (n: number): string => String(Math.round(n * 100) / 100);
+
+/** Dòng chữ của model nhà (chỉ định dạng; số liệu đã hiệu dụng trong model). Không gồm khối chỉ số lính. */
+export const buildingModelLines = (m: BuildingInfoModel): readonly string[] => [
+  m.title,
+  m.stars.label,
+  `Máu: ${num(m.hp)}`,
+  ...m.description,
+  ...(m.age ? [`Tuổi: ${m.age.years} năm${m.age.bonus > 0 ? ` (thêm ${m.age.bonus})` : ''}`] : []),
+  ...m.enchants.map((e) => `Bùa: ${e}`),
+  ...(m.next ? ['Cấp sau:', ...m.next] : []),
+];
+
+/** Dòng chữ của model lính. */
+export const unitModelLines = (m: UnitInfoModel): readonly string[] => [
+  m.title,
+  m.sourceLevel === null ? 'Không từ công trình của bạn' : `Cấp ${m.sourceLevel}/5`,
+  `Máu: ${m.hp} / ${m.maxHp}`,
+  m.attacksPerSecond > 0
+    ? `Sát thương: ${num(m.dmg)} (${m.damageType}) · ${num(m.attacksPerSecond)} đòn/giây`
+    : 'Không tấn công',
+  `Tầm đánh: ${num(m.range)} · Tốc độ: ${num(m.speed)}`,
+  `Giáp: ${m.armorPct}%`,
+  ...(m.tags.length > 0 ? [`Loại: ${m.tags.join(', ')}`] : []),
+  ...m.behaviours,
+  ...m.statuses,
+];
