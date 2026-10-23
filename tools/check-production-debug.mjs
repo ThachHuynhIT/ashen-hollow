@@ -4,6 +4,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 export const MARKERS = ['DEV_PREVIEW_ONLY_JUMP', 'Xem thử (DEV)', 'BẢN XEM THỬ', 'registerPreview', 'createPreviewRun'];
