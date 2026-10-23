@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { PALETTE, toCss } from './palette';
 
-describe('Hearth 32 palette', () => {
-  it('has exactly 32 distinct 24-bit colours', () => {
+describe('Hearth palette (kept for compatibility)', () => {
+  it('holds distinct 24-bit colours', () => {
     const colors = Object.values(PALETTE);
-    expect(colors).toHaveLength(32);
-    expect(new Set(colors).size).toBe(32);
+    expect(new Set(colors).size).toBe(colors.length);
     for (const c of colors) {
       expect(Number.isInteger(c)).toBe(true);
       expect(c).toBeGreaterThanOrEqual(0);

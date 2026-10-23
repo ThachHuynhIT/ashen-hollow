@@ -65,15 +65,16 @@ describe('the G3 content in the atlas', () => {
     expect(byName.size).toBe(list.length);
   });
 
-  it('draws every registered unit at exactly its UnitDef sprite size (boss 48×48 included)', () => {
+  it('draws every registered unit at exactly its UnitDef sprite size (bosses included)', () => {
     for (const unit of CONTENT.allUnits()) {
       for (const team of ['ally', 'foe'] as const) {
         const art = byName.get(unitFrame(unit.id, team, 'idle', 0))!.art;
         expect([art.width, art.height], `${unit.id} ${team}`).toEqual([unit.sprite.w, unit.sprite.h]);
       }
     }
+    const bossDef = CONTENT.unit('boss_bog_ogre');
     const boss = byName.get(unitFrame('boss_bog_ogre', 'foe', 'idle', 0))!.art;
-    expect([boss.width, boss.height]).toEqual([48, 48]);
+    expect([boss.width, boss.height]).toEqual([bossDef.sprite.w, bossDef.sprite.h]);
   });
 
   it('has the three bosses, the frog and the hornet', () => {

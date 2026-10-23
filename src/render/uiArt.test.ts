@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { UI_COLORS, UI_PALETTE } from '../data/uiPalette';
+import { UI_PALETTE } from '../data/uiPalette';
+import { checkArtFrame } from './artPolicy';
 import type { PixelCanvas } from './pixel';
 import {
   HILL_LAYERS,
@@ -22,18 +23,9 @@ const colorAt = (c: PixelCanvas, x: number, y: number): number => {
   return (c.data[i]! << 16) | (c.data[i + 1]! << 8) | c.data[i + 2]!;
 };
 
-/** Opaque pixels whose colour is not in UI_PALETTE, as "x,y:#rrggbb". */
-const foreignColors = (c: PixelCanvas): string[] => {
-  const bad: string[] = [];
-  for (let y = 0; y < c.height; y++) {
-    for (let x = 0; x < c.width; x++) {
-      if (c.alphaAt(x, y) === 0) continue;
-      const color = colorAt(c, x, y);
-      if (!UI_COLORS.includes(color)) bad.push(`${x},${y}:#${color.toString(16)}`);
-    }
-  }
-  return bad;
-};
+/** Soft-alpha edge problems of a UI frame; any RGB is allowed under the G3e art contract. */
+const foreignColors = (c: PixelCanvas): readonly string[] =>
+  checkArtFrame('ui', c, { w: c.width, h: c.height }, false);
 
 const CORE: Record<UiFrame, number> = {
   panel: UI_PALETTE.cream,
@@ -90,7 +82,7 @@ describe('uiArt frames', () => {
     }
   });
 
-  it('uses only UI_PALETTE colours', () => {
+  it('has crisp edges (alpha 0 or 255) in every frame and decor', () => {
     for (const id of UI_FRAME_IDS) expect(foreignColors(paintUiFrame(id)), id).toEqual([]);
     for (const id of UI_DECOR_IDS) expect(foreignColors(paintUiDecor(id)), id).toEqual([]);
   });

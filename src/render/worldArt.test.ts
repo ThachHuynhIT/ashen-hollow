@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PALETTE } from '../data/palette';
-import { UI_COLORS } from '../data/uiPalette';
 import { CONTENT } from '../game/cards/registry';
+import { checkArtFrame } from './artPolicy';
 import { BUILDING_SIZE, THRONE_SIZE, paintBuilding, paintThrone } from './buildingArt';
 import { CARD_ART, paintCardArt } from './cardArt';
 import {
@@ -33,19 +33,9 @@ const colorAt = (c: PixelCanvas, x: number, y: number): number => {
   return (c.data[i]! << 16) | (c.data[i + 1]! << 8) | c.data[i + 2]!;
 };
 
-const WORLD: readonly number[] = Object.values(PALETTE);
-
-/** Opaque pixels whose colour is not in `colors`. */
-const foreign = (c: PixelCanvas, colors: readonly number[]): string[] => {
-  const bad: string[] = [];
-  for (let y = 0; y < c.height; y++)
-    for (let x = 0; x < c.width; x++) {
-      if (c.alphaAt(x, y) === 0) continue;
-      const color = colorAt(c, x, y);
-      if (!colors.includes(color)) bad.push(`${x},${y}:#${color.toString(16)}`);
-    }
-  return bad;
-};
+/** Edge problems of a frame (soft alpha; alpha 128 is the declared ground shadow); any RGB is fine under the G3e art contract. */
+const foreign = (c: PixelCanvas, shadow = true): readonly string[] =>
+  checkArtFrame('frame', c, { w: c.width, h: c.height }, shadow);
 
 const count = (c: PixelCanvas, color: number): number => {
   let n = 0;
@@ -61,7 +51,7 @@ describe('unit art', () => {
   const teams: UnitTeam[] = ['ally', 'foe'];
   const anims: UnitAnim[] = ['idle', 'walk', 'attack'];
 
-  it('paints every unit at its sprite size in PALETTE colours with team outlines', () => {
+  it('paints every unit at its sprite size with team outlines', () => {
     for (const def of CONTENT.allUnits()) {
       const cloth = unitCloth(def);
       for (const team of teams)
@@ -70,7 +60,7 @@ describe('unit art', () => {
             const art = paintUnit(def, team, anim, frame, cloth);
             const tag = `${def.id} ${team} ${anim} ${frame}`;
             expect([art.width, art.height], tag).toEqual([def.sprite.w, def.sprite.h]);
-            expect(foreign(art, WORLD), tag).toEqual([]);
+            expect(foreign(art), tag).toEqual([]);
             if (team === 'ally') {
               expect(count(art, PALETTE.outline), tag).toBeGreaterThan(0);
               expect(count(art, PALETTE.redDark), tag).toBe(0);
@@ -110,7 +100,7 @@ describe('unit art', () => {
 });
 
 describe('buildings and plots', () => {
-  it('paints troop, tower and throne at their sizes in PALETTE colours', () => {
+  it('paints troop, tower and throne at their sizes', () => {
     const troop = paintBuilding('troop', PALETTE.red);
     const tower = paintBuilding('tower', PALETTE.blue);
     const throne = paintThrone(PALETTE.gold);
@@ -118,7 +108,7 @@ describe('buildings and plots', () => {
     expect([tower.width, tower.height]).toEqual([32, 40]);
     expect([throne.width, throne.height]).toEqual([THRONE_SIZE.w, THRONE_SIZE.h]);
     expect([THRONE_SIZE.w, THRONE_SIZE.h]).toEqual([32, 48]);
-    for (const art of [troop, tower, throne]) expect(foreign(art, WORLD)).toEqual([]);
+    for (const art of [troop, tower, throne]) expect(foreign(art)).toEqual([]);
     expect(same(troop, tower)).toBe(false);
   });
 
@@ -128,7 +118,7 @@ describe('buildings and plots', () => {
     const throne = paintPlot('throne');
     for (const art of [open, locked, throne]) {
       expect([art.width, art.height]).toEqual([PLOT_SIZE, PLOT_SIZE]);
-      expect(foreign(art, WORLD)).toEqual([]);
+      expect(foreign(art)).toEqual([]);
     }
     expect(PLOT_SIZE).toBe(32);
     expect(same(open, locked)).toBe(false);
@@ -152,19 +142,19 @@ describe('field art', () => {
     expect(differing).toBeGreaterThan(0);
   });
 
-  it('paints every terrain and mask tile at 16x16 in PALETTE colours', () => {
+  it('paints every terrain and mask tile at 16x16', () => {
     for (let t = 0; t < FIELD_TERRAINS.length; t++)
       for (let mask = 0; mask <= 15; mask++) {
         const tile = paintFieldTile(t, mask, 3);
         expect([tile.width, tile.height]).toEqual([16, 16]);
-        expect(foreign(tile, WORLD), `${t}/${mask}`).toEqual([]);
+        expect(foreign(tile), `${t}/${mask}`).toEqual([]);
       }
   });
 
-  it('paints the plain grass ground tile fully opaque in PALETTE colours', () => {
+  it('paints the plain grass ground tile fully opaque', () => {
     const t = paintGroundTile();
     expect([t.width, t.height]).toEqual([16, 16]);
-    expect(foreign(t, WORLD)).toEqual([]);
+    expect(foreign(t)).toEqual([]);
     for (let i = 3; i < t.data.length; i += 4) if (t.data[i] !== 255) throw new Error(`hole at ${i}`);
     expect(same(t, paintGroundTile())).toBe(true);
   });
@@ -172,23 +162,23 @@ describe('field art', () => {
   it('paints the whole field opaque at 384x384, deterministically', () => {
     const f = paintField(1);
     expect([f.width, f.height]).toEqual([384, 384]);
-    expect(foreign(f, WORLD)).toEqual([]);
+    expect(foreign(f)).toEqual([]);
     for (let i = 3; i < f.data.length; i += 4) if (f.data[i] !== 255) throw new Error(`hole at ${i}`);
     expect(same(f, paintField(1))).toBe(true);
   });
 });
 
 describe('icons and fx', () => {
-  it('paints 7 icons at 16x16 in UI colours', () => {
+  it('paints 7 icons at 16x16', () => {
     expect(ICON_IDS.length).toBe(14);
     for (const id of ICON_IDS) {
       const art = paintIcon(id);
       expect([art.width, art.height], id).toEqual([16, 16]);
-      expect(foreign(art, UI_COLORS), id).toEqual([]);
+      expect(foreign(art), id).toEqual([]);
     }
   });
 
-  it('paints the pulse burst, shield bubble and stun stars in PALETTE colours', () => {
+  it('paints the pulse burst, shield bubble and stun stars', () => {
     const arts = {
       pulse: paintPulse(),
       shield: paintShieldFx(),
@@ -197,7 +187,8 @@ describe('icons and fx', () => {
     expect([arts.pulse.width, arts.pulse.height]).toEqual([16, 16]);
     expect([arts.shield.width, arts.shield.height]).toEqual([16, 16]);
     expect([arts.stun.width, arts.stun.height]).toEqual([8, 8]);
-    for (const [name, art] of Object.entries(arts)) expect(foreign(art, WORLD), name).toEqual([]);
+    // pulse and shield are translucent on purpose (declared in E6c); only the stun stars must be crisp
+    expect(foreign(arts.stun)).toEqual([]);
     expect(same(arts.pulse, arts.shield)).toBe(false);
   });
 
@@ -205,7 +196,7 @@ describe('icons and fx', () => {
     const arts = ARROW_DIRS.map((d) => paintArrow(d));
     for (const art of arts) {
       expect([art.width, art.height]).toEqual([8, 8]);
-      expect(foreign(art, WORLD)).toEqual([]);
+      expect(foreign(art)).toEqual([]);
     }
     for (let i = 0; i < arts.length; i++)
       for (let j = i + 1; j < arts.length; j++)
@@ -233,18 +224,18 @@ describe('icons and fx', () => {
     expect([b.width, b.height]).toEqual([16, 16]);
     expect([s.width, s.height]).toEqual([24, 8]);
     expect([k.width, k.height]).toEqual([4, 4]);
-    for (const art of [b, s, k]) expect(foreign(art, WORLD)).toEqual([]);
+    for (const art of [b, s, k]) expect(foreign(art)).toEqual([]);
   });
 });
 
 describe('card art', () => {
-  it('paints every card picture at 32x24 in PALETTE colours', () => {
+  it('paints every card picture at 32x24', () => {
     const cards = CONTENT.allCards();
     expect(cards.length).toBeGreaterThanOrEqual(7);
     for (const def of cards) {
       const art = paintCardArt(def, PALETTE.red);
       expect([art.width, art.height], def.id).toEqual([CARD_ART.w, CARD_ART.h]);
-      expect(foreign(art, WORLD), def.id).toEqual([]);
+      expect(foreign(art), def.id).toEqual([]);
     }
   });
 });
@@ -254,24 +245,24 @@ describe('G2 art', () => {
     for (const def of CONTENT.allUnits()) expect(UNIT_CLOTH, def.id).toHaveProperty(def.id);
   });
 
-  it('paints economy and support buildings at the building size in PALETTE colours', () => {
+  it('paints economy and support buildings at the building size', () => {
     const economy = paintBuilding('economy', PALETTE.wheat);
     const support = paintBuilding('support', PALETTE.stone);
     for (const art of [economy, support]) {
       expect([art.width, art.height]).toEqual([BUILDING_SIZE.w, BUILDING_SIZE.h]);
-      expect(foreign(art, WORLD)).toEqual([]);
+      expect(foreign(art)).toEqual([]);
     }
     expect(same(economy, support)).toBe(false);
     expect(same(economy, paintBuilding('troop', PALETTE.wheat))).toBe(false);
     expect(same(support, paintBuilding('tower', PALETTE.stone))).toBe(false);
   });
 
-  it('adds the G2 icons at 16x16 in UI colours', () => {
+  it('adds the G2 icons at 16x16', () => {
     for (const id of ['gold', 'level', 'enchant', 'reroll', 'sell', 'lock', 'conquer'] as const) {
       expect(ICON_IDS).toContain(id);
       const art = paintIcon(id);
       expect([art.width, art.height], id).toEqual([16, 16]);
-      expect(foreign(art, UI_COLORS), id).toEqual([]);
+      expect(foreign(art), id).toEqual([]);
     }
   });
 
@@ -289,12 +280,12 @@ describe('G2 art', () => {
           expect(same(arts[i]!, arts[j]!), `${kind}: ${names.get(kind)![i]} vs ${names.get(kind)![j]}`).toBe(false);
   });
 
-  it('paints a king portrait per king in UI colours plus the king colour', () => {
+  it('paints a king portrait per king', () => {
     const arts: PixelCanvas[] = [];
     for (const king of CONTENT.kings()) {
       const art = paintPortrait(king);
       expect([art.width, art.height]).toEqual([PORTRAIT_SIZE, PORTRAIT_SIZE]);
-      expect(foreign(art, [...UI_COLORS, PALETTE[king.color]]), king.id).toEqual([]);
+      expect(foreign(art), king.id).toEqual([]);
       arts.push(art);
     }
     expect(arts.length).toBeGreaterThanOrEqual(3);

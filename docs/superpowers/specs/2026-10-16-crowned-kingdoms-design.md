@@ -23,7 +23,7 @@ Không khí: **fantasy ấm áp, dễ thương** — vương quốc nhỏ, lính
 3. Mô phỏng trận deterministic: cùng `BattleSetup` + cùng chuỗi lệnh can thiệp → cùng kết quả từng bit (test §13.2); một ván headless 30 năm do bot chơi chạy xong không lỗi.
 4. Hiệu năng đạt §8.10 trên desktop và trên điện thoại tầm trung.
 5. Mọi màn hình ở §10 đúng bố cục trên desktop 1280×720 và mobile 375×812: không chữ đè nhau, không phần nào tràn màn hình, mọi vùng chạm ≥ 44×44 px.
-6. Mọi pixel thế giới lấy từ `PALETTE` mới (§11.1), mọi pixel UI lấy từ `UI_PALETTE` (UI spec §3).
+6. Art dùng metadata mở về màu/kích thước, không giới hạn RGB hoặc số màu; giữ pixel look theo §11.1–11.4 và các primitive UI hiện có.
 7. Công cụ cân bằng (§14 G5) chạy được và tỉ lệ thắng của bot `greedy` ở độ khó 0 cho mỗi vua nằm trong 35–65%, chênh lệch giữa vua cao nhất và thấp nhất ≤ 15 điểm phần trăm.
 8. `npm run lint && npm run typecheck && npm test && npm run build` đều exit 0; CI xanh.
 
@@ -43,7 +43,7 @@ Các con số chuẩn nằm ở §3 (ván) và §8 (trận); bảng này chỉ g
 |---|---|
 | Repo | **Cùng repo, thay thế.** Giữ hạ tầng: Vite, Phaser 4, Vitest, ESLint, CI, `EventBus`, `SimClock`, `Rng`/`hashSeed`, pipeline pixel art sinh bằng code, `SpatialHash`, thuật toán tách đơn vị (separation). Xoá colony sim (jobs, needs, colonist, designation, nav grid). Lịch sử còn trong git. |
 | Nhánh | `phase1-core-loop` lưu trữ, không merge, không sửa nữa. Việc mới rẽ từ `ui-stardew`. |
-| Chủ đề | Fantasy ấm áp hợp UI Stardew: vương quốc nhỏ, lính chibi, đồng ruộng, rừng. Bảng màu thế giới **ấm** — bảng "Ashen 32" bị thay bằng bảng "Hearth 32" (§11.1); `UI_PALETTE` của UI spec giữ nguyên. |
+| Chủ đề | Fantasy ấm áp hợp UI Stardew: vương quốc nhỏ, lính chibi, đồng ruộng, rừng. Tông màu **ấm**, màu/kích thước theo metadata mở, giữ pixel look (§11.1–11.4); các export palette cũ giữ để tương thích. |
 | Tên | "Crowned Kingdoms" (trước đây "Chín Vương Miện" / *Nine Crowns*). |
 | Phạm vi | **Toàn bộ game** trong spec tổng này, chia G0–G5, mỗi phần một plan (§14). |
 | UI | Giữ UI Stardew. Từ plan UI dùng lại Task 1–4 và 9; bỏ Task 5–8 (HUD colony). |
@@ -1108,9 +1108,9 @@ Cuối ván (thắng hay thua):
 
 ### 10.1 Chung
 
-- Dùng nguyên các khối của UI spec/plan: `UI_PALETTE`, frame `panel/button/buttonHover/buttonDown/buttonActive/slot/slotSelected/tooltip/bar`, `createPanel`, `createButton`, `ContentBox`, `Tooltip` (bấm giữ 400 ms trên cảm ứng), toast, `uiScale`, `MARGIN = 10`, chữ `FONT_UI` màu `text` bóng `textShadow`.
+- Dùng nguyên các khối của UI spec/plan: frame `panel/button/buttonHover/buttonDown/buttonActive/slot/slotSelected/tooltip/bar`, `createPanel`, `createButton`, `ContentBox`, `Tooltip` (bấm giữ 400 ms trên cảm ứng), toast, `uiScale`, `MARGIN = 10`, chữ `FONT_UI` màu `text` bóng `textShadow`.
 - Mọi vùng chạm ≥ 44×44 px logic. Bố cục tính lại trong `layout()` khi resize. "Desktop" = 1280×720, "mobile" = 375×812 (dọc); kích thước giữa hai mức dùng luật của mức gần nhất theo chiều rộng (`width ≥ 768` → bố cục desktop).
-- Lớp phủ trên thế giới (ô hợp lệ/không hợp lệ, vòng ngắm can thiệp, mũi tên mép xuất hiện) là UI: vẽ bằng `UI_PALETTE` (`good`, `bad`, `gold`).
+- Lớp phủ trên thế giới (ô hợp lệ/không hợp lệ, vòng ngắm can thiệp, mũi tên mép xuất hiện) là UI: giữ ý nghĩa `good`, `bad`, `gold`; màu theo metadata mở (§11.1), không bắt buộc thuộc `UI_PALETTE`.
 - Phím tắt desktop có tooltip ghi phím.
 
 ### 10.2 Menu chính (`MainMenuScene`)
@@ -1181,63 +1181,33 @@ Ba thanh trượt âm lượng (tổng, nhạc, hiệu ứng) 0–100 bước 10
 
 ## 11. Art & âm thanh
 
-### 11.1 Bảng màu thế giới "Hearth 32" (`src/data/palette.ts`, thay "Ashen 32")
+### 11.1 Màu mở, giữ pixel look
 
-Giữ tên export `PALETTE`, `PaletteColor`, `toCss`; thay toàn bộ giá trị. Ngôn ngữ thị giác: tông ấm, bão hoà vừa, bóng đổ nâu–mận (không đen/tím lạnh); **xanh dương = phe mình, đỏ = phe địch**.
+Nguồn: yêu cầu chủ dự án ngày **23/10/2026**, thay thế giới hạn màu/kích thước cũ. Không giới hạn RGB hoặc số lượng màu cho thế giới và UI. Giữ các export `PALETTE`, `PaletteColor`, `toCss`, `UI_PALETTE` và màu cũ để tương thích, không dùng làm danh sách màu bắt buộc của toàn bộ art.
 
-```ts
-export const PALETTE = {
-  // Tối / viền
-  outline: 0x2a1a14, shadow: 0x4a2f27, plum: 0x6b3f5a,
-  // Cây cỏ
-  leafDark: 0x2f5a35, grassDark: 0x3f6b2a, leaf: 0x4a8a3f, grass: 0x5d9b3a, grassLight: 0x8cc455, meadow: 0xb8d86a,
-  // Đất
-  soilDark: 0x6b4423, soil: 0x9a6634, path: 0xc89458, sand: 0xe8c68a,
-  // Lúa
-  wheat: 0xe8b84a, wheatLight: 0xf6dc7a,
-  // Nước
-  waterDeep: 0x2f6f9a, water: 0x4a9ac8, waterLight: 0x8fd0e8,
-  // Đá
-  stoneDark: 0x5e5a66, stone: 0x8c8794, stoneLight: 0xc2bcc4,
-  // Da, vải sáng
-  skin: 0xf2c49b, skinShadow: 0xc98a64, cream: 0xfaf0d7, white: 0xfffbf0,
-  // Điểm nhấn
-  red: 0xd04a3a, redDark: 0x8e2d2b, orange: 0xf08a3a, gold: 0xf6c445, blue: 0x4a6fc8, purple: 0x8a5ab8, teal: 0x3aa89a,
-} as const;
-```
+Ngôn ngữ thị giác: fantasy ấm áp, bão hoà vừa, bóng nâu–mận; **xanh dương = phe mình, đỏ = phe địch**, kết hợp hình/viền để phân biệt phe. Raster không anti-aliasing, blur, gradient mượt hoặc glow mờ; chuyển tông bằng cụm pixel/dither. Mép sprite alpha 0/255; bóng riêng được alpha 128 khi có khai báo.
 
-Luật (ghi vào `ART_STYLE.md`): pixel thế giới (cánh đồng, ô, công trình, đơn vị, tranh trong thẻ) chỉ lấy từ `PALETTE`; pixel UI (khung, nút, thẻ, lớp phủ) chỉ lấy từ `UI_PALETTE`. Bóng đổ elip dùng `shadow` alpha 50%. Phông nền game (`main.ts`) = `outline`.
+### 11.2 Kích thước theo metadata
 
-### 11.2 Kích thước
-
-| Thứ | Kích thước | Ghi chú |
-|---|---|---|
-| Tile cánh đồng | 16×16 | dual-grid như cũ (cỏ < cỏ hoa < đường đất < cát; ao là nước) |
-| Ô bàn cờ | 32×32 | ô mở trống (đất xới viền cỏ), ô khoá (cỏ rậm + cọc rào + biển giá), bệ Ngai (đá) |
-| Công trình | 32×40 | đứng trên mép dưới ô, phần cao 8 px tràn lên ô phía Bắc (y-sort) |
-| Ngai | 32×48 | |
-| Lính nhỏ chibi | 16×16 | dân quân, sói, nhện, xương…; đầu ≈ 40% chiều cao |
-| Lính cao | 16×24 | người cầm vũ khí dài, pháp sư, kỵ binh |
-| Lính lớn | 24×24 / 24×32 | người đá, gấu, cổ thụ, rồng sắt, khổng lồ đồng, thần chết |
-| Boss | 48×48 | |
-| Đạn / hiệu ứng | 4×4 – 8×8 | tia lửa, mũi tên (4 hướng + 4 chéo, vẽ riêng, không xoay), đá, bùn |
-| Tảng đá can thiệp | 16×16 + bóng 24×8 | |
-| Tranh thẻ | 32×24 | cửa sổ tranh trong `CardView` |
-| Icon loại thẻ / tài nguyên | 16×16 | |
-| Chân dung vua | 32×32 | ghép trong ô chọn vua |
-| Khung thẻ (UI) | ô nguồn 24×32, slice 8 | `card`, `cardUncommon`, `cardRare`, `cardSelected` |
+- Giữ **ô logic 32 px** và sân logic **384 px**; kích thước hình không thay đổi kích thước mô phỏng hoặc luật trận.
+- Canvas/frame có chiều rộng, chiều cao là số nguyên dương, khai báo và kiểm tra đúng metadata; không đóng vào danh sách kích thước cũ. Đơn vị theo `UnitDef.sprite` dạng `{readonly w:number;readonly h:number}`; UI theo `uiFrameDef` (size/slice/border).
+- Trong G3e giữ công trình 32×40, Ngai 32×48 và kích thước lính hiện tại theo `UnitDef.sprite`: đây là lựa chọn triển khai, không phải giới hạn đồ hoạ chung.
+- Hiển thị `pixelArt: true`, nearest sampling, integer camera zoom và integer scale; sprite/scroll hiển thị snap pixel, không sửa float của world để snap render. Không xoay sprite, chỉ flip; neo chân `(0.5, 1)`, y-sort.
+- Chữ `FONT_UI` vẽ ở kích thước hiển thị gốc, không phóng texture text theo tỷ lệ lẻ; kiểm độ rõ/glyph tiếng Việt bằng browser.
 
 ### 11.3 Pipeline art sinh bằng code
 
-- Giữ `PixelCanvas`/`pixelHash` (`pixel.ts`), `paintBitmap` (`bitmap.ts`), `dualGrid.ts`. Module mới (thuần TS, có test màu): `fieldArt.ts` (tile cánh đồng), `plotArt.ts`, `buildingArt.ts`, `unitArt.ts`, `cardArt.ts` (khung thẻ, chỉ `UI_PALETTE`), `iconArt.ts`, `fxArt.ts`, `portraitArt.ts`.
-- Đơn vị vẽ bằng `paintBitmap` với ký tự màu cố định; ký tự `c` = màu vải → màu chủ vua; ký tự `o` = viền → `outline` (phe mình) hoặc `redDark` (phe địch, kèm 1 pixel cờ `red`). Atlas sinh hai biến thể `unit_<id>_ally` và `unit_<id>_foe`.
-- Hoạt ảnh: idle 2 frame, đi 2 frame (nhún 1 px), đánh 2 frame; 6–8 fps idle/đi, 10–12 fps đánh (giữ ART_STYLE). Không xoay sprite; **lật ngang** để quay trái/phải được phép. Neo ở chân, y-sort.
-- Khung thẻ theo độ hiếm (UI): thường = viền `wood`; vừa = viền đôi `woodLight`; hiếm = viền trong `gold`; đang chọn = viền ngoài `select` 2 px.
-- `atlas.ts` dựng texture `field-tiles` và `sprites` (một atlas cho mọi sprite thế giới), frame theo tên (`building_<cardId>`, `unit_<id>_<team>_<anim><n>`, `card_art_<cardId>`, `icon_<id>`, `fx_<id>`); khung thẻ thêm vào texture `ui` của UI spec.
+- Giữ `PixelCanvas`/`pixelHash` (`pixel.ts`), `paintBitmap` (`bitmap.ts`), `dualGrid.ts` và các painter đất/ô/công trình/lính/thẻ/icon/FX. G3e tự sinh art bằng code, không nhập pack ngoài mới.
+- Kiểm geometry theo metadata, alpha mép/bóng, scale nguyên, tính xác định, phân biệt frame/phe và neo chân; không kiểm membership palette hoặc ép số màu cố định để nghiệm thu art.
+- Đơn vị giữ biến thể phe `unit_<id>_ally` và `unit_<id>_foe`, motif/vũ khí đọc được; ánh sáng trên-trái. Hoạt ảnh: idle 2 frame, đi 2 frame (nhún 1 px), đánh 2 frame; 6–8 fps idle/đi, 10–12 fps đánh. Không xoay sprite để đổi hướng.
+- Khung thẻ phân biệt độ hiếm và trạng thái chọn; giữ `createPanel`, `createButton`, `ContentBox`, `Tooltip` và các primitive UI hiện có.
+- Một atlas thế giới `sprites`, **mỗi chiều ≤ 4096**; UI atlas riêng qua `uiFrameDef`. Giữ tên frame (`building_<cardId>`, `unit_<id>_<team>_<anim><n>`, `card_art_<cardId>`, `icon_<id>`, `fx_<id>`).
 
 ### 11.4 Ranh giới thay art thật
 
-Mọi chỗ dùng sprite chỉ gọi frame theo tên qua các hàm `*Frame(...)` trong `atlas.ts`. Thay bằng atlas Aseprite = nạp atlas cùng tên frame trong `PreloadScene`; không sửa scene.
+Mọi chỗ dùng sprite chỉ gọi frame theo tên qua các hàm `*Frame(...)` trong `atlas.ts`. Thay atlas phải giữ cùng tên frame, nạp trong `PreloadScene`; kích thước kiểm theo metadata, không sửa scene để ép kích thước cũ. UI đọc size/slice/border qua `uiFrameDef`; khung Kenney CC0 đã đăng ký tiếp tục là fallback hiện hữu.
+
+G3e duyệt từng bộ trước khi nối atlas/runtime: E6a đất/ô/công trình/tranh thẻ → E6b lính/boss/animation → E6c FX/icon/sao/atlas → E7a khung/nút/thẻ/menu/chữ. Bốn lựa chọn đã chốt và brief/cổng duyệt ghi tại `docs/art-review/g3e/DECISIONS.md`; chốt hướng art không tự động nghiệm thu mẫu. Asset ngoài vẫn theo `docs/ASSET_LICENSES.md`, manifest và CREDITS.
 
 ### 11.5 Âm thanh (G5)
 

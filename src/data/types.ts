@@ -142,7 +142,7 @@ export interface UnitDef {
   readonly behaviours?: readonly UnitBehaviourDef[];
   /** EP ở cấp 1; 0 = không bao giờ được composeArmy chọn */
   readonly enemyCost: number;
-  readonly sprite: { readonly w: 16 | 24 | 48; readonly h: 16 | 24 | 32 | 48 };
+  readonly sprite: { readonly w: number; readonly h: number };
 }
 
 export type Scope = 'self' | 'neighbours' | 'board';

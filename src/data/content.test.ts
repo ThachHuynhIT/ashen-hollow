@@ -114,6 +114,18 @@ describe('G1 content integrity', () => {
       expect(unit(id).sprite).toEqual({ w: 16, h: 16 });
   });
 
+  it('declares every unit sprite as a positive integer size', () => {
+    for (const def of [...NEUTRAL_UNITS, ...RAIDER_UNITS]) {
+      expect(Number.isInteger(def.sprite.w) && def.sprite.w > 0, def.id).toBe(true);
+      expect(Number.isInteger(def.sprite.h) && def.sprite.h > 0, def.id).toBe(true);
+    }
+  });
+
+  it('accepts an open sprite size such as 32x40 in the type', () => {
+    const sprite: UnitDef['sprite'] = { w: 32, h: 40 };
+    expect(sprite.w * sprite.h).toBe(1280);
+  });
+
   it('weights raiders 50/25/15/10', () => {
     expect(RAIDER_ROSTER.map((r) => [r.unit, r.weight])).toEqual([
       ['bandit', 50],
