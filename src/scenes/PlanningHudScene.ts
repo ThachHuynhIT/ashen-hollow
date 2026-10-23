@@ -27,6 +27,7 @@ import { DecreeQuestPanel } from '../ui/planning/DecreeQuestPanel';
 import { handLimit } from '../game/run/decrees';
 import { InspectionView } from '../ui/info/InspectionView';
 import { buildingInfoModel } from '../ui/info/inspectionModel';
+import { QuestNoticeView } from '../ui/planning/QuestNoticeView';
 import { planningControls } from '../ui/info/inspectionReserved';
 import { resolveShortcut, shortcutFlags, shortcutLabel } from '../ui/input/shortcuts';
 import { openHelp } from './helpLauncher';
@@ -105,6 +106,7 @@ export class PlanningHudScene extends Phaser.Scene {
   private deckBtn!: Button;
   private scoutBtn!: Button;
   private helpBtn!: Button;
+  private questNotice!: QuestNoticeView;
   private actionSize = { w: 0, h: 0 };
   private calendarModal: CalendarModal | null = null;
   private deckModal: DeckModal | null = null;
@@ -197,6 +199,10 @@ export class PlanningHudScene extends Phaser.Scene {
     this.hand.onSelect((i) => this.selectCard(i));
     this.hand.onDrop((i, x, y) => this.dropCard(i, x, y));
 
+    this.questNotice = new QuestNoticeView(this, this.tooltip, () => {
+      if (!this.decreePanel.openQuests()) this.bus.emit('ui:help', { open: true, tab: 'quests' });
+    });
+    this.questNotice.setState(this.controller.state);
     this.createActionButtons();
     this.scoutBtn = createButton(this, 0, 0, 'Địch', {
       width: 52,
@@ -275,6 +281,7 @@ export class PlanningHudScene extends Phaser.Scene {
   private refresh(state: RunState): void {
     if (this.lay.hand.length !== handLimit(state)) this.layout(); // a decree changed the hand size
     this.decreePanel.setState(state);
+    this.questNotice.setState(state);
     this.refreshModals(state);
     this.livesText.setText(`× ${state.lives}`);
     this.goldText.setText(`${state.gold}`);
@@ -793,6 +800,9 @@ export class PlanningHudScene extends Phaser.Scene {
     this.scout.setVisible(l.scout !== null);
     if (l.scout) this.scout.layout(l.scout, 'full');
     this.helpBtn.container.setPosition(l.help.x + l.help.w / 2, l.help.y + l.help.h / 2);
+    const noticeX = l.help.x + l.help.w + 8;
+    const noticeW = Math.min(320, l.year.x - 8 - noticeX);
+    this.questNotice.layout(l.desktop && noticeW >= 160 ? { x: noticeX, y: l.help.y, w: noticeW, h: l.help.h } : null);
     this.scoutBtn.setVisible(l.scoutButton !== null);
     if (l.scoutButton) {
       this.scoutBtn.container.setPosition(l.scoutButton.x + l.scoutButton.w / 2, l.scoutButton.y + l.scoutButton.h / 2);
@@ -834,6 +844,7 @@ export class PlanningHudScene extends Phaser.Scene {
     this.stopPlotTimer();
     this.closeModals();
     this.calendar.destroy();
+    this.questNotice.destroy();
     this.info.destroy();
     this.reward?.destroy();
     this.reward = null;

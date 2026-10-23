@@ -136,9 +136,11 @@ export interface QuestLayout {
   body: Rect;
   accept: Rect;
   decline: Rect;
+  /** "Xem cách làm": opens the quests tab of Help. */
+  help: Rect;
 }
 
-const QUEST = { w: 440, body: 170, titleH: 36 } as const;
+const QUEST = { w: 440, body: 230, titleH: 36 } as const;
 
 /** §3.10 quest offer: a title, the condition / deadline / reward text, then "Nhận" and "Từ chối". */
 export const questLayout = (screen: Size, inset: number): QuestLayout => {
@@ -153,7 +155,8 @@ export const questLayout = (screen: Size, inset: number): QuestLayout => {
   const bx = Math.round(panel.x + (panel.w - row) / 2);
   const accept = { x: bx, y: by, w: COUNCIL_BUTTON.w, h: COUNCIL_BUTTON.h };
   const decline = { x: bx + COUNCIL_BUTTON.w + BUTTON_GAP, y: by, w: COUNCIL_BUTTON.w, h: COUNCIL_BUTTON.h };
-  return { panel, title, body, accept, decline };
+  const help = { x: body.x + body.w - 150, y: body.y + body.h - 44, w: 150, h: 44 };
+  return { panel, title, body, accept, decline, help };
 };
 
 export interface ResultLayout {

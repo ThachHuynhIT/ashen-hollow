@@ -2,6 +2,7 @@ import type Phaser from 'phaser';
 import type { EventBus } from '../../core/events';
 import type { GameEvents } from '../../game/events';
 import type { RunState } from '../../game/run/state';
+import { RUN } from '../../data/run';
 import { UI_PALETTE } from '../../data/uiPalette';
 import { addUiText, createButton, createPanel, frameBorder, type Button, type UiBox } from '../theme';
 import { questOfferView } from './councilModel';
@@ -27,6 +28,7 @@ export class QuestModal {
   private readonly warn: Phaser.GameObjects.Text;
   private readonly accept: Button;
   private readonly decline: Button;
+  private readonly howTo: Button;
   private readonly root: Phaser.GameObjects.Container;
 
   constructor(
@@ -52,6 +54,12 @@ export class QuestModal {
       fontSize: 16,
       onClick: () => this.answer(false),
     });
+    this.howTo = createButton(scene, 0, 0, 'Xem cách làm', {
+      width: 150,
+      height: 44,
+      fontSize: 14,
+      onClick: () => this.bus.emit('ui:help', { open: true, tab: 'quests' }),
+    });
     this.root = scene.add.container(0, 0, [
       this.overlay,
       this.box.image,
@@ -60,6 +68,7 @@ export class QuestModal {
       this.warn,
       this.accept.container,
       this.decline.container,
+      this.howTo.container,
     ]);
     this.layout();
   }
@@ -95,11 +104,13 @@ export class QuestModal {
       `Thưởng: ${view.rewardTextVi}`,
     ];
     if (view.fee > 0) lines.push(`Phí nhận: ${view.fee} vàng`);
+    lines.push('', `Vì sao có sứ giả: các năm ${RUN.questYears.join(', ')}, đầu năm, khi bạn có dưới ${RUN.maxActiveQuests} nhiệm vụ.`);
     this.body.setText(lines.join('\n')).setPosition(l.body.x, l.body.y).setWordWrapWidth(l.body.w);
     this.warn.setText(view.canAccept ? '' : 'Không đủ vàng để nhận.');
     this.warn.setPosition(l.body.x, l.body.y + l.body.h - this.warn.height).setWordWrapWidth(l.body.w);
     this.accept.container.setPosition(l.accept.x + l.accept.w / 2, l.accept.y + l.accept.h / 2);
     this.decline.container.setPosition(l.decline.x + l.decline.w / 2, l.decline.y + l.decline.h / 2);
+    this.howTo.container.setPosition(l.help.x + l.help.w / 2, l.help.y + l.help.h / 2);
     this.accept.setEnabled(view.canAccept);
   }
 

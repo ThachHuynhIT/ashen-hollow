@@ -1,11 +1,13 @@
 import type Phaser from 'phaser';
 import { BOSSES } from '../../data/bosses';
 import { PALETTE } from '../../data/palette';
+import { RUN } from '../../data/run';
 import { UI_PALETTE } from '../../data/uiPalette';
 import type { Content } from '../../game/cards/registry';
 import { SPRITES_KEY, iconFrame } from '../../render/atlas';
 import type { Rect } from '../hud/layout';
 import type { CalendarCell } from '../realm/calendarModel';
+import { questCalendarLabel } from './questNotice';
 import {
   addUiText,
   bindPress,
@@ -35,7 +37,9 @@ export const calendarCellText = (cell: CalendarCell, content: Content): string[]
     lines.push(`${content.enemyKing(cell.attacker).nameVi} tấn công (lần ${cell.attack}/3).`);
   }
   if (cell.council) lines.push('Sau trận: Hội Đồng Hoàng Gia.');
-  if (cell.quest) lines.push('Đầu năm: có thể có nhiệm vụ.');
+  if (cell.quest) {
+    lines.push(`Đầu năm: Sứ giả có thể mang nhiệm vụ (nếu bạn đang có dưới ${RUN.maxActiveQuests} nhiệm vụ).`);
+  }
   return [head, ...lines];
 };
 
@@ -111,8 +115,10 @@ export class CalendarCellView {
     const year = addUiText(this.scene, 5, 3, `${cell.year}`, w >= 60 ? 14 : 12).setFontStyle('bold');
     this.add(year);
 
+    const label = cell.quest ? questCalendarLabel(cell.year) : null;
     const cx = w / 2;
-    const cy = h / 2 + 3;
+    const cy = h / 2 + (label ? -3 : 3);
+    if (label) this.add(addUiText(this.scene, cx, h - 3, label, 10, UI_PALETTE.woodDark).setOrigin(0.5, 1).setFontStyle('bold'));
     const skull = (): void => {
       const tex = this.scene.textures;
       if (tex.exists(SPRITES_KEY) && tex.get(SPRITES_KEY).has(iconFrame('skull'))) {
@@ -146,7 +152,7 @@ export class CalendarCellView {
     const dots = cell.attack ?? 0;
     for (let i = 0; i < dots; i++) {
       const dx = cx + (i - (dots - 1) / 2) * (DOT + 3);
-      this.add(this.scene.add.rectangle(dx, h - 7, DOT, DOT, UI_PALETTE.select).setStrokeStyle(1, UI_PALETTE.outline));
+      this.add(this.scene.add.rectangle(dx, h - (label ? 17 : 7), DOT, DOT, UI_PALETTE.select).setStrokeStyle(1, UI_PALETTE.outline));
     }
   }
 
@@ -156,10 +162,7 @@ export class CalendarCellView {
     if (!tex.exists(SPRITES_KEY)) return;
     const atlas = tex.get(SPRITES_KEY);
     let x = w - 3;
-    for (const [on, icon] of [
-      [cell.council, 'crown'],
-      [cell.quest, 'tome'],
-    ] as const) {
+    for (const [on, icon] of [[cell.council, 'crown']] as const) {
       if (!on || !atlas.has(iconFrame(icon))) continue;
       this.add(this.scene.add.image(x, 3, SPRITES_KEY, iconFrame(icon)).setOrigin(1, 0).setScale(0.75));
       x -= 13;

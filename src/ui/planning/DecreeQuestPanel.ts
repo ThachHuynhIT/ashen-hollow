@@ -93,6 +93,13 @@ export class DecreeQuestPanel {
     if (this.open && has) this.layoutModal(text);
   }
 
+  /** Open the list of decrees and quests; false when there is nothing to list yet. */
+  openQuests(): boolean {
+    if (this.lines.length === 0) return false;
+    this.setOpen(true);
+    return true;
+  }
+
   /** Close the opened list (Esc); the docked column never closes. */
   closeView(): void {
     this.setOpen(false);
